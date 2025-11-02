@@ -513,6 +513,118 @@
       "clickAddRoomToStart": "לחץ על 'הוסף חדר' כדי ליצור את החדר הראשון שלך",
       "deleteRoomTitle": "מחיקת חדר",
       "deleteRoomMessage": "האם אתה בטוח שברצונך למחוק חדר זה? פעולה זו אינה ניתנת לביטול."
+    }
+  },
+  "admin": {
+    "navigation": {
+      "dashboard": "דשבורד",
+      "categories": "קטגוריות",
+      "subCategories": "תת-קטגוריות",
+      "styles": "סגנונות",
+      "approvals": "אישורים",
+      "colors": "צבעים",
+      "materials": "חומרים",
+      "organizations": "ארגונים",
+      "users": "משתמשים",
+      "backToDashboard": "חזור לדשבורד"
+    },
+    "dashboard": {
+      "title": "דשבורד מנהל",
+      "description": "ניהול תוכן גלובלי ואישורים",
+      "quickActions": "פעולות מהירות",
+      "comingSoon": "בקרוב",
+      "stats": {
+        "totalStyles": "סה\"כ סגנונות",
+        "pendingApprovals": "אישורים ממתינים",
+        "totalOrganizations": "סה\"כ ארגונים",
+        "totalUsers": "סה\"כ משתמשים"
+      }
+    },
+    "styles": {
+      "title": "ניהול סגנונות גלובליים",
+      "createStyle": "צור סגנון חדש",
+      "searchPlaceholder": "חפש סגנונות...",
+      "filterByCategory": "סנן לפי קטגוריה",
+      "filterBySubCategory": "סנן לפי תת-קטגוריה",
+      "noStyles": "אין סגנונות",
+      "noStylesDescription": "צור את הסגנון הגלובלי הראשון",
+      "deleteStyle": "מחק סגנון",
+      "deleteStyleMessage": "האם אתה בטוח שברצונך למחוק סגנון זה? פעולה זו אינה ניתנת לביטול.",
+      "table": {
+        "name": "שם",
+        "category": "קטגוריה",
+        "version": "גרסה",
+        "usage": "שימוש",
+        "createdAt": "נוצר ב",
+        "actions": "פעולות"
+      },
+      "categories": {
+        "scandinavian": "סקנדינבי",
+        "japandi": "ג'פנדי",
+        "industrial": "תעשייתי",
+        "minimal": "מינימליסטי",
+        "mediterranean": "ים תיכוני",
+        "rustic": "כפרי",
+        "classic": "קלאסי"
+      },
+      "detail": {
+        "category": "קטגוריה",
+        "version": "גרסה",
+        "usage": "שימוש",
+        "createdAt": "נוצר ב",
+        "tags": "תגיות",
+        "tabs": {
+          "palette": "פלטת צבעים",
+          "materials": "חומרים",
+          "rooms": "חדרים"
+        },
+        "palette": {
+          "neutrals": "צבעים נייטרליים",
+          "accents": "צבעי דגש"
+        },
+        "materials": {
+          "defaults": "חומרים ברירת מחדל",
+          "noDefaults": "אין חומרים מוגדרים",
+          "finish": "גימור"
+        },
+        "rooms": {
+          "noProfiles": "אין פרופילי חדרים מוגדרים"
+        }
+      },
+      "edit": {
+        "title": "ערוך סגנון",
+        "comingSoon": "בקרוב",
+        "comingSoonDescription": "טופס עריכה יושם בקרוב"
+      },
+      "create": {
+        "title": "צור סגנון חדש",
+        "comingSoon": "בקרוב",
+        "comingSoonDescription": "טופס יצירה יושם בקרוב",
+        "basicInfo": "מידע בסיסי",
+        "name": "שם",
+        "category": "קטגוריה",
+        "slug": "סלאג",
+        "description": "תיאור",
+        "palette": "פלטת צבעים",
+        "materials": "חומרים",
+        "rooms": "חדרים",
+        "metadata": "מטא-נתונים",
+        "tags": "תגיות",
+        "isPublic": "ציבורי",
+        "save": "שמור",
+        "cancel": "בטל"
+      },
+      "approvals": {
+        "title": "אישור סגנונות",
+        "description": "סגנונות הממתינים לאישור",
+        "noPending": "אין סגנונות ממתינים",
+        "approve": "אשר",
+        "reject": "דחה",
+        "rejectionReason": "סיבת דחייה",
+        "approveSuccess": "הסגנון אושר בהצלחה",
+        "rejectSuccess": "הסגנון נדחה",
+        "error": "שגיאה בטיפול בבקשה"
+      }
     },
     "categories": {
       "title": "ניהול קטגוריות",
