@@ -5,7 +5,7 @@
 
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import {
   Group,
   Stack,
@@ -72,9 +72,43 @@ export function ImageUpload({
   const { uploadImage, deleteImage, uploading, deleting } = useImageUpload()
   const [uploadErrors, setUploadErrors] = useState<Record<string, string>>({})
   const [pendingFiles, setPendingFiles] = useState<File[]>([]) // Store files when entityId is empty
+  const previewUrlsRef = useRef<Set<string>>(new Set()) // Track preview URLs for cleanup
   
   // Check if we're in creation mode (no entityId)
   const isCreationMode = !entityId || entityId === ''
+
+  // Cleanup object URLs on unmount or when value changes
+  useEffect(() => {
+    // Find preview URLs (blob URLs) that are no longer in value
+    const currentPreviewUrls = new Set(
+      value.filter((url) => url.startsWith('blob:'))
+    )
+    
+    // Revoke URLs that are no longer needed
+    previewUrlsRef.current.forEach((url) => {
+      if (!currentPreviewUrls.has(url)) {
+        URL.revokeObjectURL(url)
+        previewUrlsRef.current.delete(url)
+      }
+    })
+    
+    // Add new preview URLs to tracking set
+    currentPreviewUrls.forEach((url) => {
+      if (!previewUrlsRef.current.has(url)) {
+        previewUrlsRef.current.add(url)
+      }
+    })
+  }, [value])
+
+  // Cleanup all preview URLs on unmount
+  useEffect(() => {
+    return () => {
+      previewUrlsRef.current.forEach((url) => {
+        URL.revokeObjectURL(url)
+      })
+      previewUrlsRef.current.clear()
+    }
+  }, [])
 
   const handleDrop = useCallback(
     async (files: FileWithPath[]) => {
@@ -108,6 +142,7 @@ export function ImageUpload({
           // Create preview URL
           const previewUrl = URL.createObjectURL(file)
           previewUrls.push(previewUrl)
+          previewUrlsRef.current.add(previewUrl)
         }
 
         if (Object.keys(errors).length > 0) {
@@ -192,7 +227,10 @@ export function ImageUpload({
           }
 
           // Revoke object URL to free memory
-          URL.revokeObjectURL(urlToRemove)
+          if (urlToRemove.startsWith('blob:')) {
+            URL.revokeObjectURL(urlToRemove)
+            previewUrlsRef.current.delete(urlToRemove)
+          }
         }
         return
       }

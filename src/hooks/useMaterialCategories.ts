@@ -275,11 +275,16 @@ async function deleteMaterialType(typeId: string): Promise<void> {
   }
 }
 
-export function useMaterialTypes(search?: string, categoryId?: string) {
+export function useMaterialTypes(
+  search?: string,
+  categoryId?: string,
+  options?: { enabled?: boolean }
+) {
   return useQuery({
     queryKey: [MATERIAL_TYPES_QUERY_KEY, search, categoryId],
     queryFn: () => fetchMaterialTypes(search, categoryId),
     staleTime: 5 * 60 * 1000,
+    enabled: options?.enabled !== undefined ? options.enabled : true,
   })
 }
 

@@ -87,6 +87,7 @@ export const createMaterialSchema = z.object({
   sku: z.string().min(1, 'SKU is required'),
   name: localizedStringSchema,
   categoryId: z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid category ID format'),
+  organizationId: z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid organization ID format').optional(),
   properties: materialPropertiesSchema,
   pricing: pricingSchema,
   availability: availabilitySchema,

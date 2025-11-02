@@ -82,18 +82,20 @@ export const POST = withAdmin(async (req: NextRequest, auth) => {
     // Validate request body
     const body = await validateRequest(req, createMaterialSchema)
 
-    // Validate that all colorIds exist in Color model and belong to the organization
+    // Use organizationId from body if provided, otherwise use auth context
+    const organizationId = body.organizationId || auth.organizationId
+
+    // Validate that all colorIds exist in Color model (colors are global, no org check)
     if (body.properties.colorIds && body.properties.colorIds.length > 0) {
       const colors = await prisma.color.findMany({
         where: {
           id: { in: body.properties.colorIds },
-          organizationId: auth.organizationId,
         },
       })
 
       if (colors.length !== body.properties.colorIds.length) {
         return NextResponse.json(
-          { error: 'One or more color IDs are invalid or do not belong to your organization' },
+          { error: 'One or more color IDs are invalid' },
           { status: 400 }
         )
       }
@@ -103,21 +105,21 @@ export const POST = withAdmin(async (req: NextRequest, auth) => {
     const existingMaterial = await prisma.material.findFirst({
       where: {
         sku: body.sku.toUpperCase(),
-        organizationId: auth.organizationId,
+        organizationId: organizationId,
       },
     })
 
     if (existingMaterial) {
       return NextResponse.json(
-        { error: 'Material with this SKU already exists in your organization' },
+        { error: 'Material with this SKU already exists in this organization' },
         { status: 409 }
       )
     }
 
-    // Create material with organizationId from auth context
+    // Create material with organizationId
     const material = await prisma.material.create({
       data: {
-        organizationId: auth.organizationId,
+        organizationId: organizationId,
         sku: body.sku.toUpperCase(), // Store in uppercase for consistency
         name: body.name,
         categoryId: body.categoryId,

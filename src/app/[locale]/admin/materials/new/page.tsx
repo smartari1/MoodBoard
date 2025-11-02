@@ -5,21 +5,30 @@
 
 'use client'
 
-import { FormSection, ImageUpload, MoodBCard } from '@/components/ui'
+import { FormSection, MoodBCard } from '@/components/ui'
 import { useAuth } from '@/hooks/use-auth/useAuth'
 import { useColors } from '@/hooks/useColors'
+import { useImageUpload } from '@/hooks/useImageUpload'
 import { useMaterialCategories, useMaterialTypes } from '@/hooks/useMaterialCategories'
-import { useCreateMaterial } from '@/hooks/useMaterials'
+import { useCreateMaterial, useUpdateMaterial } from '@/hooks/useMaterials'
+import { useOrganizations } from '@/hooks/useOrganizations'
 import { createMaterialSchema, type CreateMaterial } from '@/lib/validations/material'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { ActionIcon, Alert, Button, Container, Group, MultiSelect, NumberInput, Select, SimpleGrid, Stack, Switch, Text, TextInput, Title } from '@mantine/core'
+import { ActionIcon, Alert, Button, Container, Group, MultiSelect, NumberInput, Select, SimpleGrid, Skeleton, Stack, Switch, Text, TextInput, Title } from '@mantine/core'
 import { IconAlertCircle, IconArrowLeft, IconPlus, IconX } from '@tabler/icons-react'
 import { useTranslations } from 'next-intl'
+import dynamic from 'next/dynamic'
 import { useParams, useRouter } from 'next/navigation'
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { Controller, useFieldArray, useForm } from 'react-hook-form'
-import { useImageUpload } from '@/hooks/useImageUpload'
-import { useUpdateMaterial } from '@/hooks/useMaterials'
+
+// Lazy load ImageUpload component
+const ImageUpload = dynamic(
+  () => import('@/components/ui/ImageUpload').then((mod) => ({ default: mod.ImageUpload })),
+  {
+    loading: () => <Skeleton height={200} />,
+  }
+)
 
 export default function AdminMaterialNewPage() {
   const t = useTranslations('admin.materials.create')
@@ -34,15 +43,17 @@ export default function AdminMaterialNewPage() {
   const { uploadImage } = useImageUpload()
   const [pendingImageFiles, setPendingImageFiles] = useState<File[]>([])
   
-  // Fetch colors for organization
-  const { data: colorsData } = useColors({
-    organizationId: organization?.id,
-  })
+  // Fetch all global colors (not organization-specific)
+  const { data: colorsData } = useColors({})
   const colors = colorsData?.data || []
   
   // Fetch material categories
   const { data: categoriesData } = useMaterialCategories()
   const categories = categoriesData?.data || []
+
+  // Fetch organizations for assignment
+  const { data: organizationsData } = useOrganizations()
+  const organizations = organizationsData?.data || []
 
   const {
     register,
@@ -61,6 +72,7 @@ export default function AdminMaterialNewPage() {
         en: '',
       },
       categoryId: '',
+      organizationId: organization?.id || '',
       properties: {
         typeId: '',
         subType: '',
@@ -98,8 +110,153 @@ export default function AdminMaterialNewPage() {
   })
 
   // Watch categoryId to filter types (must be after useForm)
+  // Use selective subscription to avoid unnecessary re-renders
   const categoryId = watch('categoryId')
-  const { data: typesData } = useMaterialTypes('', categoryId)
+  const { data: typesData } = useMaterialTypes('', categoryId, {
+    enabled: !!categoryId,
+  })
+
+  // Memoize Controller render functions to prevent unnecessary re-renders
+  const renderCategorySelect = useCallback(
+    ({ field }: { field: any }) => (
+      <Select
+        label={t('category')}
+        placeholder={t('categoryPlaceholder')}
+        data={categoryOptions}
+        {...field}
+        error={errors.categoryId?.message}
+        required
+        searchable
+      />
+    ),
+    [t, categoryOptions, errors.categoryId?.message]
+  )
+
+  const renderTypeSelect = useCallback(
+    ({ field }: { field: any }) => (
+      <Select
+        label={t('type')}
+        placeholder={t('typePlaceholder')}
+        data={typeOptions}
+        {...field}
+        error={errors.properties?.typeId?.message}
+        required
+        disabled={!categoryId}
+        searchable
+      />
+    ),
+    [t, typeOptions, errors.properties?.typeId?.message, categoryId]
+  )
+
+  const renderDimensionUnitSelect = useCallback(
+    ({ field }: { field: any }) => (
+      <Select
+        label={t('dimensionUnit')}
+        data={dimensionUnitOptions}
+        {...field}
+      />
+    ),
+    [t, dimensionUnitOptions]
+  )
+
+  const renderPricingUnitSelect = useCallback(
+    ({ field }: { field: any }) => (
+      <Select
+        label={t('pricingUnit')}
+        data={unitOptions}
+        {...field}
+        error={errors.pricing?.unit?.message}
+        required
+      />
+    ),
+    [t, unitOptions, errors.pricing?.unit?.message]
+  )
+
+  const renderCurrencySelect = useCallback(
+    ({ field }: { field: any }) => (
+      <Select
+        label={t('currency')}
+        data={currencyOptions}
+        {...field}
+        error={errors.pricing?.currency?.message}
+        required
+      />
+    ),
+    [t, currencyOptions, errors.pricing?.currency?.message]
+  )
+
+  const renderSwitch = useCallback(
+    ({ field }: { field: any }) => (
+      <Switch
+        label={t('inStock')}
+        checked={field.value}
+        onChange={(e) => field.onChange(e.currentTarget.checked)}
+      />
+    ),
+    [t]
+  )
+
+  const renderColorMultiSelect = useCallback(
+    ({ field }: { field: any }) => (
+      <MultiSelect
+        label={t('colors')}
+        placeholder={t('selectColors')}
+        data={colorOptions}
+        value={field.value}
+        onChange={field.onChange}
+        error={errors.properties?.colorIds?.message}
+        required
+        searchable
+        renderOption={({ option }) => (
+          <Group gap="xs">
+            <div
+              style={{
+                width: 16,
+                height: 16,
+                backgroundColor: option.hex,
+                border: '1px solid #ddd',
+                borderRadius: 2,
+              }}
+            />
+            <span>{option.label}</span>
+          </Group>
+        )}
+      />
+    ),
+    [t, colorOptions, errors.properties?.colorIds?.message]
+  )
+
+  const renderImageUpload = useCallback(
+    ({ field }: { field: any }) => (
+      <ImageUpload
+        entityType="material"
+        entityId=""
+        value={field.value || []}
+        onChange={field.onChange}
+        onPendingFilesChange={setPendingImageFiles}
+        label={t('uploadImages')}
+        error={errors.assets?.images?.message}
+        maxImages={20}
+        multiple
+      />
+    ),
+    [t, errors.assets?.images?.message]
+  )
+
+  const renderOrganizationSelect = useCallback(
+    ({ field }: { field: any }) => (
+      <Select
+        label={t('organization')}
+        placeholder={t('organizationPlaceholder')}
+        data={organizationOptions}
+        {...field}
+        error={errors.organizationId?.message}
+        required
+        searchable
+      />
+    ),
+    [t, organizationOptions, errors.organizationId?.message]
+  )
 
   const { fields: finishFields, append: appendFinish, remove: removeFinish } = useFieldArray({
     control,
@@ -111,7 +268,7 @@ export default function AdminMaterialNewPage() {
     name: 'pricing.bulkDiscounts',
   })
 
-  const onSubmit = async (data: CreateMaterial) => {
+  const onSubmit = useCallback(async (data: CreateMaterial) => {
     try {
       // Create material first
       const createdMaterial = await createMutation.mutateAsync(data)
@@ -151,7 +308,7 @@ export default function AdminMaterialNewPage() {
     } catch (error) {
       console.error('Error creating material:', error)
     }
-  }
+  }, [createMutation, updateMutation, uploadImage, pendingImageFiles, router, locale])
 
   // Prepare color options for MultiSelect
   const colorOptions = useMemo(() => {
@@ -179,23 +336,44 @@ export default function AdminMaterialNewPage() {
     }))
   }, [typesData])
 
-  const unitOptions = [
-    { value: 'sqm', label: t('pricingUnits.sqm') },
-    { value: 'unit', label: t('pricingUnits.unit') },
-    { value: 'linear_m', label: t('pricingUnits.linearM') },
-  ]
+  // Prepare organization options
+  const organizationOptions = useMemo(() => {
+    return organizations.map((org) => ({
+      value: org.id,
+      label: org.name,
+    }))
+  }, [organizations])
 
-  const dimensionUnitOptions = [
-    { value: 'mm', label: 'mm' },
-    { value: 'cm', label: 'cm' },
-    { value: 'm', label: 'm' },
-  ]
+  const unitOptions = useMemo(
+    () => [
+      { value: 'sqm', label: t('pricingUnits.sqm') },
+      { value: 'unit', label: t('pricingUnits.unit') },
+      { value: 'linear_m', label: t('pricingUnits.linearM') },
+    ],
+    [t]
+  )
 
-  const currencyOptions = [
-    { value: 'ILS', label: 'ILS (₪)' },
-    { value: 'USD', label: 'USD ($)' },
-    { value: 'EUR', label: 'EUR (€)' },
-  ]
+  const dimensionUnitOptions = useMemo(
+    () => [
+      { value: 'mm', label: 'mm' },
+      { value: 'cm', label: 'cm' },
+      { value: 'm', label: 'm' },
+    ],
+    []
+  )
+
+  const currencyOptions = useMemo(
+    () => [
+      { value: 'ILS', label: 'ILS (₪)' },
+      { value: 'USD', label: 'USD ($)' },
+      { value: 'EUR', label: 'EUR (€)' },
+    ],
+    []
+  )
+
+  const handleCancel = useCallback(() => {
+    router.push(`/${locale}/admin/materials`)
+  }, [router, locale])
 
   return (
     <Container size="xl" py="xl">
@@ -203,10 +381,7 @@ export default function AdminMaterialNewPage() {
         <Stack gap="lg">
           {/* Header */}
           <Group>
-            <ActionIcon
-              variant="subtle"
-              onClick={() => router.push(`/${locale}/admin/materials`)}
-            >
+            <ActionIcon variant="subtle" onClick={handleCancel}>
               <IconArrowLeft size={20} />
             </ActionIcon>
             <Title order={1} c="brand">
@@ -239,19 +414,14 @@ export default function AdminMaterialNewPage() {
                   required
                 />
                 <Controller
+                  name="organizationId"
+                  control={control}
+                  render={renderOrganizationSelect}
+                />
+                <Controller
                   name="categoryId"
                   control={control}
-                  render={({ field }) => (
-                    <Select
-                      label={t('category')}
-                      placeholder={t('categoryPlaceholder')}
-                      data={categoryOptions}
-                      {...field}
-                      error={errors.categoryId?.message}
-                      required
-                      searchable
-                    />
-                  )}
+                  render={renderCategorySelect}
                 />
                 <TextInput
                   label={t('nameHe')}
@@ -278,18 +448,7 @@ export default function AdminMaterialNewPage() {
                 <Controller
                   name="properties.typeId"
                   control={control}
-                  render={({ field }) => (
-                    <Select
-                      label={t('type')}
-                      placeholder={t('typePlaceholder')}
-                      data={typeOptions}
-                      {...field}
-                      error={errors.properties?.typeId?.message}
-                      required
-                      disabled={!categoryId}
-                      searchable
-                    />
-                  )}
+                  render={renderTypeSelect}
                 />
                 <TextInput
                   label={t('subType')}
@@ -312,32 +471,7 @@ export default function AdminMaterialNewPage() {
                 <Controller
                   name="properties.colorIds"
                   control={control}
-                  render={({ field }) => (
-                    <MultiSelect
-                      label={t('colors')}
-                      placeholder={t('selectColors')}
-                      data={colorOptions}
-                      value={field.value}
-                      onChange={field.onChange}
-                      error={errors.properties?.colorIds?.message}
-                      required
-                      searchable
-                      renderOption={({ option }) => (
-                        <Group gap="xs">
-                          <div
-                            style={{
-                              width: 16,
-                              height: 16,
-                              backgroundColor: option.hex,
-                              border: '1px solid #ddd',
-                              borderRadius: 2,
-                            }}
-                          />
-                          <span>{option.label}</span>
-                        </Group>
-                      )}
-                    />
-                  )}
+                  render={renderColorMultiSelect}
                 />
               </div>
 
@@ -395,13 +529,7 @@ export default function AdminMaterialNewPage() {
                 <Controller
                   name="properties.dimensions.unit"
                   control={control}
-                  render={({ field }) => (
-                    <Select
-                      label={t('dimensionUnit')}
-                      data={dimensionUnitOptions}
-                      {...field}
-                    />
-                  )}
+                  render={renderDimensionUnitSelect}
                 />
               </SimpleGrid>
 
@@ -461,28 +589,12 @@ export default function AdminMaterialNewPage() {
                 <Controller
                   name="pricing.unit"
                   control={control}
-                  render={({ field }) => (
-                    <Select
-                      label={t('pricingUnit')}
-                      data={unitOptions}
-                      {...field}
-                      error={errors.pricing?.unit?.message}
-                      required
-                    />
-                  )}
+                  render={renderPricingUnitSelect}
                 />
                 <Controller
                   name="pricing.currency"
                   control={control}
-                  render={({ field }) => (
-                    <Select
-                      label={t('currency')}
-                      data={currencyOptions}
-                      {...field}
-                      error={errors.pricing?.currency?.message}
-                      required
-                    />
-                  )}
+                  render={renderCurrencySelect}
                 />
               </SimpleGrid>
 
@@ -537,13 +649,7 @@ export default function AdminMaterialNewPage() {
                 <Controller
                   name="availability.inStock"
                   control={control}
-                  render={({ field }) => (
-                    <Switch
-                      label={t('inStock')}
-                      checked={field.value}
-                      onChange={(e) => field.onChange(e.currentTarget.checked)}
-                    />
-                  )}
+                  render={renderSwitch}
                 />
                 <NumberInput
                   label={t('leadTime')}
@@ -571,29 +677,14 @@ export default function AdminMaterialNewPage() {
               <Controller
                 name="assets.images"
                 control={control}
-                render={({ field }) => (
-                  <ImageUpload
-                    entityType="material"
-                    entityId=""
-                    value={field.value || []}
-                    onChange={field.onChange}
-                    onPendingFilesChange={setPendingImageFiles}
-                    label={t('uploadImages')}
-                    error={errors.assets?.images?.message}
-                    maxImages={20}
-                    multiple
-                  />
-                )}
+                render={renderImageUpload}
               />
             </FormSection>
           </MoodBCard>
 
           {/* Submit */}
           <Group justify="flex-end">
-            <Button
-              variant="subtle"
-              onClick={() => router.push(`/${locale}/admin/materials`)}
-            >
+            <Button variant="subtle" onClick={handleCancel}>
               {tCommon('cancel')}
             </Button>
             <Button
