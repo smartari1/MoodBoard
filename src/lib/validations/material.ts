@@ -75,11 +75,22 @@ export const availabilitySchema = z.object({
 })
 
 // Material Assets Schema
+// Allow blob URLs (for previews during creation) and empty strings, or valid URLs
+const assetUrlSchema = z.union([
+  z.string().url(),
+  z.string().startsWith('blob:'),
+  z.literal(''),
+]).optional()
+
 export const materialAssetsSchema = z.object({
-  thumbnail: z.string().url().optional(),
-  images: z.array(z.string().url()).default([]),
-  texture: z.string().url().optional(),
-  technicalSheet: z.string().url().optional(),
+  thumbnail: assetUrlSchema,
+  images: z.array(z.union([
+    z.string().url(),
+    z.string().startsWith('blob:'),
+    z.literal(''),
+  ])).default([]),
+  texture: assetUrlSchema,
+  technicalSheet: assetUrlSchema,
 })
 
 // Create Material Schema

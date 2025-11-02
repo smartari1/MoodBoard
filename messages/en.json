@@ -527,6 +527,10 @@
         "leadTimePlaceholder": "days",
         "minOrder": "Minimum Order",
         "minOrderPlaceholder": "Minimum quantity",
+        "organization": "Organization",
+        "organizationPlaceholder": "Select organization",
+        "validationErrors": "Validation Errors",
+        "pleaseFixErrors": "Please fix the following errors:",
         "submit": "Create Material",
         "errorMessage": "Failed to create material"
       },

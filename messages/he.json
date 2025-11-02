@@ -655,6 +655,10 @@
         "leadTimePlaceholder": "ימים",
         "minOrder": "הזמנה מינימלית",
         "minOrderPlaceholder": "כמות מינימלית",
+        "organization": "ארגון",
+        "organizationPlaceholder": "בחר ארגון",
+        "validationErrors": "שגיאות אימות",
+        "pleaseFixErrors": "אנא תקן את השגיאות הבאות:",
         "submit": "צור חומר",
         "errorMessage": "נכשל ביצירת החומר"
       }

@@ -59,7 +59,7 @@ export default function AdminMaterialNewPage() {
     register,
     control,
     handleSubmit,
-    formState: { errors },
+    formState: { errors, isSubmitting },
     watch,
     setValue,
   } = useForm<CreateMaterial>({
@@ -115,6 +115,67 @@ export default function AdminMaterialNewPage() {
   const { data: typesData } = useMaterialTypes('', categoryId, {
     enabled: !!categoryId,
   })
+
+  // Prepare color options for MultiSelect
+  const colorOptions = useMemo(() => {
+    return colors.map((color) => ({
+      value: color.id,
+      label: `${color.name.he} (${color.name.en})`,
+      hex: color.hex,
+    }))
+  }, [colors])
+
+  // Prepare category options
+  const categoryOptions = useMemo(() => {
+    return categories.map((cat) => ({
+      value: cat.id,
+      label: `${cat.name.he} (${cat.name.en})`,
+    }))
+  }, [categories])
+
+  // Prepare type options filtered by category
+  const typeOptions = useMemo(() => {
+    const types = typesData?.data || []
+    return types.map((type) => ({
+      value: type.id,
+      label: `${type.name.he} (${type.name.en})`,
+    }))
+  }, [typesData])
+
+  // Prepare organization options
+  const organizationOptions = useMemo(() => {
+    return organizations.map((org) => ({
+      value: org.id,
+      label: org.name,
+    }))
+  }, [organizations])
+
+  const unitOptions = useMemo(
+    () => [
+      { value: 'sqm', label: t('pricingUnits.sqm') },
+      { value: 'unit', label: t('pricingUnits.unit') },
+      { value: 'linear_m', label: t('pricingUnits.linearM') },
+    ],
+    [t]
+  )
+
+  const dimensionUnitOptions = useMemo(
+    () => [
+      { value: 'mm', label: 'mm' },
+      { value: 'cm', label: 'cm' },
+      { value: 'm', label: 'm' },
+    ],
+    []
+  )
+
+  const currencyOptions = useMemo(
+    () => [
+      { value: 'ILS', label: 'ILS (₪)' },
+      { value: 'USD', label: 'USD ($)' },
+      { value: 'EUR', label: 'EUR (€)' },
+    ],
+    []
+  )
 
   // Memoize Controller render functions to prevent unnecessary re-renders
   const renderCategorySelect = useCallback(
@@ -269,9 +330,11 @@ export default function AdminMaterialNewPage() {
   })
 
   const onSubmit = useCallback(async (data: CreateMaterial) => {
+    console.log('Form submitted with data:', data)
     try {
       // Create material first
       const createdMaterial = await createMutation.mutateAsync(data)
+      console.log('Material created:', createdMaterial)
       
       // Upload pending image files if any
       if (pendingImageFiles.length > 0) {
@@ -307,77 +370,27 @@ export default function AdminMaterialNewPage() {
       router.push(`/${locale}/admin/materials`)
     } catch (error) {
       console.error('Error creating material:', error)
+      // Error is already handled by mutation state
     }
   }, [createMutation, updateMutation, uploadImage, pendingImageFiles, router, locale])
-
-  // Prepare color options for MultiSelect
-  const colorOptions = useMemo(() => {
-    return colors.map((color) => ({
-      value: color.id,
-      label: `${color.name.he} (${color.name.en})`,
-      hex: color.hex,
-    }))
-  }, [colors])
-
-  // Prepare category options
-  const categoryOptions = useMemo(() => {
-    return categories.map((cat) => ({
-      value: cat.id,
-      label: `${cat.name.he} (${cat.name.en})`,
-    }))
-  }, [categories])
-
-  // Prepare type options filtered by category
-  const typeOptions = useMemo(() => {
-    const types = typesData?.data || []
-    return types.map((type) => ({
-      value: type.id,
-      label: `${type.name.he} (${type.name.en})`,
-    }))
-  }, [typesData])
-
-  // Prepare organization options
-  const organizationOptions = useMemo(() => {
-    return organizations.map((org) => ({
-      value: org.id,
-      label: org.name,
-    }))
-  }, [organizations])
-
-  const unitOptions = useMemo(
-    () => [
-      { value: 'sqm', label: t('pricingUnits.sqm') },
-      { value: 'unit', label: t('pricingUnits.unit') },
-      { value: 'linear_m', label: t('pricingUnits.linearM') },
-    ],
-    [t]
-  )
-
-  const dimensionUnitOptions = useMemo(
-    () => [
-      { value: 'mm', label: 'mm' },
-      { value: 'cm', label: 'cm' },
-      { value: 'm', label: 'm' },
-    ],
-    []
-  )
-
-  const currencyOptions = useMemo(
-    () => [
-      { value: 'ILS', label: 'ILS (₪)' },
-      { value: 'USD', label: 'USD ($)' },
-      { value: 'EUR', label: 'EUR (€)' },
-    ],
-    []
-  )
 
   const handleCancel = useCallback(() => {
     router.push(`/${locale}/admin/materials`)
   }, [router, locale])
 
+  const handleFormSubmit = handleSubmit(
+    (data) => {
+      console.log('Form validation passed, submitting:', data)
+      onSubmit(data)
+    },
+    (errors) => {
+      console.error('Form validation failed:', errors)
+    }
+  )
+
   return (
     <Container size="xl" py="xl">
-      <form onSubmit={handleSubmit(onSubmit)}>
+      <form onSubmit={handleFormSubmit}>
         <Stack gap="lg">
           {/* Header */}
           <Group>
@@ -388,6 +401,34 @@ export default function AdminMaterialNewPage() {
               {t('title')}
             </Title>
           </Group>
+
+          {/* Validation Errors Alert */}
+          {Object.keys(errors).length > 0 && (
+            <Alert
+              icon={<IconAlertCircle size={16} />}
+              title={t('validationErrors') || 'Validation Errors'}
+              color="red"
+            >
+              <Text size="sm" mb="xs">
+                {t('pleaseFixErrors') || 'Please fix the following errors:'}
+              </Text>
+              <ul style={{ margin: 0, paddingInlineStart: '1.5rem' }}>
+                {errors.sku && <li>SKU: {errors.sku.message}</li>}
+                {errors.organizationId && <li>Organization: {errors.organizationId.message}</li>}
+                {errors.categoryId && <li>Category: {errors.categoryId.message}</li>}
+                {errors.name?.he && <li>Name (Hebrew): {errors.name.he.message}</li>}
+                {errors.name?.en && <li>Name (English): {errors.name.en.message}</li>}
+                {errors.properties?.typeId && <li>Type: {errors.properties.typeId.message}</li>}
+                {errors.properties?.subType && <li>Sub-type: {errors.properties.subType.message}</li>}
+                {errors.properties?.texture && <li>Texture: {errors.properties.texture.message}</li>}
+                {errors.properties?.colorIds && <li>Colors: {errors.properties.colorIds.message}</li>}
+                {errors.pricing?.cost && <li>Cost: {errors.pricing.cost.message}</li>}
+                {errors.pricing?.retail && <li>Retail: {errors.pricing.retail.message}</li>}
+                {errors.availability?.leadTime && <li>Lead Time: {errors.availability.leadTime.message}</li>}
+                {errors.availability?.minOrder && <li>Min Order: {errors.availability.minOrder.message}</li>}
+              </ul>
+            </Alert>
+          )}
 
           {/* Error Alert */}
           {createMutation.isError && (
@@ -690,7 +731,8 @@ export default function AdminMaterialNewPage() {
             <Button
               type="submit"
               color="brand"
-              loading={createMutation.isPending}
+              loading={createMutation.isPending || isSubmitting}
+              disabled={createMutation.isPending || isSubmitting}
             >
               {t('submit')}
             </Button>

@@ -330,39 +330,72 @@ export function ImageUpload({
       {/* Image Grid */}
       {value.length > 0 && (
         <SimpleGrid cols={{ base: 2, sm: 3, md: 4 }} spacing="md">
-          {value.map((url, index) => (
-            <Paper key={index} p="xs" withBorder pos="relative" radius="md">
-              <Box pos="relative" style={{ aspectRatio: '1', overflow: 'hidden', borderRadius: 'var(--mantine-radius-sm)' }}>
-                <Image
-                  src={url}
-                  alt={`Upload ${index + 1}`}
-                  fit="cover"
-                  style={{ width: '100%', height: '100%' }}
-                />
-                {!disabled && (
-                  <ActionIcon
-                    color="red"
-                    variant="filled"
-                    size="sm"
-                    radius="xl"
-                    pos="absolute"
-                    top={4}
-                    right={4}
-                    onClick={() => handleRemove(url)}
-                    disabled={deleting}
-                    style={{ zIndex: 10 }}
-                  >
-                    <IconX size={14} />
-                  </ActionIcon>
+          {value.map((url, index) => {
+            // Skip invalid blob URLs (they're stale and will cause errors)
+            const isValidBlobUrl = url.startsWith('blob:') 
+              ? previewUrlsRef.current.has(url) 
+              : true
+            
+            if (!isValidBlobUrl) {
+              // Silently remove invalid blob URLs
+              setTimeout(() => {
+                if (onChange) {
+                  onChange(value.filter((u) => u !== url))
+                }
+              }, 0)
+              return null
+            }
+
+            return (
+              <Paper key={`${url}-${index}`} p="xs" withBorder pos="relative" radius="md">
+                <Box pos="relative" style={{ aspectRatio: '1', overflow: 'hidden', borderRadius: 'var(--mantine-radius-sm)' }}>
+                  <Image
+                    src={url}
+                    alt={`Upload ${index + 1}`}
+                    fit="cover"
+                    style={{ width: '100%', height: '100%' }}
+                    onError={() => {
+                      // Handle image load errors (e.g., invalid blob URLs)
+                      if (url.startsWith('blob:')) {
+                        // Remove invalid blob URL
+                        if (onChange) {
+                          onChange(value.filter((u) => u !== url))
+                        }
+                        // Revoke the invalid URL
+                        try {
+                          URL.revokeObjectURL(url)
+                          previewUrlsRef.current.delete(url)
+                        } catch (e) {
+                          // URL already revoked or invalid
+                        }
+                      }
+                    }}
+                  />
+                  {!disabled && (
+                    <ActionIcon
+                      color="red"
+                      variant="filled"
+                      size="sm"
+                      radius="xl"
+                      pos="absolute"
+                      top={4}
+                      right={4}
+                      onClick={() => handleRemove(url)}
+                      disabled={deleting}
+                      style={{ zIndex: 10 }}
+                    >
+                      <IconX size={14} />
+                    </ActionIcon>
+                  )}
+                </Box>
+                {uploadErrors[url] && (
+                  <Text size="xs" c="red" mt={4}>
+                    {uploadErrors[url]}
+                  </Text>
                 )}
-              </Box>
-              {uploadErrors[url] && (
-                <Text size="xs" c="red" mt={4}>
-                  {uploadErrors[url]}
-                </Text>
-              )}
-            </Paper>
-          ))}
+              </Paper>
+            )
+          })}
         </SimpleGrid>
       )}
 

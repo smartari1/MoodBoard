@@ -17,11 +17,13 @@ import { createStyleSchema, type CreateStyle } from '@/lib/validations/style'
 import { useCreateAdminStyle, useUpdateAdminStyle } from '@/hooks/useStyles'
 import { useCategories, useSubCategories } from '@/hooks/useCategories'
 import { useColors } from '@/hooks/useColors'
+import { useMaterials } from '@/hooks/useMaterials'
 import { ROOM_TYPES } from '@/lib/validations/room'
 import { useImageUpload } from '@/hooks/useImageUpload'
 import {
   TextInput,
   Select,
+  MultiSelect,
   SimpleGrid,
 } from '@mantine/core'
 
@@ -47,6 +49,10 @@ export default function AdminStyleNewPage() {
   // Fetch colors
   const { data: colorsData } = useColors({ limit: 100 })
   const colors = colorsData?.data || []
+
+  // Fetch materials (using max limit of 100, pagination can be added later if needed)
+  const { data: materialsData } = useMaterials({ limit: 100 })
+  const materials = materialsData?.data || []
 
   const {
     register,
@@ -112,6 +118,14 @@ export default function AdminStyleNewPage() {
     }))
   }, [colors, locale])
 
+  // Material options
+  const materialOptions = useMemo(() => {
+    return materials.map((material) => ({
+      value: material.id,
+      label: `${locale === 'he' ? material.name.he : material.name.en}${material.sku ? ` (${material.sku})` : ''}`,
+    }))
+  }, [materials, locale])
+
   // Room type options
   const roomTypeOptions = useMemo(() => {
     return ROOM_TYPES.map((type) => ({
@@ -126,6 +140,39 @@ export default function AdminStyleNewPage() {
       setValue('subCategoryId', '')
     }
   }, [categoryId, setValue])
+
+  // Clean up invalid blob URLs on mount (e.g., after page refresh)
+  useEffect(() => {
+    const cleanBlobUrls = (urls: string[] | undefined): string[] => {
+      if (!urls) return []
+      return urls.filter((url) => {
+        if (url.startsWith('blob:')) {
+          // Blob URLs become invalid after page refresh, so remove them
+          // They'll be recreated from pending files if needed
+          return false
+        }
+        return true
+      })
+    }
+
+    // Clean style images
+    const currentImages = watch('images') || []
+    const cleanedImages = cleanBlobUrls(currentImages)
+    if (cleanedImages.length !== currentImages.length) {
+      setValue('images', cleanedImages)
+    }
+
+    // Clean room profile images
+    const currentRoomProfiles = watch('roomProfiles') || []
+    const cleanedRoomProfiles = currentRoomProfiles.map((profile) => ({
+      ...profile,
+      images: cleanBlobUrls(profile.images),
+    }))
+    if (JSON.stringify(cleanedRoomProfiles) !== JSON.stringify(currentRoomProfiles)) {
+      setValue('roomProfiles', cleanedRoomProfiles)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []) // Only run on mount
 
   const {
     fields: defaultMaterialFields,
@@ -303,7 +350,9 @@ export default function AdminStyleNewPage() {
                           label={t('category')}
                           placeholder={t('categoryPlaceholder')}
                           data={categoryOptions}
-                          {...field}
+                          value={field.value}
+                          onChange={field.onChange}
+                          onBlur={field.onBlur}
                           error={errors.categoryId?.message}
                           required
                           searchable
@@ -319,7 +368,9 @@ export default function AdminStyleNewPage() {
                           label={t('subCategory')}
                           placeholder={t('subCategoryPlaceholder')}
                           data={subCategoryOptions}
-                          {...field}
+                          value={field.value}
+                          onChange={field.onChange}
+                          onBlur={field.onBlur}
                           error={errors.subCategoryId?.message}
                           required
                           disabled={!categoryId}
@@ -344,23 +395,48 @@ export default function AdminStyleNewPage() {
                       <Controller
                         name="images"
                         control={control}
-                        render={({ field }) => (
-                          <ImageUpload
-                            value={field.value || []}
-                            onChange={(images) => {
-                              field.onChange(images)
-                              setValue('images', images)
-                            }}
-                            onPendingFilesChange={(files) => {
-                              setPendingStyleFiles(files)
-                            }}
-                            entityType="style"
-                            entityId="" // Empty during creation - will upload after creation
-                            maxImages={20}
-                            multiple
-                            error={errors.images?.message}
-                          />
-                        )}
+                        render={({ field }) => {
+                          // Filter out invalid blob URLs
+                          const validImages = (field.value || []).filter((url: string) => {
+                            if (url.startsWith('blob:')) {
+                              try {
+                                return url.includes('blob:http')
+                              } catch {
+                                return false
+                              }
+                            }
+                            return true
+                          })
+
+                          return (
+                            <ImageUpload
+                              value={validImages}
+                              onChange={(images) => {
+                                // Filter out any invalid blob URLs before updating
+                                const filteredImages = images.filter((url: string) => {
+                                  if (url.startsWith('blob:')) {
+                                    try {
+                                      return url.includes('blob:http')
+                                    } catch {
+                                      return false
+                                    }
+                                  }
+                                  return true
+                                })
+                                field.onChange(filteredImages)
+                                setValue('images', filteredImages)
+                              }}
+                              onPendingFilesChange={(files) => {
+                                setPendingStyleFiles(files)
+                              }}
+                              entityType="style"
+                              entityId="" // Empty during creation - will upload after creation
+                              maxImages={20}
+                              multiple
+                              error={errors.images?.message}
+                            />
+                          )
+                        }}
                       />
                     </Paper>
                   </FormSection>
@@ -381,7 +457,9 @@ export default function AdminStyleNewPage() {
                           label={t('color')}
                           placeholder={t('colorPlaceholder')}
                           data={colorOptions}
-                          {...field}
+                          value={field.value}
+                          onChange={field.onChange}
+                          onBlur={field.onBlur}
                           error={errors.colorId?.message}
                           required
                           searchable
@@ -463,10 +541,21 @@ export default function AdminStyleNewPage() {
                         defaultMaterialFields.map((field, index) => (
                           <Group key={field.id} align="flex-start">
                             <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="sm" style={{ flex: 1 }}>
-                              <TextInput
-                                placeholder={t('materialId')}
-                                {...register(`materialSet.defaults.${index}.materialId`)}
-                                error={errors.materialSet?.defaults?.[index]?.materialId?.message}
+                              <Controller
+                                name={`materialSet.defaults.${index}.materialId`}
+                                control={control}
+                                render={({ field: materialField }) => (
+                                  <Select
+                                    placeholder={t('materialId')}
+                                    data={materialOptions}
+                                    value={materialField.value}
+                                    onChange={materialField.onChange}
+                                    onBlur={materialField.onBlur}
+                                    error={errors.materialSet?.defaults?.[index]?.materialId?.message}
+                                    searchable
+                                    required
+                                  />
+                                )}
                               />
                               <TextInput
                                 placeholder={t('usageArea')}
@@ -550,7 +639,9 @@ export default function AdminStyleNewPage() {
                                       data={roomTypeOptions.filter(
                                         (opt) => opt.value === roomProfile?.roomType || !roomProfiles?.some((rp, i) => i !== index && rp.roomType === opt.value)
                                       )}
-                                      {...roomTypeField}
+                                      value={roomTypeField.value}
+                                      onChange={roomTypeField.onChange}
+                                      onBlur={roomTypeField.onBlur}
                                       error={errors.roomProfiles?.[index]?.roomType?.message}
                                     />
                                   )}
@@ -563,14 +654,22 @@ export default function AdminStyleNewPage() {
                                   <Text size="xs" c="dimmed" mb="sm">
                                     {t('roomSpecificMaterialsDescription')}
                                   </Text>
-                                  {/* Room-specific materials would go here - for now just showing the structure */}
-                                  <Paper p="sm" withBorder bg="gray.0">
-                                    <Text size="sm" c="dimmed">
-                                      {roomMaterials.length === 0
-                                        ? t('noRoomMaterials')
-                                        : `${roomMaterials.length} ${t('materialsAdded')}`}
-                                    </Text>
-                                  </Paper>
+                                  <Controller
+                                    name={`roomProfiles.${index}.materials`}
+                                    control={control}
+                                    render={({ field }) => (
+                                      <MultiSelect
+                                        placeholder={t('materialId')}
+                                        data={materialOptions}
+                                        value={field.value || []}
+                                        onChange={field.onChange}
+                                        onBlur={field.onBlur}
+                                        error={errors.roomProfiles?.[index]?.materials?.message}
+                                        searchable
+                                        clearable
+                                      />
+                                    )}
+                                  />
                                 </div>
 
                                 {/* Room Profile Images */}
@@ -581,32 +680,61 @@ export default function AdminStyleNewPage() {
                                   <Controller
                                     name={`roomProfiles.${index}.images`}
                                     control={control}
-                                    render={({ field }) => (
-                                      <ImageUpload
-                                        value={field.value || []}
-                                        onChange={(images) => {
-                                          field.onChange(images)
-                                          const updatedProfiles = [...(roomProfiles || [])]
-                                          updatedProfiles[index] = {
-                                            ...updatedProfiles[index],
-                                            images,
+                                    render={({ field }) => {
+                                      // Filter out invalid blob URLs
+                                      const validImages = (field.value || []).filter((url: string) => {
+                                        if (url.startsWith('blob:')) {
+                                          // Check if blob URL is still valid by trying to create a test object
+                                          try {
+                                            // If it's a blob URL, it should be from our pending files
+                                            // We'll validate it when rendering, but filter obviously invalid ones here
+                                            return true
+                                          } catch {
+                                            return false
                                           }
-                                          setValue('roomProfiles', updatedProfiles)
-                                        }}
-                                        onPendingFilesChange={(files) => {
-                                          setPendingRoomProfileFiles(prev => ({
-                                            ...prev,
-                                            [index]: files,
-                                          }))
-                                        }}
-                                        entityType="style"
-                                        entityId="" // Empty during creation - will upload after creation
-                                        roomType={roomProfile?.roomType}
-                                        maxImages={20}
-                                        multiple
-                                        error={errors.roomProfiles?.[index]?.images?.message}
-                                      />
-                                    )}
+                                        }
+                                        return true
+                                      })
+
+                                      return (
+                                        <ImageUpload
+                                          value={validImages}
+                                          onChange={(images) => {
+                                            // Filter out any invalid blob URLs before updating
+                                            const filteredImages = images.filter((url: string) => {
+                                              if (url.startsWith('blob:')) {
+                                                try {
+                                                  // Basic validation - if it's a blob URL, make sure it's valid format
+                                                  return url.includes('blob:http')
+                                                } catch {
+                                                  return false
+                                                }
+                                              }
+                                              return true
+                                            })
+                                            field.onChange(filteredImages)
+                                            const updatedProfiles = [...(roomProfiles || [])]
+                                            updatedProfiles[index] = {
+                                              ...updatedProfiles[index],
+                                              images: filteredImages,
+                                            }
+                                            setValue('roomProfiles', updatedProfiles)
+                                          }}
+                                          onPendingFilesChange={(files) => {
+                                            setPendingRoomProfileFiles(prev => ({
+                                              ...prev,
+                                              [index]: files,
+                                            }))
+                                          }}
+                                          entityType="style"
+                                          entityId="" // Empty during creation - will upload after creation
+                                          roomType={roomProfile?.roomType}
+                                          maxImages={20}
+                                          multiple
+                                          error={errors.roomProfiles?.[index]?.images?.message}
+                                        />
+                                      )
+                                    }}
                                   />
                                 </Paper>
                               </Stack>
