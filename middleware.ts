@@ -13,9 +13,9 @@ const intlMiddleware = createIntlMiddleware({
 export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname
 
-  // Skip auth check for API auth routes completely - let NextAuth handle them
-  if (pathname.startsWith('/api/auth')) {
-    return intlMiddleware(request)
+  // Skip ALL API routes completely - API routes should never have locale prefix
+  if (pathname.startsWith('/api')) {
+    return NextResponse.next()
   }
 
   // Extract locale from pathname
@@ -91,9 +91,7 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    // Skip Next.js internals and all static files, unless found in search params
-    '/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)',
-    // Always run for API routes (except auth)
-    '/api/((?!auth).*)',
+    // Skip Next.js internals, API routes, and all static files
+    '/((?!api|_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)',
   ],
 }

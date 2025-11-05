@@ -25,6 +25,29 @@ The troubleshooting guide contains:
 
 **Location**: `docs/TROUBLESHOOTING.md`
 
+## 📚 Important Documentation
+
+### Authentication & Security
+**CRITICAL**: Before working on auth-related features, READ the authentication documentation.
+
+**Location**: `docs/AUTHENTICATION.md`
+
+This document covers:
+- NextAuth v5 configuration and architecture
+- Middleware setup for auth + i18n (CRITICAL section!)
+- Google OAuth setup and common issues
+- Session management (client & server)
+- Helper functions and RBAC
+- Common errors and solutions
+- Security best practices
+
+**Key Points to Remember:**
+- ✅ NextAuth routes must bypass intl middleware (`return NextResponse.next()`)
+- ✅ Auth handlers must be imported from `auth-instance.ts` (NOT created new)
+- ✅ Use JWT strategy for serverless compatibility
+- ✅ Always validate `organizationId` in database queries
+- ✅ Never expose sensitive data in client components
+
 ### Brand Identity
 **MoodB Brand Colors:**
 - **Primary Background**: `#f7f7ed` (Light cream/beige)
