@@ -1,6 +1,6 @@
 import createNextIntlPlugin from 'next-intl/plugin'
 
-const withNextIntl = createNextIntlPlugin()
+const withNextIntl = createNextIntlPlugin('./i18n/request.ts')
 
 /** @type {import('next').NextConfig} */
 const isVercel = process.env.VERCEL === '1' || process.env.VERCEL_BUILD === '1'
