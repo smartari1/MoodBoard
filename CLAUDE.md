@@ -5,8 +5,25 @@ MoodB is a comprehensive SaaS platform for interior design studios, featuring mu
 
 USE HEBREW RTL as first language
 
-alwys prioretise reuse of exsting compoents structure and manage a clear lib of pages or components structure that we can reuse. 
+alwys prioretise reuse of exsting compoents structure and manage a clear lib of pages or components structure that we can reuse.
 
+## 🆘 When You're Stuck
+
+**IMPORTANT**: If you've tried solving a problem 3 times without success:
+
+1. **STOP** - Don't keep trying random solutions
+2. **CHECK** - Read `docs/TROUBLESHOOTING.md` for similar issues and debugging strategies
+3. **DOCUMENT** - Write down what you've tried and what happened
+4. **ASK** - Present your documented attempts when asking for help
+
+The troubleshooting guide contains:
+- Real-world debugging case studies with complete thought processes
+- Common pitfalls and their solutions
+- Effective debugging strategies
+- Tools and commands for investigation
+- The 3-iteration rule and when to escalate
+
+**Location**: `docs/TROUBLESHOOTING.md`
 
 ### Brand Identity
 **MoodB Brand Colors:**
