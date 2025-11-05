@@ -1,7 +1,7 @@
 import createNextIntlPlugin from 'next-intl/plugin'
 
-// Use default path resolution (./src/i18n/request.ts) for Vercel compatibility
-const withNextIntl = createNextIntlPlugin()
+// Explicitly specify path to i18n config for Vercel serverless bundling
+const withNextIntl = createNextIntlPlugin('./src/i18n/request.ts')
 
 /** @type {import('next').NextConfig} */
 // Force disable turbopack
@@ -9,6 +9,9 @@ process.env.TURBOPACK = '0'
 process.env.NEXT_PRIVATE_SKIP_TURBOPACK = '1'
 
 const nextConfig = {
+  // Required for next-intl to properly resolve config in all environments
+  turbopack: {},
+
   reactStrictMode: true,
 
   // Disables uploading sourcemaps in prod builds
