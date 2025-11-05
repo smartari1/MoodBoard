@@ -1,0 +1,11 @@
+
+> moodb@0.1.0 build /Users/arikliger/Documents/MoodB
+> next build
+
+   ▲ Next.js 16.0.1 (Turbopack)
+   - Environments: .env.local, .env
+   - Experiments (use with caution):
+     ✓ optimizeCss
+     · optimizePackageImports
+
+   Creating an optimized production build ...

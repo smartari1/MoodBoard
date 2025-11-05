@@ -14,23 +14,8 @@ const nextConfig = {
   // Important: keep React Compiler off (intentionally disabled for build speed)
   reactCompiler: false,
   
-  experimental: {
-    // Speeds CSS handling; works well with Tailwind v4 + Mantine
-    optimizeCss: true,
-    // Tree-shake big UI libs. Add only what you use.
-    optimizePackageImports: [
-      '@mantine/core',
-      '@mantine/hooks',
-      '@mantine/notifications',
-      '@mantine/modals',
-      '@mantine/form',
-      '@mantine/dropzone',
-      '@mantine/dates',
-      '@mantine/charts',
-      '@tabler/icons-react',
-      'zod',
-    ],
-  },
+  // Disable Turbopack for production builds (it's unstable in Next 16.0.1)
+  turbopack: false,
   
   // Disables uploading sourcemaps in prod builds
   productionBrowserSourceMaps: false,
@@ -38,6 +23,18 @@ const nextConfig = {
   // Greatly speeds builds on Vercel; run tsc in CI instead
   typescript: {
     ignoreBuildErrors: isVercel ? true : false,
+  },
+  
+  // Webpack configuration for faster builds
+  webpack: (config, { isServer }) => {
+    // Reduce parallelism to avoid memory issues
+    if (!isServer) {
+      config.optimization = {
+        ...config.optimization,
+        minimize: isVercel ? true : false,
+      }
+    }
+    return config
   },
   
   // Images
@@ -59,11 +56,6 @@ const nextConfig = {
   generateBuildId: async () => {
     return process.env.VERCEL_GIT_COMMIT_SHA || String(Date.now())
   },
-  
-  // Transpile packages only if needed (next-intl is ESM-ready)
-  transpilePackages: [
-    'next-intl',
-  ],
   
   // Headers for security
   async headers() {

@@ -5,10 +5,9 @@
   "buildCommand": "pnpm run vercel-build",
   "installCommand": "pnpm install --frozen-lockfile",
   "outputDirectory": ".next",
-  "regions": ["fra1", "cdg1"],
+  "regions": ["iad1"],
   "functions": {
-    "api/**": {
-      "runtime": "nodejs20.x",
+    "src/app/api/**/*.ts": {
       "memory": 1536,
       "maxDuration": 60
     }
@@ -23,8 +22,8 @@
   "build": {
     "env": {
       "VERCEL_BUILD": "1",
-      "NEXT_DISABLE_SOURCEMAPS": "1",
-      "NODE_OPTIONS": "--max-old-space-size=6144"
+      "NODE_OPTIONS": "--max-old-space-size=4096",
+      "TURBOPACK": "0"
     }
   },
   "crons": []
