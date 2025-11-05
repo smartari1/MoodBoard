@@ -224,10 +224,37 @@ export const POST = withAdmin(async (req: NextRequest, auth) => {
       )
     }
 
-    // Filter out invalid material IDs (must be valid ObjectIDs)
-    console.log('[CREATE STYLE] Filtering materialSet and roomProfiles...')
+    // Filter out invalid data (ObjectIDs, blob URLs, etc.)
+    console.log('[CREATE STYLE] Filtering materialSet, roomProfiles, and images...')
     const isValidObjectId = (id: string) => /^[0-9a-fA-F]{24}$/.test(id)
-    
+    const isValidHttpUrl = (url: string): boolean => {
+      if (typeof url !== 'string') return false
+      // Reject blob URLs - they're client-side only
+      if (url.startsWith('blob:')) {
+        console.warn('[CREATE STYLE] Rejected blob URL:', url)
+        return false
+      }
+      try {
+        const parsed = new URL(url)
+        return parsed.protocol === 'http:' || parsed.protocol === 'https:'
+      } catch {
+        return false
+      }
+    }
+
+    // Filter images - only accept HTTP/HTTPS URLs (R2)
+    const validatedImages = (body.images || []).filter((url: string) => {
+      const isValid = isValidHttpUrl(url)
+      if (!isValid && url) {
+        console.warn('[CREATE STYLE] Invalid or blob URL in images:', url)
+      }
+      return isValid
+    })
+    console.log('[CREATE STYLE] Validated images:', {
+      original: body.images?.length || 0,
+      valid: validatedImages.length,
+    })
+
     const filteredMaterialSet = {
       defaults: (body.materialSet?.defaults || []).filter((d: any) => {
         const isValid = d.materialId && isValidObjectId(d.materialId)
@@ -236,8 +263,7 @@ export const POST = withAdmin(async (req: NextRequest, auth) => {
         }
         return isValid
       }).map((d: any) => ({
-        ...d,
-        supplierId: d.supplierId && isValidObjectId(d.supplierId) ? d.supplierId : undefined,
+        materialId: d.materialId,
       })),
       alternatives: (body.materialSet?.alternatives || []).map((alt: any) => ({
         ...alt,
@@ -264,8 +290,19 @@ export const POST = withAdmin(async (req: NextRequest, auth) => {
         }
         return isValid
       }),
+      // Filter room profile images - only accept HTTP/HTTPS URLs
+      images: (profile.images || []).filter((url: string) => {
+        const isValid = isValidHttpUrl(url)
+        if (!isValid && url) {
+          console.warn('[CREATE STYLE] Invalid or blob URL in room profile images:', url)
+        }
+        return isValid
+      }),
     }))
-    console.log('[CREATE STYLE] Filtered roomProfiles count:', filteredRoomProfiles.length)
+    console.log('[CREATE STYLE] Filtered roomProfiles:', {
+      count: filteredRoomProfiles.length,
+      withImages: filteredRoomProfiles.filter((p: any) => p.images?.length > 0).length,
+    })
 
     // Create global style (organizationId = null)
     console.log('[CREATE STYLE] Creating style in database...')
@@ -276,7 +313,7 @@ export const POST = withAdmin(async (req: NextRequest, auth) => {
       categoryId: body.categoryId,
       subCategoryId: body.subCategoryId,
       colorId: body.colorId,
-      images: body.images || [], // Array of R2 image URLs
+      images: validatedImages, // Only HTTP/HTTPS URLs (R2 URLs)
       materialSet: filteredMaterialSet as any,
       roomProfiles: filteredRoomProfiles as any,
       metadata: {

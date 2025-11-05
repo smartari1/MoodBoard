@@ -683,8 +683,35 @@
     "organizations": {
       "title": "ניהול ארגונים",
       "description": "נהל את כל הארגונים בפלטפורמה",
-      "comingSoon": "בקרוב",
-      "comingSoonDescription": "תכונה זו תהיה זמינה בקרוב"
+      "createNew": "צור ארגון חדש",
+      "searchPlaceholder": "חפש ארגונים לפי שם או slug...",
+      "noOrganizations": "לא נמצאו ארגונים",
+      "noOrganizationsDescription": "אין ארגונים התואמים את קריטריוני החיפוש שלך",
+      "basicInfo": "מידע בסיסי",
+      "name": "שם הארגון",
+      "namePlaceholder": "הכנס שם ארגון",
+      "slug": "Slug",
+      "slugPlaceholder": "slug-ארגון",
+      "settings": "הגדרות",
+      "locale": "שפה",
+      "currency": "מטבע",
+      "units": "יחידות מידה",
+      "metric": "מטרי",
+      "imperial": "אימפריאלי",
+      "create": "צור",
+      "editOrganization": "ערוך ארגון",
+      "deleteOrganization": "מחק ארגון",
+      "deleteOrganizationMessage": "האם אתה בטוח שברצונך למחוק את הארגון הזה? פעולה זו לא ניתנת לביטול.",
+      "validationErrors": "שגיאות אימות",
+      "errorMessage": "נכשל ביצירת הארגון",
+      "updateErrorMessage": "נכשל בעדכון הארגון",
+      "table": {
+        "name": "שם",
+        "slug": "Slug",
+        "createdAt": "נוצר ב",
+        "updatedAt": "עודכן ב",
+        "actions": "פעולות"
+      }
     },
     "users": {
       "title": "ניהול משתמשים",

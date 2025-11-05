@@ -93,17 +93,20 @@
 - **StyleForm Component** (`src/components/features/style-engine/StyleForm.tsx`):
   - Multi-tab form wizard (Basic Info, Color, Materials, Rooms)
   - React Hook Form + Zod validation
-  - Creation mode: Deferred image upload (blob URLs → R2 after creation)
-  - Edit mode: Immediate image upload to R2
+  - **Image Upload Pattern (Critical):**
+    - **Edit Mode**: Pass `entityId` to ImageUpload → Images upload immediately → Trust URLs (don't filter blob URLs)
+    - **Create Mode**: No `entityId` → Track pending files → Filter blob URLs on submit → Upload after creation
   - Room profile management with dynamic field arrays
   - Material selection (general defaults + room-specific)
   - Validation error handling with auto-scroll and tab switching
+  - **Key Fix**: In edit mode, don't filter blob URLs before submission - ImageUpload handles uploads automatically
 - **ImageUpload Component** (`src/components/ui/ImageUpload.tsx`):
   - Drag & drop support with preview
-  - Creation mode: Local file storage with blob URLs
-  - Edit mode: Direct R2 upload
+  - **Creation Mode** (no entityId): Local file storage with blob URLs, tracks pending files via `onPendingFilesChange`
+  - **Edit Mode** (with entityId): Direct R2 upload immediately when files are added
   - Multi-image support (up to 20 images)
   - File validation (type, size - 10MB max)
+  - Automatically uploads when `entityId` is provided
 - **useImageUpload Hook** (`src/hooks/useImageUpload.ts`):
   - Upload/delete mutations with TanStack Query
   - File cloning to prevent FileSystemFileHandle issues
@@ -268,7 +271,6 @@ interface Organization {
     features: {
       aiAssist: boolean
       advancedBudgeting: boolean
-      supplierPortal: boolean
     }
   }
   subscription: {
@@ -477,7 +479,6 @@ interface Material {
     inStock: boolean
     leadTime: number  // days
     minOrder: number
-    supplierId: ObjectId
   }
   
   assets: {

@@ -71,11 +71,9 @@ export function MaterialSelector<T extends FieldValues>({
             onChange={(ids) => {
               // Keep the same format as input (if it was objects, return objects; if strings, return strings)
               if (Array.isArray(value) && value.length > 0 && typeof value[0] === 'object') {
-                // Format for materialSet.defaults: array of objects
+                // Format for materialSet.defaults: array of objects with only materialId
                 const defaults = ids.map((id) => ({
                   materialId: id,
-                  usageArea: '',
-                  defaultFinish: '',
                 }))
                 onChange(defaults)
               } else {

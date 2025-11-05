@@ -29,7 +29,6 @@ model Organization {
   styles    Style[]
   materials Material[]
   products  Product[]
-  suppliers Supplier[]
   colors    Color[]
   auditLogs AuditLog[]
 
@@ -59,7 +58,6 @@ type BrandSettings {
 type FeatureFlags {
   aiAssist          Boolean @default(false)
   advancedBudgeting Boolean @default(false)
-  supplierPortal    Boolean @default(false)
 }
 
 type Subscription {
@@ -509,10 +507,7 @@ type MaterialSet {
 }
 
 type MaterialDefault {
-  materialId    String  @db.ObjectId
-  usageArea     String
-  defaultFinish String?
-  supplierId    String? @db.ObjectId
+  materialId String @db.ObjectId
 }
 
 type MaterialAlternative {
@@ -653,7 +648,6 @@ type Availability {
   inStock    Boolean
   leadTime   Int // days
   minOrder   Float
-  supplierId String? @db.ObjectId
 }
 
 type MaterialAssets {
@@ -708,33 +702,6 @@ type ProductAssets {
   images    String[]
   model3D   String?
   manual    String?
-}
-
-model Supplier {
-  id             String        @id @default(auto()) @map("_id") @db.ObjectId
-  organizationId String?       @db.ObjectId
-  organization   Organization? @relation(fields: [organizationId], references: [id])
-
-  name        String
-  contact     SupplierContact
-  leadTimes   Int // average days
-  discounts   DiscountTier[]
-  catalogUrls String[]
-  rating      Float?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @default(now())
-
-  @@index([organizationId])
-  @@index([name])
-  @@map("suppliers")
-}
-
-type SupplierContact {
-  email   String
-  phone   String?
-  website String?
-  address String?
 }
 
 // ============================================

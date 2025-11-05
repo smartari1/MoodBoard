@@ -641,8 +641,35 @@
     "organizations": {
       "title": "Organizations Management",
       "description": "Manage all organizations on the platform",
-      "comingSoon": "Coming Soon",
-      "comingSoonDescription": "This feature will be available soon"
+      "createNew": "Create New Organization",
+      "searchPlaceholder": "Search organizations by name or slug...",
+      "noOrganizations": "No organizations found",
+      "noOrganizationsDescription": "No organizations match your search criteria",
+      "basicInfo": "Basic Information",
+      "name": "Organization Name",
+      "namePlaceholder": "Enter organization name",
+      "slug": "Slug",
+      "slugPlaceholder": "organization-slug",
+      "settings": "Settings",
+      "locale": "Locale",
+      "currency": "Currency",
+      "units": "Units",
+      "metric": "Metric",
+      "imperial": "Imperial",
+      "create": "Create",
+      "editOrganization": "Edit Organization",
+      "deleteOrganization": "Delete Organization",
+      "deleteOrganizationMessage": "Are you sure you want to delete this organization? This action cannot be undone.",
+      "validationErrors": "Validation Errors",
+      "errorMessage": "Failed to create organization",
+      "updateErrorMessage": "Failed to update organization",
+      "table": {
+        "name": "Name",
+        "slug": "Slug",
+        "createdAt": "Created At",
+        "updatedAt": "Updated At",
+        "actions": "Actions"
+      }
     },
     "users": {
       "title": "Users Management",

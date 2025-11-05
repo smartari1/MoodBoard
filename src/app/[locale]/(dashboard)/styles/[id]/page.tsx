@@ -300,16 +300,8 @@ export default function StyleDetailPage() {
                       <Paper key={index} p="md" withBorder radius="md">
                         <Group justify="space-between">
                           <div>
-                            <Text fw={500}>{material.usageArea}</Text>
-                            {material.defaultFinish && (
-                              <Text size="sm" c="dimmed">
-                                {t('detail.materials.finish')}: {material.defaultFinish}
-                              </Text>
-                            )}
+                            <Text fw={500}>Material ID: {material.materialId}</Text>
                           </div>
-                          <Text size="sm" c="dimmed">
-                            ID: {material.materialId}
-                          </Text>
                         </Group>
                       </Paper>
                     ))}

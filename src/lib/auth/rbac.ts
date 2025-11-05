@@ -48,9 +48,7 @@ export type Permission =
   | 'budget:write'
   | 'budget:approve'
 
-  // Supplier permissions
-  | 'supplier:read'
-  | 'supplier:write'
+  // Quote permissions
   | 'quote:create'
 
   // Audit permissions
@@ -85,8 +83,6 @@ const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     'budget:read',
     'budget:write',
     'budget:approve',
-    'supplier:read',
-    'supplier:write',
     'quote:create',
     'audit:read',
   ],
@@ -106,7 +102,6 @@ const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     'style:write',
     'budget:read',
     'budget:write',
-    'supplier:read',
   ],
 
   client: [
@@ -122,7 +117,6 @@ const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     'material:read:own',
     'material:write:own',
     'quote:create',
-    'supplier:read',
   ],
 
   admin: [
@@ -150,8 +144,6 @@ const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     'budget:read',
     'budget:write',
     'budget:approve',
-    'supplier:read',
-    'supplier:write',
     'quote:create',
     'audit:read',
   ],

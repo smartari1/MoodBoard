@@ -55,7 +55,6 @@ export interface Material {
     inStock: boolean
     leadTime: number
     minOrder: number
-    supplierId?: string | null
   }
   assets: {
     thumbnail: string

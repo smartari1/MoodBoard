@@ -46,6 +46,44 @@
         "other": "أخرى"
       }
     }
+  },
+  "admin": {
+    "navigation": {
+      "organizations": "المنظمات"
+    },
+    "organizations": {
+      "title": "إدارة المنظمات",
+      "description": "إدارة جميع المنظمات على المنصة",
+      "createNew": "إنشاء منظمة جديدة",
+      "searchPlaceholder": "البحث عن المنظمات بالاسم أو المعرف...",
+      "noOrganizations": "لم يتم العثور على منظمات",
+      "noOrganizationsDescription": "لا توجد منظمات تطابق معايير البحث الخاصة بك",
+      "basicInfo": "المعلومات الأساسية",
+      "name": "اسم المنظمة",
+      "namePlaceholder": "أدخل اسم المنظمة",
+      "slug": "المعرف",
+      "slugPlaceholder": "معرف-المنظمة",
+      "settings": "الإعدادات",
+      "locale": "اللغة",
+      "currency": "العملة",
+      "units": "الوحدات",
+      "metric": "متري",
+      "imperial": "إمبراطوري",
+      "create": "إنشاء",
+      "editOrganization": "تعديل المنظمة",
+      "deleteOrganization": "حذف المنظمة",
+      "deleteOrganizationMessage": "هل أنت متأكد أنك تريد حذف هذه المنظمة؟ لا يمكن التراجع عن هذا الإجراء.",
+      "validationErrors": "أخطاء التحقق",
+      "errorMessage": "فشل في إنشاء المنظمة",
+      "updateErrorMessage": "فشل في تحديث المنظمة",
+      "table": {
+        "name": "الاسم",
+        "slug": "المعرف",
+        "createdAt": "تاريخ الإنشاء",
+        "updatedAt": "تاريخ التحديث",
+        "actions": "الإجراءات"
+      }
+    }
   }
 }
 

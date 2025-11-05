@@ -87,9 +87,9 @@
 
 ## 5) ספריית חומרים וריהוט (Catalog)
 
-* **Material**: קטלוג חומרים עם מאפיינים (סוג, מראה/טקסטורה, תת־סוג, תחזוקה, עמידות, מחירון, ספקים).
+* **Material**: קטלוג חומרים עם מאפיינים (סוג, מראה/טקסטורה, תת־סוג, תחזוקה, עמידות, מחירון).
 * **Product**: פריטי ריהוט/תאורה/כלים סניטריים (מידות, וריאנטים, מחיר).
-* **Suppliers**: ספקים/מותגים, SLA, זמני אספקה, הנחות.
+* **Suppliers**: ספקים הם ארגונים (Organizations) - כל חומר מקושר לארגון דרך `organizationId`.
 * **תמונות/טקסטורות**: שמירה ב־R2, דוגמיות ריאליסטיות (רקע ניטרלי), תיוג צבעים.
 * **תמחור**: מחיר עלות/מכירה, יחידות, חישוב פסולת/עודף (tiles, פרקט).
 
@@ -110,8 +110,9 @@
 * `designer_owner`: כל הפעולות בארגון.
 * `designer_member`: אין מחיקה גורפת/חיובים.
 * `client`: קריאה + אישור/תגובה רק לפרויקטים שלו.
-* `supplier`: קריאה/הצעת מחיר לקטלוג משויך.
+* `supplier`: קריאה/הצעת מחיר לקטלוג משויך (ארגונים שהם ספקים).
 * **Enforcement**: על שרת—בדיקת `orgId` + `role` בכל handler.
+* **Note**: ספקים הם ארגונים רגילים - אין מודל Supplier נפרד. חומרים מקושרים לארגון דרך `organizationId`.
 
 ---
 
@@ -139,12 +140,12 @@ SubCategory { _id, categoryId, name: LocalizedString, slug, order, createdAt }
 Style { _id, orgId?, categoryId, subCategoryId, slug, name, description, defaultPaletteId, defaultMaterialSetId, tags[], versions[] }
 Palette { _id, name, tokens: ColorToken[], neutrals: ColorToken[], accents: ColorToken[] }
 MaterialSet { _id, name, materials: MaterialRef[] }
-MaterialRef { materialId, usageArea, defaultFinish, defaultSupplierId? }
+MaterialRef { materialId, usageArea, defaultFinish }
 
-// Material / Product / Supplier
-Material { _id, orgId?, type, subType, name, colorRef, finishes[], properties, price, supplierId?, assets[] }
-Product { _id, orgId?, category, name, variants[], dimensions, price, supplierId?, assets[] }
-Supplier { _id, orgId?, name, contact, leadTimes, discounts, catalogUrls[] }
+// Material / Product
+// Note: Suppliers are Organizations - materials are linked to organizationId
+Material { _id, orgId, type, subType, name, colorRef, finishes[], properties, price, assets[] }
+Product { _id, orgId?, category, name, variants[], dimensions, price, assets[] }
 
 // Budget
 Budget {
@@ -355,8 +356,9 @@ AuditLog { _id, orgId, actorId, action, entity, before?, after?, at }
 
 **Phase 4 – Catalog & Suppliers**
 
-* ניהול ספקים, מחירונים, זמני אספקה.
+* ניהול קטלוג חומרים - כל חומר מקושר לארגון (ספק) דרך `organizationId`.
 * הצעות מחיר/סטטוסים בסיסיים.
+* **Note**: ספקים הם ארגונים רגילים - אין מודל Supplier נפרד.
 
 **Phase 5 – חיפוש/פילוח**
 

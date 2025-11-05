@@ -71,7 +71,6 @@ export const availabilitySchema = z.object({
   inStock: z.boolean().default(false),
   leadTime: z.number().int().min(0), // days
   minOrder: z.number().nonnegative(),
-  supplierId: z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid supplier ID format').optional(),
 })
 
 // Material Assets Schema

@@ -5,20 +5,15 @@
 
 import { z } from 'zod'
 import { ROOM_TYPES } from './room'
-import { imagesSchema } from './upload'
+import { clientImagesSchema, serverImagesSchema } from './upload'
 
 // MongoDB ObjectID validation helper
 const objectIdSchema = z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid ObjectID format')
 
 // Material Default Schema (General materials - apply to all rooms)
+// Only stores materialId - material details come from the referenced Material object
 export const materialDefaultSchema = z.object({
   materialId: objectIdSchema,
-  usageArea: z.string().optional(), // Optional for general materials since they apply to all rooms
-  defaultFinish: z.string().optional(),
-  supplierId: z.union([
-    objectIdSchema,
-    z.literal(''),
-  ]).optional(),
 })
 
 // Material Alternative Schema
@@ -42,14 +37,23 @@ export const roomConstraintSchema = z.object({
   maintenance: z.number().int().min(1).max(10).optional(),
 })
 
-// Room Profile Schema
-// Room-specific materials are stored in the materials array
+// Room Profile Schema (for client-side forms - allows blob URLs for preview)
 export const roomProfileSchema = z.object({
   roomType: z.enum(ROOM_TYPES, {
     errorMap: () => ({ message: 'Invalid room type' }),
   }),
   materials: z.array(objectIdSchema).optional().default([]),
-  images: imagesSchema.optional(),
+  images: clientImagesSchema.optional(),
+  constraints: roomConstraintSchema.nullable().optional(),
+})
+
+// Room Profile Schema for API (server-side - only HTTPS URLs)
+export const roomProfileApiSchema = z.object({
+  roomType: z.enum(ROOM_TYPES, {
+    errorMap: () => ({ message: 'Invalid room type' }),
+  }),
+  materials: z.array(objectIdSchema).optional().default([]),
+  images: serverImagesSchema.optional(),
   constraints: roomConstraintSchema.nullable().optional(),
 })
 
@@ -72,21 +76,45 @@ export const styleMetadataSchema = z.object({
   rating: z.number().min(0).max(5).nullable().optional(),
 })
 
-// Create Style Schema
+// Create Style Schema (API - only accepts HTTPS URLs)
 export const createStyleSchema = z.object({
   name: localizedStringSchema,
   categoryId: objectIdSchema,
   subCategoryId: objectIdSchema,
   slug: z.string().regex(/^[a-z0-9-]+$/, 'Invalid slug format').optional(),
   colorId: objectIdSchema,
-  images: imagesSchema.optional(),
+  images: serverImagesSchema.optional(),
+  materialSet: materialSetSchema,
+  roomProfiles: z.array(roomProfileApiSchema).optional().default([]),
+  metadata: styleMetadataSchema.optional(),
+})
+
+// Update Style Schema (API - only accepts HTTPS URLs)
+// Make all fields optional for partial updates, but keep the same validation rules
+export const updateStyleSchema = z.object({
+  name: localizedStringSchema.optional(),
+  categoryId: objectIdSchema.optional(),
+  subCategoryId: objectIdSchema.optional(),
+  slug: z.string().regex(/^[a-z0-9-]+$/, 'Invalid slug format').optional(),
+  colorId: objectIdSchema.optional(),
+  images: serverImagesSchema.optional(),
+  materialSet: materialSetSchema.optional(),
+  roomProfiles: z.array(roomProfileApiSchema).optional(),
+  metadata: styleMetadataSchema.partial().optional(),
+})
+
+// Create Style Schema for client forms (allows blob URLs for preview)
+export const createStyleFormSchema = z.object({
+  name: localizedStringSchema,
+  categoryId: objectIdSchema,
+  subCategoryId: objectIdSchema,
+  slug: z.string().regex(/^[a-z0-9-]+$/, 'Invalid slug format').optional(),
+  colorId: objectIdSchema,
+  images: clientImagesSchema.optional(),
   materialSet: materialSetSchema,
   roomProfiles: z.array(roomProfileSchema).optional().default([]),
   metadata: styleMetadataSchema.optional(),
 })
-
-// Update Style Schema
-export const updateStyleSchema = createStyleSchema.partial()
 
 // Style Filters Schema
 export const styleFiltersSchema = z.object({

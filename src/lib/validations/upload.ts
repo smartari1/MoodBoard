@@ -70,9 +70,42 @@ export function validateImageFile(file: File): { valid: boolean; error?: string 
 }
 
 /**
- * Multiple images schema (for forms)
+ * Client-side images schema (for forms)
+ * Allows both regular URLs and blob URLs (for temporary local preview)
+ * Used in form state management only - NOT for API validation
  */
-export const imagesSchema = z.array(z.string().url()).max(20, 'Maximum 20 images allowed').default([])
+export const clientImagesSchema = z.array(
+  z.string().refine((val) => {
+    // Allow blob URLs for client-side preview
+    if (val.startsWith('blob:')) return true
+    // Otherwise, must be a valid URL
+    try {
+      new URL(val)
+      return true
+    } catch {
+      return false
+    }
+  }, 'Invalid URL')
+).max(20, 'Maximum 20 images allowed').default([])
 
+/**
+ * Server-side images schema (for API validation)
+ * Only allows HTTP/HTTPS URLs (e.g., Cloudflare R2)
+ * Blob URLs are rejected as they're client-side only
+ */
+export const serverImagesSchema = z.array(
+  z.string().url('Must be a valid URL').refine((val) => {
+    return val.startsWith('http://') || val.startsWith('https://')
+  }, 'Only HTTP/HTTPS URLs allowed')
+).max(20, 'Maximum 20 images allowed').default([])
+
+/**
+ * Legacy alias for backward compatibility
+ * @deprecated Use clientImagesSchema or serverImagesSchema explicitly
+ */
+export const imagesSchema = clientImagesSchema
+
+export type ClientImages = z.infer<typeof clientImagesSchema>
+export type ServerImages = z.infer<typeof serverImagesSchema>
 export type Images = z.infer<typeof imagesSchema>
 

@@ -2,9 +2,19 @@
 
 **Last Updated:** January 29, 2025
 **Current Phase:** Phase 2 - Style Engine Core
-**Status:** ✅ Phase 1 Complete - Phase 2 In Progress (65% Complete - Admin Area, Categories, Colors, Materials Complete)
+**Status:** ✅ Phase 1 Complete - Phase 2 In Progress (70% Complete - Admin Area, Categories, Colors, Materials, Styles Complete)
 
 ---
+
+## 🎯 Recent Updates (January 2025)
+
+### ✅ Image Upload Pattern Standardized (January 29, 2025)
+- **Standardized image upload pattern** across all entities (Styles, Sub-Categories, etc.)
+- **Edit Mode**: Pass `entityId` to ImageUpload → Images upload immediately → Trust URLs (no filtering)
+- **Create Mode**: No `entityId` → Track pending files → Filter blob URLs → Upload after creation
+- **Key Fix**: Don't filter blob URLs in edit mode - ImageUpload handles uploads automatically
+- **Reference Implementation**: `src/app/[locale]/admin/sub-categories/[id]/edit/page.tsx`
+- **Documentation**: Updated in CLAUDE.md, technical-plan.md, and progress.md
 
 ## 🎉 Completed Milestones
 
@@ -221,7 +231,7 @@
   - Projects & Rooms
   - Styles, Palettes & Material Sets
   - Materials & Products Catalog
-  - Suppliers
+  - Suppliers (Organizations) - Architecture updated: Suppliers are Organizations
   - Budget & Bill of Materials
   - Approvals & Comments
   - Audit Logs
@@ -482,11 +492,13 @@ The style form system implements a comprehensive multi-tab form wizard for creat
    - Features:
      - Validation error handling with scroll-to-error functionality
      - Tab switching based on validation errors
-     - Creation mode support: stores files locally (blob URLs) before entity creation
-     - Post-creation image upload: Uploads pending files to R2 after style creation
-     - Form state management with pending files tracking
+     - **Image Upload Pattern (Standard Pattern - Used in Sub-Categories, Styles, etc.):**
+       - **Edit Mode**: Pass `entityId` to ImageUpload → Images upload immediately → Submit with R2 URLs (trust ImageUpload)
+       - **Create Mode**: No `entityId` → Track pending files → Filter blob URLs on submit → Upload after creation
+     - Form state management with pending files tracking (create mode only)
      - Room profile management: Add/remove room profiles with unique room types
      - Material selection: General materials (defaults) vs room-specific materials
+     - **Critical Fix (January 2025)**: Don't filter blob URLs in edit mode - ImageUpload handles uploads automatically
 
 2. **ImageUpload Component** (`src/components/ui/ImageUpload.tsx`)
    - Reusable image upload component with drag & drop support
@@ -496,8 +508,9 @@ The style form system implements a comprehensive multi-tab form wizard for creat
      - Tracks pending files via `onPendingFilesChange` callback
      - Prevents premature URL revocation for form state persistence
    - **Edit Mode** (with entityId):
-     - Uploads directly to R2 storage
-     - Immediate URL assignment
+     - **Uploads immediately** when files are added (automatically calls uploadImage)
+     - Replaces blob URLs with R2 URLs in `onChange` callback
+     - No need to filter blob URLs in form submission - they're already R2 URLs
    - Features:
      - Multiple image support (up to 20 images)
      - Image preview grid with delete functionality
@@ -505,6 +518,7 @@ The style form system implements a comprehensive multi-tab form wizard for creat
      - Loading states during upload/delete
      - Room type support for room profile images
      - File validation (type, size - max 10MB)
+   - **Standard Pattern**: When `entityId` is provided, ImageUpload handles everything automatically
 
 3. **useImageUpload Hook** (`src/hooks/useImageUpload.ts`)
    - Manages image upload state and operations
@@ -550,11 +564,18 @@ The style form system implements a comprehensive multi-tab form wizard for creat
   - Watch values for dependent fields (category → subCategory)
   - Controller components for complex inputs (Select, MultiSelect)
 
-- **Image Upload Flow (Creation Mode):**
-  1. User selects images → Files stored locally with blob URLs
-  2. Form submits → Style created with empty images array
-  3. Style ID received → Upload pending files to R2
-  4. R2 URLs returned → Update style with image URLs
+- **Image Upload Flow:**
+  - **Creation Mode:**
+    1. User selects images → Files stored locally with blob URLs
+    2. Form submits → Filter blob URLs → Style created with empty images array
+    3. Style ID received → Upload pending files to R2
+    4. R2 URLs returned → Update style with image URLs
+  - **Edit Mode (Standard Pattern - Matches Sub-Categories):**
+    1. User selects images → ImageUpload automatically uploads to R2 (entityId provided)
+    2. ImageUpload calls `onChange` with R2 URLs → Form state updated with R2 URLs
+    3. Form submits → Pass images as-is (no filtering needed - ImageUpload already handled uploads)
+    4. API saves R2 URLs directly
+  - **Key Principle**: When `entityId` is provided, trust ImageUpload to handle uploads - don't filter blob URLs
 
 - **Material Selection:**
   - General materials: Stored in `materialSet.defaults` as objects with `materialId`
@@ -707,7 +728,19 @@ src/
 - ✅ Material Database: 100% (schema, API, UI complete)
 - ✅ Material Categories & Types: 100% (admin management)
 - ⏳ Product Catalog: Not started
-- ⏳ Supplier Management: Not started
+- ✅ Supplier Architecture: Updated (January 2025) - Suppliers are Organizations, materials linked via organizationId
+
+#### ✅ Architectural Change: Supplier Model Removal (January 2025)
+- [x] **Removed Supplier model** from Prisma schema - suppliers are now Organizations
+- [x] **Removed `supplierId`** from Material `Availability` type
+- [x] **Removed `supplierId`** from Style `MaterialDefault` type
+- [x] **Updated validation schemas** - removed supplierId from material and style validations
+- [x] **Updated API routes** - removed supplierId handling from style creation/update
+- [x] **Updated StyleForm component** - removed supplierId from form handling
+- [x] **Updated hooks/types** - removed supplierId from Material and Style interfaces
+- [x] **Removed supplierPortal feature flag** from OrganizationSettings
+- [x] **Updated RBAC** - removed supplier:read and supplier:write permissions (kept supplier role)
+- [x] **New Logic**: Materials are linked to organizations via `organizationId`. The organization that owns a material IS the supplier.
 
 ### Phase 4: Budget Management (Upcoming)
 - ⏳ Not started
@@ -865,6 +898,7 @@ src/
 - Real-time updates via React Query (30s auto-refetch)
 - Edit operations use drawer for better UX (no navigation)
 - Collapsible form sections for optional data (budget, timeline)
+- **Suppliers are Organizations** - No separate Supplier model. Materials linked to organizations via `organizationId`. The organization that owns a material is the supplier. (January 2025)
 
 ---
 

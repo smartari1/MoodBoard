@@ -257,6 +257,80 @@ export const useUIStore = create<UIStore>((set) => ({
 }))
 ```
 
+#### Image Upload Pattern (CRITICAL - Standard Pattern)
+The MoodB codebase uses a consistent image upload pattern across all entities (Styles, Sub-Categories, etc.). **ALWAYS** follow this pattern:
+
+**Standard Pattern:**
+- **Edit Mode** (entity exists): Pass `entityId` to ImageUpload → Images upload immediately → Trust URLs (don't filter)
+- **Create Mode** (entity doesn't exist): No `entityId` → Track pending files → Filter blob URLs → Upload after creation
+
+```typescript
+// ✅ Good - Edit Mode Image Upload
+<Controller
+  name="images"
+  control={control}
+  render={({ field }) => (
+    <ImageUpload
+      value={field.value || []}
+      onChange={(images) => {
+        field.onChange(images)
+        setValue('images', images)
+      }}
+      entityType="style"
+      entityId={mode === 'edit' ? initialData?.id : ''} // Critical: entityId triggers immediate upload
+      maxImages={20}
+      multiple
+    />
+  )}
+/>
+
+// ✅ Good - Form Submission (Edit Mode)
+const onSubmit = async (data: UpdateStyle) => {
+  // In edit mode, ImageUpload already uploaded images, so pass as-is
+  // DON'T filter blob URLs - ImageUpload replaced them with R2 URLs
+  await updateMutation.mutateAsync({ 
+    id: styleId, 
+    data: {
+      ...data,
+      images: data.images || [], // Trust ImageUpload - no filtering needed
+    }
+  })
+}
+
+// ✅ Good - Form Submission (Create Mode)
+const onSubmit = async (data: CreateStyle) => {
+  // In create mode, filter blob URLs (they'll be uploaded after creation)
+  const cleanedData = {
+    ...data,
+    images: (data.images || []).filter((url) => {
+      if (typeof url !== 'string') return false
+      if (url.startsWith('blob:')) return false // Filter blob URLs
+      return url.startsWith('http://') || url.startsWith('https://')
+    }),
+  }
+  
+  const result = await createMutation.mutateAsync(cleanedData)
+  
+  // Upload pending files after creation
+  if (pendingFiles.length > 0 && result.id) {
+    const uploadedUrls = await Promise.all(
+      pendingFiles.map(file => uploadImage({ file, entityType: 'style', entityId: result.id }))
+    )
+    await updateMutation.mutateAsync({ 
+      id: result.id, 
+      data: { images: uploadedUrls } 
+    })
+  }
+}
+```
+
+**Key Principles:**
+1. **When `entityId` is provided**: ImageUpload handles uploads automatically - trust it, don't filter
+2. **When `entityId` is empty**: Track pending files, filter blob URLs on submit, upload after creation
+3. **Never filter blob URLs in edit mode** - ImageUpload already replaced them with R2 URLs
+4. **Always filter blob URLs in create mode** - They're temporary preview URLs
+5. **Reference Implementation**: See `src/app/[locale]/admin/sub-categories/[id]/edit/page.tsx` for the working pattern
+
 ### 4. RTL & Internationalization
 
 #### RTL Support
@@ -442,7 +516,20 @@ describe('ProjectService', () => {
 })
 ```
 
-### 8. Error Handling
+### 8. Image Upload Standards
+
+#### ImageUpload Component Usage
+- **ALWAYS** use the standard ImageUpload pattern for consistency
+- **EDIT MODE**: Provide `entityId` → ImageUpload uploads immediately → Pass URLs as-is to API
+- **CREATE MODE**: No `entityId` → Track pending files → Filter blob URLs → Upload after creation
+- **NEVER** filter blob URLs in edit mode - ImageUpload already handles uploads
+- **ALWAYS** filter blob URLs in create mode before API submission
+
+**Reference Implementations:**
+- Working example: `src/app/[locale]/admin/sub-categories/[id]/edit/page.tsx`
+- Styles implementation: `src/components/features/style-engine/StyleForm.tsx`
+
+### 9. Error Handling
 
 #### Error Management
 - **ALWAYS** use try-catch in async functions
@@ -497,7 +584,7 @@ export const handleError = (error: unknown): Response => {
 }
 ```
 
-### 9. Git & Development Workflow
+### 10. Git & Development Workflow
 
 #### Commit Standards
 ```bash
@@ -528,7 +615,7 @@ release/v1.2.0
 - **ENSURE** all tests pass
 - **REQUEST** review from relevant team members
 
-### 10. Documentation Standards
+### 11. Documentation Standards
 
 #### Code Documentation
 ```typescript

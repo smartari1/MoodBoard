@@ -12,7 +12,7 @@ import { useImageUpload } from '@/hooks/useImageUpload'
 import { useMaterials } from '@/hooks/useMaterials'
 import { ROOM_TYPES } from '@/lib/validations/room'
 import {
-  createStyleSchema,
+  createStyleFormSchema,
   updateStyleSchema,
   type CreateStyle,
   type UpdateStyle,
@@ -76,6 +76,7 @@ export function StyleForm({
   const [activeTab, setActiveTab] = useState<string | null>('basic')
   const [validationErrors, setValidationErrors] = useState<string[]>([])
   const formRef = useRef<HTMLFormElement>(null)
+  const roomProfilesSyncedRef = useRef<string | null>(null) // Track which style ID we've synced
   
   // Track pending files for creation mode (will be uploaded to R2 after style creation)
   const [pendingStyleImages, setPendingStyleImages] = useState<File[]>([])
@@ -110,7 +111,7 @@ export function StyleForm({
     reset,
   } = useForm<CreateStyle | UpdateStyle>({
     // @ts-expect-error - zodResolver type issue with nested schemas
-    resolver: zodResolver(mode === 'create' ? createStyleSchema : updateStyleSchema),
+    resolver: zodResolver(mode === 'create' ? createStyleFormSchema : updateStyleSchema),
     mode: 'onChange',
     defaultValues: {
       name: {
@@ -162,17 +163,12 @@ export function StyleForm({
             if (typeof item === 'object' && item.materialId) {
               return {
                 materialId: item.materialId,
-                usageArea: item.usageArea || '',
-                defaultFinish: item.defaultFinish || '',
-                supplierId: item.supplierId || '',
               }
             }
             // If it's just a string ID, convert to object
             if (typeof item === 'string') {
               return {
                 materialId: item,
-                usageArea: '',
-                defaultFinish: '',
               }
             }
             return item
@@ -288,10 +284,51 @@ export function StyleForm({
     fields: roomProfileFields,
     append: appendRoomProfile,
     remove: removeRoomProfile,
+    replace: replaceRoomProfiles,
   } = useFieldArray({
     control,
     name: 'roomProfiles',
   })
+
+  // Sync field array when roomProfiles are loaded in edit mode
+  // This ensures the field array is populated even if reset() doesn't trigger it properly
+  useEffect(() => {
+    if (mode === 'edit' && initialData?.id && initialData?.roomProfiles && Array.isArray(initialData.roomProfiles)) {
+      const styleId = initialData.id
+      
+      // Only sync once per style ID to avoid infinite loops
+      if (roomProfilesSyncedRef.current === styleId) {
+        return
+      }
+      
+      const normalizedRoomProfiles = initialData.roomProfiles.map((profile: any) => ({
+        roomType: profile.roomType || '',
+        materials: Array.isArray(profile.materials) ? profile.materials : [],
+        images: Array.isArray(profile.images) 
+          ? profile.images.filter((url: string) => !url.startsWith('blob:'))
+          : [],
+        constraints: profile.constraints || null,
+      }))
+      
+      // Only replace if field array is empty or length doesn't match
+      if (roomProfileFields.length !== normalizedRoomProfiles.length) {
+        console.log('Syncing roomProfiles field array:', {
+          styleId,
+          currentLength: roomProfileFields.length,
+          expectedLength: normalizedRoomProfiles.length,
+          normalizedRoomProfiles,
+        })
+        replaceRoomProfiles(normalizedRoomProfiles)
+        roomProfilesSyncedRef.current = styleId
+      } else if (normalizedRoomProfiles.length > 0) {
+        // Mark as synced even if lengths match (data should be synced via reset)
+        roomProfilesSyncedRef.current = styleId
+      }
+    } else if (mode === 'create') {
+      // Reset sync ref when switching to create mode
+      roomProfilesSyncedRef.current = null
+    }
+  }, [mode, initialData?.id, initialData?.roomProfiles, replaceRoomProfiles, roomProfileFields.length])
 
   // Get available room types
   const availableRoomTypes = useMemo(() => {
@@ -431,19 +468,20 @@ export function StyleForm({
           : undefined,
       }
 
-      // Ensure proper defaults and handle blob URLs based on mode
-      // In create mode, keep blob URLs - they'll be uploaded to R2 after style creation
-      // In edit mode, filter out blob URLs as they should have been uploaded immediately
+      // Handle images based on mode
+      // In edit mode: ImageUpload uploads immediately when entityId is provided, so we can trust the URLs
+      // In create mode: Filter blob URLs (they'll be uploaded after creation)
       cleanedData = {
         ...cleanedData,
-        // Ensure images is an array
-        images: mode === 'create' 
-          ? (cleanedData.images || []) // Keep all URLs including blobs for create
+        // In edit mode, ImageUpload handles uploads automatically, so just pass the images as-is
+        // In create mode, filter out blob URLs (they'll be uploaded after style creation)
+        images: mode === 'edit' 
+          ? (cleanedData.images || []) // Trust ImageUpload to have uploaded them already
           : (cleanedData.images || []).filter((url) => {
-              // For edit mode, filter out blob URLs
               if (typeof url !== 'string') return false
+              // In create mode, filter out blob URLs - they'll be uploaded after creation
               if (url.startsWith('blob:')) return false
-              // Only keep valid HTTP/HTTPS URLs
+              // Only keep valid HTTP/HTTPS URLs (R2 URLs)
               try {
                 new URL(url)
                 return url.startsWith('http://') || url.startsWith('https://')
@@ -460,25 +498,9 @@ export function StyleForm({
                   if (!d || !d.materialId || typeof d.materialId !== 'string') return false
                   return /^[0-9a-fA-F]{24}$/.test(d.materialId)
                 })
-                .map((d: any) => {
-                  const result: any = {
-                    materialId: d.materialId,
-                  }
-                  // Only include optional fields if they have values
-                  if (d.usageArea && typeof d.usageArea === 'string' && d.usageArea.trim()) {
-                    result.usageArea = d.usageArea.trim()
-                  }
-                  if (d.defaultFinish && typeof d.defaultFinish === 'string' && d.defaultFinish.trim()) {
-                    result.defaultFinish = d.defaultFinish.trim()
-                  }
-                  // supplierId can be a valid ObjectID or empty string per schema
-                  if (d.supplierId) {
-                    if (d.supplierId === '' || /^[0-9a-fA-F]{24}$/.test(d.supplierId)) {
-                      result.supplierId = d.supplierId
-                    }
-                  }
-                  return result
-                })
+                .map((d: any) => ({
+                  materialId: d.materialId,
+                }))
             : [],
           alternatives: Array.isArray(cleanedData.materialSet?.alternatives)
             ? cleanedData.materialSet.alternatives
@@ -502,55 +524,77 @@ export function StyleForm({
         // Ensure roomProfiles is an array with proper structure and valid ObjectIDs
         roomProfiles: (cleanedData.roomProfiles || []).map((profile) => ({
           roomType: profile.roomType,
-          materials: Array.isArray(profile.materials) 
-            ? profile.materials.filter((id: string) => 
+          materials: Array.isArray(profile.materials)
+            ? profile.materials.filter((id: string) =>
                 typeof id === 'string' && /^[0-9a-fA-F]{24}$/.test(id)
               )
             : [],
-          images: (profile.images || []).filter((url) => {
-            // Filter out blob URLs and invalid URLs
-            if (typeof url !== 'string') return false
-            if (url.startsWith('blob:')) return false
-            // Only keep valid HTTP/HTTPS URLs
-            try {
-              new URL(url)
-              return url.startsWith('http://') || url.startsWith('https://')
-            } catch {
-              return false
-            }
-          }),
+          // In edit mode, ImageUpload handles uploads automatically, so trust the URLs
+          // In create mode, filter blob URLs (they'll be uploaded after creation)
+          images: mode === 'edit'
+            ? (profile.images || []) // Trust ImageUpload to have uploaded them already
+            : (profile.images || []).filter((url) => {
+                if (typeof url !== 'string') return false
+                // In create mode, filter out blob URLs - they'll be uploaded after creation
+                if (url.startsWith('blob:')) return false
+                // Only keep valid HTTP/HTTPS URLs (R2 URLs)
+                try {
+                  new URL(url)
+                  return url.startsWith('http://') || url.startsWith('https://')
+                } catch {
+                  return false
+                }
+              }),
           constraints: profile.constraints || null,
         })),
       }
 
-      console.log('Submitting cleaned data:', {
+      console.log('========== [STYLE FORM] SUBMITTING DATA ==========')
+      console.log('[STYLE FORM] Mode:', mode)
+      console.log('[STYLE FORM] Cleaned data summary:', {
         name: cleanedData.name,
         categoryId: cleanedData.categoryId,
         subCategoryId: cleanedData.subCategoryId,
         colorId: cleanedData.colorId,
         slug: cleanedData.slug,
+        imagesCount: cleanedData.images?.length || 0,
         images: cleanedData.images,
-        materialSet: cleanedData.materialSet,
+        materialSet: {
+          defaultsCount: cleanedData.materialSet?.defaults?.length || 0,
+          alternativesCount: cleanedData.materialSet?.alternatives?.length || 0,
+        },
+        roomProfilesCount: cleanedData.roomProfiles?.length || 0,
         roomProfiles: cleanedData.roomProfiles?.map((rp) => ({
           roomType: rp.roomType,
+          materialsCount: rp.materials?.length || 0,
           materials: rp.materials,
+          imagesCount: rp.images?.length || 0,
           images: rp.images,
         })),
         metadata: cleanedData.metadata,
       })
+
+      console.log('[STYLE FORM] Full cleaned data (JSON):', JSON.stringify(cleanedData, null, 2))
 
       // Submit style (create or update) - this returns the created/updated style
       console.log('[STYLE FORM] Calling onSubmit with cleaned data...')
       let result
       try {
         result = await onSubmit(cleanedData)
-        console.log('[STYLE FORM] onSubmit succeeded:', result)
+        console.log('[STYLE FORM] ✅ onSubmit succeeded')
+        console.log('[STYLE FORM] Result:', result)
       } catch (submitError) {
-        console.error('[STYLE FORM] onSubmit failed:', submitError)
+        console.error('[STYLE FORM] ========== SUBMIT ERROR ==========')
+        console.error('[STYLE FORM] Error:', submitError)
         if (submitError instanceof Error) {
-          console.error('[STYLE FORM] Submit error message:', submitError.message)
-          console.error('[STYLE FORM] Submit error stack:', submitError.stack)
+          console.error('[STYLE FORM] Name:', submitError.name)
+          console.error('[STYLE FORM] Message:', submitError.message)
+          console.error('[STYLE FORM] Stack:', submitError.stack)
         }
+        if (submitError && typeof submitError === 'object') {
+          console.error('[STYLE FORM] Error object keys:', Object.keys(submitError))
+        }
+        console.error('[STYLE FORM] ===========================================')
         throw submitError
       }
       
@@ -614,13 +658,18 @@ export function StyleForm({
           })
           
           // Build updated room profiles with uploaded images
-          const updatedRoomProfiles = (result as any).roomProfiles?.map((profile: any, index: number) => {
+          // Use original data.roomProfiles to preserve full structure (materials, constraints, etc.)
+          const updatedRoomProfiles = (data.roomProfiles || []).map((profile: any, index: number) => {
             const uploadedUrls = uploadedRoomImageUrls.get(index) || []
+            // Get existing images from result if available, otherwise use submitted images
+            const existingImages = (result as any).roomProfiles?.[index]?.images || profile.images || []
             return {
-              ...profile,
-              images: [...(profile.images || []), ...uploadedUrls],
+              roomType: profile.roomType,
+              materials: profile.materials || [],
+              images: [...existingImages.filter((url: string) => !url.startsWith('blob:')), ...uploadedUrls],
+              constraints: profile.constraints || null,
             }
-          }) || []
+          })
           
           // Update style with uploaded image URLs
           try {
@@ -634,12 +683,31 @@ export function StyleForm({
             })
             
             if (!updateResponse.ok) {
-              console.error('Failed to update style with uploaded images')
+              const errorText = await updateResponse.text()
+              console.error('Failed to update style with uploaded images:', {
+                status: updateResponse.status,
+                statusText: updateResponse.statusText,
+                error: errorText,
+              })
             } else {
-              console.log('Style updated with uploaded R2 image URLs')
+              const updatedStyle = await updateResponse.json()
+              console.log('Style updated with uploaded R2 image URLs:', {
+                styleId: updatedStyle.id,
+                imagesCount: updatedStyle.images?.length || 0,
+                roomProfilesCount: updatedStyle.roomProfiles?.length || 0,
+                roomProfiles: updatedStyle.roomProfiles?.map((rp: any) => ({
+                  roomType: rp.roomType,
+                  imagesCount: rp.images?.length || 0,
+                  materialsCount: rp.materials?.length || 0,
+                })),
+              })
             }
           } catch (updateError) {
             console.error('Error updating style with uploaded images:', updateError)
+            if (updateError instanceof Error) {
+              console.error('Update error message:', updateError.message)
+              console.error('Update error stack:', updateError.stack)
+            }
           }
         }
       }
@@ -983,7 +1051,6 @@ export function StyleForm({
                           onChange={(ids) => {
                             const defaults = ids.map((id) => ({
                               materialId: id,
-                              // usageArea and defaultFinish are optional for general materials
                             }))
                             onChange(defaults)
                           }}

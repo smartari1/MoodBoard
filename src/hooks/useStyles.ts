@@ -54,9 +54,6 @@ export interface Style {
   materialSet: {
     defaults: Array<{
       materialId: string
-      usageArea: string
-      defaultFinish?: string
-      supplierId?: string
     }>
     alternatives?: Array<{
       usageArea: string
@@ -479,14 +476,129 @@ export function useUpdateAdminStyle() {
 
   return useMutation({
     mutationFn: async ({ id, data }: { id: string; data: UpdateStyle }) => {
+      console.log('[UPDATE STYLE HOOK] ========== START UPDATE ==========')
+      console.log('[UPDATE STYLE HOOK] Style ID:', id)
+      console.log('[UPDATE STYLE HOOK] Is Admin:', isAdmin)
+
+      if (!isAdmin) {
+        console.error('[UPDATE STYLE HOOK] ERROR: User is not admin')
+        throw new Error('Admin access required')
+      }
+
+      console.log('[UPDATE STYLE HOOK] Update data summary:', {
+        name: data.name,
+        categoryId: data.categoryId,
+        subCategoryId: data.subCategoryId,
+        colorId: data.colorId,
+        slug: data.slug,
+        imagesCount: data.images?.length,
+        images: data.images,
+        roomProfilesCount: data.roomProfiles?.length,
+        roomProfiles: data.roomProfiles?.map((rp: any) => ({
+          roomType: rp.roomType,
+          materialsCount: rp.materials?.length,
+          imagesCount: rp.images?.length,
+          images: rp.images,
+        })),
+      })
+      console.log('[UPDATE STYLE HOOK] Full update data:', JSON.stringify(data, null, 2))
+
+      const url = `/api/admin/styles/${id}`
+      console.log('[UPDATE STYLE HOOK] Request URL:', url)
+      console.log('[UPDATE STYLE HOOK] Sending PATCH request...')
+
+      let response
+      try {
+        response = await fetch(url, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data),
+        })
+        console.log('[UPDATE STYLE HOOK] Response status:', response.status, response.statusText)
+      } catch (fetchError) {
+        console.error('[UPDATE STYLE HOOK] ========== FETCH ERROR ==========')
+        console.error('[UPDATE STYLE HOOK] Error:', fetchError)
+        if (fetchError instanceof Error) {
+          console.error('[UPDATE STYLE HOOK] Message:', fetchError.message)
+          console.error('[UPDATE STYLE HOOK] Stack:', fetchError.stack)
+        }
+        console.error('[UPDATE STYLE HOOK] ===================================')
+        throw fetchError
+      }
+
+      if (!response.ok) {
+        console.error('[UPDATE STYLE HOOK] ========== RESPONSE ERROR ==========')
+        console.error('[UPDATE STYLE HOOK] Status:', response.status, response.statusText)
+
+        if (response.status === 403) {
+          console.error('[UPDATE STYLE HOOK] ERROR: Admin access required')
+          throw new Error('Admin access required')
+        }
+
+        let errorData
+        try {
+          errorData = await response.json()
+          console.error('[UPDATE STYLE HOOK] Error response:', JSON.stringify(errorData, null, 2))
+        } catch (jsonError) {
+          console.error('[UPDATE STYLE HOOK] Could not parse error response as JSON')
+          const textError = await response.text()
+          console.error('[UPDATE STYLE HOOK] Error response (text):', textError)
+        }
+
+        console.error('[UPDATE STYLE HOOK] =====================================')
+        throw new Error(errorData?.error || 'Failed to update global style')
+      }
+
+      console.log('[UPDATE STYLE HOOK] ✅ Update successful, parsing response...')
+      let result
+      try {
+        result = await response.json()
+        console.log('[UPDATE STYLE HOOK] Response data:', {
+          id: result.id,
+          name: result.name,
+          imagesCount: result.images?.length,
+          roomProfilesCount: result.roomProfiles?.length,
+        })
+        console.log('[UPDATE STYLE HOOK] Full response:', JSON.stringify(result, null, 2))
+      } catch (jsonError) {
+        console.error('[UPDATE STYLE HOOK] ERROR parsing response JSON:', jsonError)
+        throw jsonError
+      }
+
+      console.log('[UPDATE STYLE HOOK] ========== END UPDATE ==========')
+      return result
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [ADMIN_STYLES_QUERY_KEY] })
+      queryClient.invalidateQueries({ queryKey: [STYLES_QUERY_KEY] })
+    },
+    onError: (error: any) => {
+      if (error?.message?.includes('Admin access') || error?.status === 403) {
+        const locale = window.location.pathname.split('/')[1] || 'he'
+        router.push(`/${locale}/dashboard`)
+      }
+    },
+  })
+}
+
+/**
+ * Hook to delete admin global style
+ * Protected: Only works for admin users
+ */
+export function useDeleteAdminStyle() {
+  const queryClient = useQueryClient()
+  const { data: session } = useSession()
+  const router = useRouter()
+  const isAdmin = session?.user?.role === 'admin'
+
+  return useMutation({
+    mutationFn: async (id: string) => {
       if (!isAdmin) {
         throw new Error('Admin access required')
       }
 
       const response = await fetch(`/api/admin/styles/${id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
+        method: 'DELETE',
       })
 
       if (!response.ok) {
@@ -494,10 +606,10 @@ export function useUpdateAdminStyle() {
           throw new Error('Admin access required')
         }
         const error = await response.json()
-        throw new Error(error.error || 'Failed to update global style')
+        throw new Error(error.error || 'Failed to delete style')
       }
 
-      return response.json()
+      return id
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [ADMIN_STYLES_QUERY_KEY] })

@@ -41,8 +41,13 @@
 - [x] Set up Cloudflare R2 bucket
 - [x] Configure Cloudflare CDN
 - [x] Environment variables configured for R2
+- [x] **Image Upload Pattern Established** ✅ (January 2025)
+  - Standard pattern implemented and documented
+  - Edit mode: Immediate upload when entityId provided
+  - Create mode: Deferred upload after entity creation
+  - Reference implementations: Sub-Categories, Styles
 - [ ] Implement signed URL generation (NEXT: Implementation)
-- [ ] Create upload API endpoints (NEXT: Implementation)
+- [x] Create upload API endpoints ✅ (`/api/upload`)
 - [ ] Set up image optimization pipeline (NEXT: Implementation)
 - [ ] Configure CORS policies (NEXT: Implementation)
 
@@ -362,15 +367,18 @@
 - [ ] Implement product recommendations
 - [ ] Add product availability status
 
-### Supplier Management
-- [ ] Create Supplier schema and model
-- [ ] Build supplier profile pages
-- [ ] Implement supplier catalog links
-- [ ] Add lead time management
-- [ ] Create discount tier system
-- [ ] Build supplier contact management
-- [ ] Implement SLA tracking
-- [ ] Add supplier rating system
+### Supplier Management ✅ ARCHITECTURE UPDATED (January 2025)
+- [x] **Architecture Change**: Suppliers are Organizations - no separate Supplier model
+- [x] Materials linked to organizations via `organizationId`
+- [x] Removed `supplierId` from Material and Product schemas
+- [x] Removed Supplier model from Prisma schema
+- [ ] Build supplier organization profile pages (using Organization model)
+- [ ] Implement supplier catalog links (using organization materials)
+- [ ] Add lead time management (in Material availability)
+- [ ] Create discount tier system (in Material pricing)
+- [ ] Build supplier contact management (using Organization settings)
+- [ ] Implement SLA tracking (future enhancement)
+- [ ] Add supplier rating system (future enhancement)
 
 ### Catalog UI Components
 - [ ] Material card with variants
@@ -378,7 +386,7 @@
 - [ ] Material comparison table
 - [ ] Product card component
 - [ ] Product gallery viewer
-- [ ] Supplier profile card
+- [ ] Supplier organization profile card (using Organization model)
 - [ ] Price calculator component
 - [ ] Availability indicator
 
@@ -437,7 +445,7 @@
 ### Financial Reports
 - [ ] Create budget summary report
 - [ ] Build detailed cost breakdown
-- [ ] Implement supplier-wise report
+- [ ] Implement supplier-wise report (grouped by organizationId)
 - [ ] Add material usage report
 - [ ] Create project profitability analysis
 - [ ] Build payment schedule generator
@@ -513,7 +521,7 @@
 - [ ] Style search functionality
 - [ ] Project search
 - [ ] Client search
-- [ ] Supplier search
+- [ ] Supplier organization search (search organizations by role/supplier materials)
 - [ ] Global search bar
 - [ ] Advanced search page
 - [ ] Search history
@@ -621,7 +629,11 @@
 - [ ] Video tutorials
 - [ ] FAQ section
 - [ ] Feature guides
-- [ ] Best practices guide
+- [x] **Image Upload Best Practices** ✅ Documented (January 2025)
+  - Standard pattern: Edit mode (immediate) vs Create mode (deferred)
+  - Documentation in CLAUDE.md, technical-plan.md, progress.md
+  - Reference: Sub-Categories implementation (`src/app/[locale]/admin/sub-categories/[id]/edit/page.tsx`)
+- [ ] General best practices guide
 - [ ] Keyboard shortcuts guide
 
 ### Developer Documentation
@@ -694,7 +706,7 @@
 - [ ] 3D room visualization
 - [ ] AR material preview
 - [ ] Virtual staging
-- [ ] Supplier marketplace
+- [ ] Supplier organization marketplace (using Organization model)
 - [ ] Designer collaboration tools
 - [ ] Advanced reporting
 - [ ] White-label options

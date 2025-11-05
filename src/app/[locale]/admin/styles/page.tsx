@@ -11,7 +11,7 @@ import { useTranslations } from 'next-intl'
 import { useRouter, useParams } from 'next/navigation'
 import { IconPlus, IconSearch, IconDots, IconEdit, IconTrash, IconEye } from '@tabler/icons-react'
 import { MoodBButton, MoodBCard, MoodBTable, MoodBTableHead, MoodBTableBody, MoodBTableRow, MoodBTableHeader, MoodBTableCell, MoodBBadge, EmptyState, LoadingState, ErrorState, ConfirmDialog } from '@/components/ui'
-import { useAdminStyles, useDeleteStyle } from '@/hooks/useStyles'
+import { useAdminStyles, useDeleteAdminStyle } from '@/hooks/useStyles'
 import { useCategories, useSubCategories } from '@/hooks/useCategories'
 import Link from 'next/link'
 
@@ -46,7 +46,7 @@ export default function AdminStylesPage() {
   })
 
   // Delete mutation
-  const deleteMutation = useDeleteStyle()
+  const deleteMutation = useDeleteAdminStyle()
 
   const handleDelete = async () => {
     if (!deleteStyleId) return
