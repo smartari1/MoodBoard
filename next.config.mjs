@@ -4,10 +4,6 @@ import createNextIntlPlugin from 'next-intl/plugin'
 const withNextIntl = createNextIntlPlugin('./src/i18n/request.ts')
 
 /** @type {import('next').NextConfig} */
-// Force disable turbopack
-process.env.TURBOPACK = '0'
-process.env.NEXT_PRIVATE_SKIP_TURBOPACK = '1'
-
 const nextConfig = {
   // Required for next-intl to properly resolve config in Next.js 14.2
   experimental: {
