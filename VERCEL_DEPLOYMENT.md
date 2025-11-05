@@ -93,7 +93,7 @@ DATABASE_URL="mongodb+srv://user:pass@cluster.mongodb.net/moodb?retryWrites=true
 
 The project is configured with:
 
-- **Build Command**: `pnpm build` (includes Prisma generate)
+- **Build Command**: `pnpm build`
 - **Install Command**: `pnpm install`
 - **Output Directory**: `.next` (default for Next.js)
 
@@ -101,9 +101,28 @@ The project is configured with:
 
 Prisma client is automatically generated during:
 1. `postinstall` script (runs after `pnpm install`)
-2. `build` script (before Next.js build)
 
-This ensures Prisma client is always available in serverless functions.
+**Important**: Prisma generation happens in `postinstall`, NOT in the build script. This ensures:
+- Prisma client is cached properly by Vercel
+- Build process is faster and more reliable
+- No duplicate generation attempts
+
+### Build Optimizations
+
+The project includes several build optimizations:
+
+1. **Memory Allocation**: Set via `NODE_OPTIONS` in `vercel.json` build environment (6144 MB)
+2. **Prisma Caching**: Vercel automatically caches `node_modules/.prisma` between builds
+3. **TypeScript**: Uses `skipLibCheck: true` for faster compilation
+4. **Bundle Optimization**: Source maps disabled in production, optimized imports for Mantine
+
+### Environment Variables for Build
+
+These are set in `vercel.json`:
+- `NODE_OPTIONS`: `--max-old-space-size=6144` (increases memory for build)
+- `NEXT_TELEMETRY_DISABLED`: `1` (disables Next.js telemetry)
+
+**Note**: You can also set `NODE_OPTIONS` in Vercel Dashboard → Settings → Environment Variables for all environments if needed.
 
 ## Serverless Function Configuration
 
@@ -193,24 +212,47 @@ vercel logs [deployment-url]
 
 ### Common Issues
 
-1. **Prisma Client Not Found**
+1. **Infinite Build Times / Build Crashes**
+   - **Root Cause**: Usually memory exhaustion or Prisma generation issues
+   - **Solution**: 
+     - Verify `NODE_OPTIONS` is set in `vercel.json` build.env (should be `--max-old-space-size=6144`)
+     - Clear build cache: Deploy → Settings → Clear build cache
+     - Check build logs for memory errors (OOM - Out of Memory)
+     - Ensure Prisma generates only in `postinstall`, not in build script
+   - **If persists**: Consider upgrading to Vercel Pro plan for more resources
+
+2. **Prisma Client Not Found**
    - Ensure `postinstall` script runs: `"postinstall": "prisma generate"`
    - Check build logs for Prisma generation
+   - Verify Prisma is in `dependencies`, not `devDependencies`
+   - Clear build cache and redeploy
 
-2. **Database Connection Errors**
-   - Verify MongoDB Atlas IP whitelist includes Vercel IPs
+3. **Database Connection Errors**
+   - Verify MongoDB Atlas IP whitelist includes Vercel IPs (0.0.0.0/0 for production)
    - Check connection string format
-   - Ensure `maxPoolSize` is set appropriately
+   - Ensure `maxPoolSize=10` is in connection string
+   - Verify database is not paused or sleeping
 
-3. **Environment Variables Not Loading**
+4. **Environment Variables Not Loading**
    - Verify variables are set for correct environment (Production/Preview/Development)
    - Restart deployment after adding variables
    - Check variable names match exactly (case-sensitive)
+   - Ensure sensitive variables are not in `vercel.json` (use Dashboard instead)
 
-4. **Build Failures**
-   - Check build logs in Vercel Dashboard
+5. **Build Failures**
+   - Check build logs in Vercel Dashboard for specific errors
    - Ensure all dependencies are in `dependencies` (not `devDependencies`)
-   - Verify Node.js version compatibility
+   - Verify Node.js version compatibility (should be auto-detected)
+   - Check for TypeScript errors: `tsc --noEmit` locally
+   - Verify no large files in `node_modules` (check `.gitignore`)
+
+6. **Slow Build Times**
+   - First build is always slower (caching setup)
+   - Subsequent builds should be faster (cached `node_modules` and `.prisma`)
+   - If consistently slow:
+     - Check for unnecessary dependencies
+     - Verify `skipLibCheck: true` in `tsconfig.json`
+     - Consider using Vercel Pro for faster builds
 
 ## Performance Optimization
 

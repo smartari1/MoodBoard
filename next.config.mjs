@@ -16,7 +16,6 @@ const nextConfig = {
   experimental: {
     optimizePackageImports: ['@mantine/core', '@mantine/hooks', '@tabler/icons-react'],
     optimizeCss: true,
-    turbo: false, // Disable Turbopack for production builds - use webpack for stability
   },
   
   // Images
@@ -90,6 +89,13 @@ const nextConfig = {
   generateBuildId: async () => {
     return process.env.VERCEL_GIT_COMMIT_SHA || 'development'
   },
+  
+  // TypeScript optimization
+  typescript: {
+    // Don't run type checking during build (Vercel runs it separately)
+    ignoreBuildErrors: false,
+  },
+  
 }
 
 export default withNextIntl(nextConfig)
