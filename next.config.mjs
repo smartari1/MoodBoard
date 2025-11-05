@@ -1,10 +1,9 @@
 import createNextIntlPlugin from 'next-intl/plugin'
 
-const withNextIntl = createNextIntlPlugin()
+// Explicitly specify the i18n config file path for Vercel compatibility
+const withNextIntl = createNextIntlPlugin('./i18n.ts')
 
 /** @type {import('next').NextConfig} */
-const isVercel = process.env.VERCEL === '1' || process.env.VERCEL_BUILD === '1'
-
 // Force disable turbopack
 process.env.TURBOPACK = '0'
 process.env.NEXT_PRIVATE_SKIP_TURBOPACK = '1'
