@@ -1,21 +1,23 @@
 #!/usr/bin/env node
 
-// Force disable turbopack
-process.env.TURBOPACK = '0';
-process.env.NEXT_PRIVATE_SKIP_TURBOPACK = '1';
+// Force disable turbopack by removing the env vars entirely
+delete process.env.TURBOPACK;
+delete process.env.NEXT_PRIVATE_SKIP_TURBOPACK;
 delete process.env.TURBO;
 
 // Run next build
 const { execSync } = require('child_process');
 
 try {
-  execSync('next build', { 
+  const env = { ...process.env };
+  // Ensure turbopack vars are not present
+  delete env.TURBOPACK;
+  delete env.NEXT_PRIVATE_SKIP_TURBOPACK;
+  delete env.TURBO;
+
+  execSync('next build', {
     stdio: 'inherit',
-    env: {
-      ...process.env,
-      TURBOPACK: '0',
-      NEXT_PRIVATE_SKIP_TURBOPACK: '1'
-    }
+    env
   });
 } catch (error) {
   process.exit(1);
