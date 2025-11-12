@@ -481,8 +481,7 @@ model Style {
 
   images String[] @default([]) // Array of R2 image URLs
 
-  materialSet  MaterialSet
-  roomProfiles RoomProfile[]
+  approaches Approach[]
 
   metadata StyleMetadata
 
@@ -527,6 +526,38 @@ type RoomConstraint {
   waterResistance Boolean?
   durability      Int? // 1-10
   maintenance     Int? // 1-10
+}
+
+model Approach {
+  id       String @id @default(auto()) @map("_id") @db.ObjectId
+  styleId  String @db.ObjectId
+  style    Style  @relation(fields: [styleId], references: [id], onDelete: Cascade)
+
+  slug  String
+  name  LocalizedString
+  order Int    @default(0)
+
+  description LocalizedString?
+  images      String[] @default([])
+
+  materialSet  MaterialSet?
+  roomProfiles RoomProfile[]
+
+  metadata ApproachMetadata
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@unique([styleId, slug])
+  @@index([styleId, order])
+  @@map("approaches")
+}
+
+type ApproachMetadata {
+  isDefault Boolean @default(false)
+  version   String  @default("1.0.0")
+  tags      String[]
+  usage     Int     @default(0)
 }
 
 type StyleMetadata {

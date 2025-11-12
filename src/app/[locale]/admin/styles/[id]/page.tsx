@@ -5,10 +5,10 @@
 
 'use client'
 
-import { Container, Title, Stack, Group, Text, Badge, Tabs, ActionIcon, Paper, Button, SimpleGrid, Image, Box, Divider, Card, Grid, Skeleton } from '@mantine/core'
+import { Container, Title, Stack, Group, Text, Badge, ActionIcon, Paper, Button, SimpleGrid, Image, Box, Divider, Card, Grid, Skeleton } from '@mantine/core'
 import { useTranslations } from 'next-intl'
 import { useParams, useRouter } from 'next/navigation'
-import { IconEdit, IconArrowLeft, IconPalette, IconBox, IconDoor, IconPhoto } from '@tabler/icons-react'
+import { IconEdit, IconArrowLeft, IconDoor, IconPhoto } from '@tabler/icons-react'
 import { MoodBCard, MoodBBadge, LoadingState, ErrorState } from '@/components/ui'
 import { useAdminStyle } from '@/hooks/useStyles'
 import { useMaterial } from '@/hooks/useMaterials'
@@ -383,143 +383,166 @@ export default function AdminStyleDetailPage() {
           </Stack>
         </MoodBCard>
 
-        {/* Tabs */}
-        <Tabs defaultValue="palette">
-          <Tabs.List>
-            <Tabs.Tab value="palette" leftSection={<IconPalette size={16} />}>
-              {t('detail.tabs.palette')}
-            </Tabs.Tab>
-            <Tabs.Tab value="materials" leftSection={<IconBox size={16} />}>
-              {t('detail.tabs.materials')}
-            </Tabs.Tab>
-            <Tabs.Tab value="rooms" leftSection={<IconDoor size={16} />}>
-              {t('detail.tabs.rooms')}
-            </Tabs.Tab>
-          </Tabs.List>
+        <MoodBCard>
+          <Stack gap="lg">
+            <Group justify="space-between">
+              <div>
+                <Title order={3}>{t('detail.approaches.title')}</Title>
+                <Text size="sm" c="dimmed">
+                  {t('detail.approaches.subtitle')}
+                </Text>
+              </div>
+              <Button
+                component={Link}
+                href={`/${locale}/admin/styles/${styleId}/edit?tab=approaches`}
+                variant="light"
+                color="brand"
+              >
+                {t('detail.approaches.manage')}
+              </Button>
+            </Group>
 
-          <Tabs.Panel value="palette" pt="md">
-            <MoodBCard>
+            {style.approaches && style.approaches.length > 0 ? (
               <Stack gap="lg">
-                {style.color ? (
-                  <>
-                    <div>
-                      <Title order={3} mb="md">{t('detail.palette.neutrals')}</Title>
-                      <Card p="xl" withBorder radius="lg" style={{ backgroundColor: '#fafafa' }}>
-                        <Stack gap="lg" align="center">
-                          <Box
-                            style={{
-                              width: 120,
-                              height: 120,
-                              backgroundColor: style.color.hex,
-                              borderRadius: 16,
-                              border: '3px solid #fff',
-                              boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-                            }}
-                          />
-                          <Stack gap="xs" align="center">
-                            <Text size="lg" fw={600}>
-                              {(typeof style.color.name === 'object' ? (style.color.name.he || style.color.name.en) : style.color.name) || 'Color'}
+                {style.approaches.map((approach: any) => (
+                  <MoodBCard key={approach.id}>
+                    <Stack gap="md">
+                      <Group justify="space-between">
+                        <div>
+                          <Title order={4}>{approach.name?.he}</Title>
+                          <Text size="sm" c="dimmed">
+                            {approach.name?.en}
+                          </Text>
+                        </div>
+                        <Group gap="xs">
+                          {approach.metadata?.isDefault && (
+                            <Badge color="green" variant="light">
+                              {t('detail.approaches.default')}
+                            </Badge>
+                          )}
+                          <Badge variant="light">{t('detail.approaches.order', { order: approach.order })}</Badge>
+                          <Button
+                            variant="subtle"
+                            size="xs"
+                            leftSection={<IconEdit size={14} />}
+                            component={Link}
+                            href={`/${locale}/admin/styles/${styleId}/edit?tab=approaches&approachId=${approach.id}`}
+                          >
+                            {tCommon('edit')}
+                          </Button>
+                        </Group>
+                      </Group>
+
+                      {approach.images && approach.images.length > 0 && (
+                        <div>
+                          <Group gap="xs" mb="md">
+                            <IconPhoto size={16} />
+                            <Text fw={500} size="sm" c="dimmed">
+                              {t('detail.images')} ({approach.images.length})
                             </Text>
-                            <Group gap="xs">
-                              <Badge size="lg" variant="light" color="gray">
-                                {style.color.hex}
-                              </Badge>
-                              {style.color.pantone && (
-                                <Badge size="lg" variant="light" color="gray">
-                                  {style.color.pantone}
-                                </Badge>
-                              )}
-                            </Group>
-                            {style.color.category && (
-                              <Text size="sm" c="dimmed">
-                                {style.color.category}
-                              </Text>
-                            )}
+                          </Group>
+                          <SimpleGrid cols={{ base: 2, sm: 3, md: 4 }} spacing="md">
+                            {approach.images.map((imageUrl: string, index: number) => (
+                              <Paper
+                                key={index}
+                                p="xs"
+                                withBorder
+                                radius="md"
+                                style={{ overflow: 'hidden', cursor: 'pointer' }}
+                                onClick={() => window.open(imageUrl, '_blank')}
+                              >
+                                <Box
+                                  style={{
+                                    aspectRatio: '1',
+                                    overflow: 'hidden',
+                                    borderRadius: 'var(--mantine-radius-sm)',
+                                  }}
+                                >
+                                  <Image
+                                    src={imageUrl}
+                                    alt={`${approach.name?.he} - Image ${index + 1}`}
+                                    fit="cover"
+                                    style={{ width: '100%', height: '100%' }}
+                                  />
+                                </Box>
+                              </Paper>
+                            ))}
+                          </SimpleGrid>
+                        </div>
+                      )}
+
+                      <Stack gap="sm">
+                        <Text fw={500}>{t('detail.materials.defaults')}</Text>
+                        {approach.materialSet?.defaults && approach.materialSet.defaults.length > 0 ? (
+                          <SimpleGrid cols={{ base: 1, sm: 2, md: 3 }} spacing="md">
+                            {approach.materialSet.defaults.map((materialItem: any, index: number) => (
+                              <MaterialCard key={index} materialId={materialItem.materialId} locale={locale} compact />
+                            ))}
+                          </SimpleGrid>
+                        ) : (
+                          <Text size="sm" c="dimmed">
+                            {t('detail.materials.noDefaults')}
+                          </Text>
+                        )}
+                      </Stack>
+
+                      {approach.materialSet?.alternatives && approach.materialSet.alternatives.length > 0 && (
+                        <Stack gap="sm">
+                          <Text fw={500}>{t('detail.materials.alternatives')}</Text>
+                          <Stack gap="xs">
+                            {approach.materialSet.alternatives.map((altGroup: any, index: number) => (
+                              <Paper key={index} p="md" withBorder radius="md">
+                                <Stack gap="xs">
+                                  <Group justify="space-between">
+                                    <Text fw={500}>{altGroup.usageArea}</Text>
+                                    <Badge variant="light" color="brand">
+                                      {altGroup.alternatives.length} {t('detail.materials.options')}
+                                    </Badge>
+                                  </Group>
+                                  <Group gap="xs">
+                                    {altGroup.alternatives.map((altMaterialId: string, altIndex: number) => (
+                                      <MaterialCard key={altIndex} materialId={altMaterialId} locale={locale} compact />
+                                    ))}
+                                  </Group>
+                                </Stack>
+                              </Paper>
+                            ))}
                           </Stack>
                         </Stack>
-                      </Card>
-                    </div>
+                      )}
 
-                    <div>
-                      <Title order={3} mb="md">{t('detail.palette.accents')}</Title>
-                      <Paper p="md" withBorder radius="md" style={{ backgroundColor: '#fafafa' }}>
-                        <Text c="dimmed" ta="center">{t('detail.palette.noAccents') || 'No accent colors defined'}</Text>
-                      </Paper>
-                    </div>
-                  </>
-                ) : (
-                  <Paper p="md" withBorder radius="md">
-                    <Text c="dimmed" ta="center">{t('detail.palette.noPalette') || 'No palette defined'}</Text>
-                  </Paper>
-                )}
-              </Stack>
-            </MoodBCard>
-          </Tabs.Panel>
-
-          <Tabs.Panel value="materials" pt="md">
-            <MoodBCard>
-              <Stack gap="lg">
-                {!style.materialSet || !style.materialSet.defaults || style.materialSet.defaults.length === 0 ? (
-                  <Paper p="md" withBorder radius="md">
-                    <Text c="dimmed" ta="center">{t('detail.materials.noDefaults') || 'No default materials defined'}</Text>
-                  </Paper>
-                ) : (
-                  <>
-                    <div>
-                      <Title order={3} mb="md">{t('detail.materials.defaults')}</Title>
-                      <Grid gutter="md">
-                        {style.materialSet.defaults.map((materialItem: any, index: number) => (
-                          <Grid.Col key={index} span={{ base: 12, sm: 6, md: 6 }}>
-                            <MaterialCard materialId={materialItem.materialId} usageArea={materialItem.usageArea} defaultFinish={materialItem.defaultFinish} locale={locale} />
-                          </Grid.Col>
-                        ))}
-                      </Grid>
-                    </div>
-                    {style.materialSet.alternatives && style.materialSet.alternatives.length > 0 && (
-                      <div>
-                        <Title order={3} mb="md">{t('detail.materials.alternatives') || 'Alternative Materials'}</Title>
+                      {approach.roomProfiles && approach.roomProfiles.length > 0 ? (
                         <Stack gap="md">
-                          {style.materialSet.alternatives.map((altGroup: any, index: number) => (
-                            <Paper key={index} p="md" withBorder radius="md">
-                              <Text fw={500} mb="sm">{altGroup.usageArea}</Text>
-                              <Grid gutter="sm">
-                                {altGroup.alternatives?.map((materialId: string, matIndex: number) => (
-                                  <Grid.Col key={matIndex} span={{ base: 12, sm: 6, md: 4 }}>
-                                    <MaterialCard materialId={materialId} locale={locale} compact />
-                                  </Grid.Col>
-                                ))}
-                              </Grid>
-                            </Paper>
-                          ))}
+                          <Divider />
+                          <Text fw={500}>{t('detail.rooms.title')}</Text>
+                          <Stack gap="md">
+                            {approach.roomProfiles.map((profile: any, index: number) => (
+                              <RoomProfileCard key={index} profile={profile} locale={locale} t={t} />
+                            ))}
+                          </Stack>
                         </Stack>
-                      </div>
-                    )}
-                  </>
-                )}
+                      ) : (
+                        <Text size="sm" c="dimmed">
+                          {t('detail.rooms.noProfiles')}
+                        </Text>
+                      )}
+                    </Stack>
+                  </MoodBCard>
+                ))}
               </Stack>
-            </MoodBCard>
-          </Tabs.Panel>
-
-          <Tabs.Panel value="rooms" pt="md">
-            <MoodBCard>
-              <Stack gap="lg">
-                {!style.roomProfiles || style.roomProfiles.length === 0 ? (
-                  <Paper p="md" withBorder radius="md">
-                    <Text c="dimmed" ta="center">{t('detail.rooms.noProfiles') || 'No room profiles defined'}</Text>
-                  </Paper>
-                ) : (
-                  <Grid gutter="lg">
-                    {style.roomProfiles.map((profile: any, index: number) => (
-                      <Grid.Col key={index} span={{ base: 12, md: 6 }}>
-                        <RoomProfileCard profile={profile} locale={locale} t={t} />
-                      </Grid.Col>
-                    ))}
-                  </Grid>
-                )}
-              </Stack>
-            </MoodBCard>
-          </Tabs.Panel>
-        </Tabs>
+            ) : (
+              <Paper p="xl" radius="md" withBorder>
+                <Stack align="center" gap="xs">
+                  <IconDoor size={32} />
+                  <Text>{t('detail.approaches.empty')}</Text>
+                  <Text size="sm" c="dimmed">
+                    {t('detail.approaches.emptyHint')}
+                  </Text>
+                </Stack>
+              </Paper>
+            )}
+          </Stack>
+        </MoodBCard>
       </Stack>
     </Container>
   )

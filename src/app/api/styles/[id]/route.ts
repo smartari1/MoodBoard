@@ -53,6 +53,28 @@ export const GET = withAuth(async (req: NextRequest, auth) => {
             slug: true,
           },
         },
+        approaches: {
+          select: {
+            id: true,
+            slug: true,
+            name: true,
+            order: true,
+            materialSet: true,
+            roomProfiles: true,
+            images: true,
+            metadata: true,
+          },
+          orderBy: { order: 'asc' },
+        },
+        color: {
+          select: {
+            id: true,
+            name: true,
+            hex: true,
+            pantone: true,
+            category: true,
+          },
+        },
       },
     })
 
@@ -119,28 +141,26 @@ export const PATCH = withAuth(async (req: NextRequest, auth) => {
 
     // Update style
     const updatedMetadata = existingStyle.metadata as any
+    const updateData: Record<string, unknown> = { updatedAt: new Date() }
+
+    if (body.name) updateData.name = body.name
+    if (body.slug) updateData.slug = body.slug
+    if (body.categoryId) updateData.categoryId = body.categoryId
+    if (body.subCategoryId) updateData.subCategoryId = body.subCategoryId
+    if (body.colorId) updateData.colorId = body.colorId
+    if (body.images !== undefined) updateData.images = body.images
+    if (body.metadata) {
+      updateData.metadata = {
+        ...updatedMetadata,
+        ...body.metadata,
+        approvalStatus:
+          body.metadata.isPublic && !updatedMetadata.isPublic ? 'pending' : updatedMetadata.approvalStatus,
+      }
+    }
+
     const style = await prisma.style.update({
       where: { id: styleId },
-      data: {
-        ...(body.name && { name: body.name }),
-        ...(body.category && { category: body.category }),
-        ...(body.slug && { slug: body.slug }),
-        ...(body.palette && { palette: body.palette as any }),
-        ...(body.materialSet && { materialSet: body.materialSet as any }),
-        ...(body.roomProfiles && { roomProfiles: body.roomProfiles as any }),
-        ...(body.metadata && {
-          metadata: {
-            ...updatedMetadata,
-            ...body.metadata,
-            // If changing from personal to public, set status to pending
-            approvalStatus:
-              body.metadata.isPublic && !updatedMetadata.isPublic
-                ? 'pending'
-                : updatedMetadata.approvalStatus,
-          } as any,
-        }),
-        updatedAt: new Date(),
-      },
+      data: updateData,
     })
 
     return NextResponse.json(style)

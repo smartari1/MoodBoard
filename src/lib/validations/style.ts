@@ -1,67 +1,9 @@
-/**
- * Style Validation Schemas
- * Zod schemas for Style CRUD operations
- */
-
 import { z } from 'zod'
-import { ROOM_TYPES } from './room'
 import { clientImagesSchema, serverImagesSchema } from './upload'
+import { localizedStringSchema } from './approach'
 
 // MongoDB ObjectID validation helper
 const objectIdSchema = z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid ObjectID format')
-
-// Material Default Schema (General materials - apply to all rooms)
-// Only stores materialId - material details come from the referenced Material object
-export const materialDefaultSchema = z.object({
-  materialId: objectIdSchema,
-})
-
-// Material Alternative Schema
-export const materialAlternativeSchema = z.object({
-  usageArea: z.string().min(1, 'Usage area is required'),
-  alternatives: z.array(objectIdSchema).min(1, 'At least one alternative is required'),
-})
-
-// Material Set Schema
-// defaults: General materials that apply to all rooms
-// Room-specific materials go in roomProfiles[].materials
-export const materialSetSchema = z.object({
-  defaults: z.array(materialDefaultSchema).optional().default([]),
-  alternatives: z.array(materialAlternativeSchema).optional(),
-})
-
-// Room Constraint Schema
-export const roomConstraintSchema = z.object({
-  waterResistance: z.boolean().optional(),
-  durability: z.number().int().min(1).max(10).optional(),
-  maintenance: z.number().int().min(1).max(10).optional(),
-})
-
-// Room Profile Schema (for client-side forms - allows blob URLs for preview)
-export const roomProfileSchema = z.object({
-  roomType: z.enum(ROOM_TYPES, {
-    errorMap: () => ({ message: 'Invalid room type' }),
-  }),
-  materials: z.array(objectIdSchema).optional().default([]),
-  images: clientImagesSchema.optional(),
-  constraints: roomConstraintSchema.nullable().optional(),
-})
-
-// Room Profile Schema for API (server-side - only HTTPS URLs)
-export const roomProfileApiSchema = z.object({
-  roomType: z.enum(ROOM_TYPES, {
-    errorMap: () => ({ message: 'Invalid room type' }),
-  }),
-  materials: z.array(objectIdSchema).optional().default([]),
-  images: serverImagesSchema.optional(),
-  constraints: roomConstraintSchema.nullable().optional(),
-})
-
-// Localized String Schema
-export const localizedStringSchema = z.object({
-  he: z.string().min(1, 'Hebrew name is required'),
-  en: z.string().min(1, 'English name is required'),
-})
 
 // Style Metadata Schema
 export const styleMetadataSchema = z.object({
@@ -84,13 +26,10 @@ export const createStyleSchema = z.object({
   slug: z.string().regex(/^[a-z0-9-]+$/, 'Invalid slug format').optional(),
   colorId: objectIdSchema,
   images: serverImagesSchema.optional(),
-  materialSet: materialSetSchema,
-  roomProfiles: z.array(roomProfileApiSchema).optional().default([]),
   metadata: styleMetadataSchema.optional(),
 })
 
 // Update Style Schema (API - only accepts HTTPS URLs)
-// Make all fields optional for partial updates, but keep the same validation rules
 export const updateStyleSchema = z.object({
   name: localizedStringSchema.optional(),
   categoryId: objectIdSchema.optional(),
@@ -98,8 +37,6 @@ export const updateStyleSchema = z.object({
   slug: z.string().regex(/^[a-z0-9-]+$/, 'Invalid slug format').optional(),
   colorId: objectIdSchema.optional(),
   images: serverImagesSchema.optional(),
-  materialSet: materialSetSchema.optional(),
-  roomProfiles: z.array(roomProfileApiSchema).optional(),
   metadata: styleMetadataSchema.partial().optional(),
 })
 
@@ -111,8 +48,6 @@ export const createStyleFormSchema = z.object({
   slug: z.string().regex(/^[a-z0-9-]+$/, 'Invalid slug format').optional(),
   colorId: objectIdSchema,
   images: clientImagesSchema.optional(),
-  materialSet: materialSetSchema,
-  roomProfiles: z.array(roomProfileSchema).optional().default([]),
   metadata: styleMetadataSchema.optional(),
 })
 
@@ -135,15 +70,10 @@ export const approveStyleSchema = z.object({
 })
 
 // Export types
-export type MaterialDefault = z.infer<typeof materialDefaultSchema>
-export type MaterialAlternative = z.infer<typeof materialAlternativeSchema>
-export type MaterialSet = z.infer<typeof materialSetSchema>
-export type RoomConstraint = z.infer<typeof roomConstraintSchema>
-export type RoomProfile = z.infer<typeof roomProfileSchema>
-export type LocalizedString = z.infer<typeof localizedStringSchema>
-export type StyleMetadata = z.infer<typeof styleMetadataSchema>
 export type CreateStyle = z.infer<typeof createStyleSchema>
 export type UpdateStyle = z.infer<typeof updateStyleSchema>
 export type StyleFilters = z.infer<typeof styleFiltersSchema>
 export type ApproveStyle = z.infer<typeof approveStyleSchema>
+
+export { localizedStringSchema } from './approach'
 

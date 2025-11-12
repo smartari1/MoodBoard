@@ -128,37 +128,35 @@
         "usage": "שימוש",
         "createdAt": "נוצר ב",
         "tags": "תגיות",
-        "tabs": {
-          "palette": "פלטת צבעים",
-          "materials": "חומרים",
-          "rooms": "חדרים"
-        },
-        "palette": {
-          "neutrals": "צבעים נייטרליים",
-          "accents": "צבעי דגש",
-          "noPalette": "אין פלטת צבעים מוגדרת",
-          "noAccents": "אין צבעי דגש מוגדרים"
+        "images": "תמונות",
+        "approaches": {
+          "title": "גישות עיצוב",
+          "subtitle": "נהל ורכז את כל הגישות עבור הסגנון",
+          "manage": "נהל גישות",
+          "default": "ברירת מחדל",
+          "order": "סדר {order}",
+          "empty": "אין גישות מוגדרות",
+          "emptyHint": "צור גישה ראשונה כדי לבנות השראות וחומרים."
         },
         "materials": {
-          "defaults": "חומרים ברירת מחדל",
+          "defaults": "חומרים כלליים",
           "alternatives": "חומרים חלופיים",
-          "noDefaults": "אין חומרים מוגדרים",
-          "finish": "גימור"
+          "noDefaults": "אין חומרים כלליים",
+          "options": "אפשרויות"
         },
         "rooms": {
+          "title": "פרופילי חדרים",
           "noProfiles": "אין פרופילי חדרים מוגדרים",
           "materials": "חומרים",
           "constraints": "אילוצים",
           "waterResistance": "עמידות למים",
           "durability": "עמידות",
           "maintenance": "תחזוקה"
-        },
-        "images": "תמונות"
+        }
       },
       "edit": {
-        "title": "ערוך דף השראה",
-        "comingSoon": "בקרוב",
-        "comingSoonDescription": "טופס עריכה יושם בקרוב"
+        "styleTab": "פרטי סגנון",
+        "approachesTab": "גישות"
       },
       "create": {
         "title": "צור דף השראה חדש",
@@ -279,6 +277,50 @@
           "description": "טופס יצירת סגנון חדש יושם בקרוב. תוכל ליצור סגנונות אישיים או ציבוריים (הדורשים אישור אדמין).",
           "details": "הטופס יכלול: בחירת קטגוריה ותת-קטגוריה, בחירת צבעים, הגדרת חומרים, ופרופילי חדרים."
         }
+      }
+    },
+    "approaches": {
+      "form": {
+        "title": "גישה חדשה",
+        "titleEdit": "ערוך גישה",
+        "submitError": "שגיאה בשמירת הגישה",
+        "basicTab": "מידע",
+        "materialsTab": "חומרים",
+        "roomsTab": "חדרים",
+        "basicInfo": "מידע בסיסי",
+        "nameHe": "שם (עברית)",
+        "nameEn": "שם (אנגלית)",
+        "slug": "שם קישור",
+        "order": "סדר הצגה",
+        "images": "תמונות",
+        "generalMaterials": "חומרים כלליים",
+        "generalMaterialsDescription": "חומרים שיופיעו בכל העמודים של הגישה",
+        "materials": "חומרים",
+        "selectMaterials": "בחר חומרים",
+        "roomProfiles": "פרופילי חדרים",
+        "roomProfilesDescription": "התאם חומרים ותמונות לכל חדר",
+        "addRoomProfile": "הוסף פרופיל חדר",
+        "noRoomProfiles": "אין פרופילי חדרים",
+        "roomType": "סוג חדר",
+        "roomSpecificMaterials": "חומרים ספציפיים לחדר",
+        "roomSpecificMaterialsDescription": "חומרים שיוצגו רק בחדר זה"
+      },
+      "manage": {
+        "title": "ניהול גישות",
+        "subtitle": "צור וערוך גישות כדי להתאים חומרים וחדרים לפי סגנון",
+        "create": "הוסף גישה חדשה",
+        "createTitle": "גישה חדשה",
+        "editTitle": "עריכת {name}",
+        "confirmDelete": "האם למחוק את הגישה \"{name}\"? פעולה זו אינה ניתנת לביטול.",
+        "defaultBadge": "ברירת מחדל",
+        "orderBadge": "סדר {order}",
+        "stats": {
+          "images": "{count} תמונות",
+          "materials": "{count} חומרים",
+          "rooms": "{count} חדרים"
+        },
+        "emptyTitle": "עדיין אין גישות",
+        "emptyDescription": "הוסף גישה כדי להתחיל לבנות עמודי השראה וסיפורי עיצוב."
       }
     },
     "categories": {

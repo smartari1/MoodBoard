@@ -117,24 +117,24 @@
         "usage": "Usage",
         "createdAt": "Created At",
         "tags": "Tags",
-        "tabs": {
-          "palette": "Color Palette",
-          "materials": "Materials",
-          "rooms": "Room Profiles"
-        },
-        "palette": {
-          "neutrals": "Neutral Colors",
-          "accents": "Accent Colors",
-          "noPalette": "No palette defined",
-          "noAccents": "No accent colors defined"
+        "images": "Images",
+        "approaches": {
+          "title": "Design Approaches",
+          "subtitle": "Manage all approaches for this style",
+          "manage": "Manage Approaches",
+          "default": "Default",
+          "order": "Order {order}",
+          "empty": "No approaches defined",
+          "emptyHint": "Create an approach to start building inspiration pages."
         },
         "materials": {
-          "defaults": "Default Materials",
+          "defaults": "General Materials",
           "alternatives": "Alternative Materials",
-          "noDefaults": "No default materials defined",
-          "finish": "Finish"
+          "noDefaults": "No general materials defined",
+          "options": "Options"
         },
         "rooms": {
+          "title": "Room Profiles",
           "noProfiles": "No room profiles defined",
           "materials": "Materials",
           "constraints": "Constraints",
@@ -144,9 +144,8 @@
         }
       },
       "edit": {
-        "title": "Edit Style",
-        "comingSoon": "Coming Soon",
-        "comingSoonDescription": "Edit form will be implemented soon"
+        "styleTab": "Style Details",
+        "approachesTab": "Approaches"
       },
       "create": {
         "title": "Create New Style",
@@ -273,6 +272,50 @@
         "status": "Status",
         "submittedAt": "Submitted At",
         "actions": "Actions"
+      }
+    },
+    "approaches": {
+      "form": {
+        "title": "New Approach",
+        "titleEdit": "Edit Approach",
+        "submitError": "Failed to save approach",
+        "basicTab": "Basics",
+        "materialsTab": "Materials",
+        "roomsTab": "Rooms",
+        "basicInfo": "Basic Information",
+        "nameHe": "Name (Hebrew)",
+        "nameEn": "Name (English)",
+        "slug": "Slug",
+        "order": "Display Order",
+        "images": "Images",
+        "generalMaterials": "General Materials",
+        "generalMaterialsDescription": "Materials visible across the entire approach",
+        "materials": "Materials",
+        "selectMaterials": "Select materials",
+        "roomProfiles": "Room Profiles",
+        "roomProfilesDescription": "Customize materials and images per room",
+        "addRoomProfile": "Add Room Profile",
+        "noRoomProfiles": "No room profiles",
+        "roomType": "Room Type",
+        "roomSpecificMaterials": "Room-Specific Materials",
+        "roomSpecificMaterialsDescription": "Materials visible only in this room"
+      },
+      "manage": {
+        "title": "Approach Management",
+        "subtitle": "Create and edit approaches to tailor materials and rooms per style",
+        "create": "Add New Approach",
+        "createTitle": "New Approach",
+        "editTitle": "Edit {name}",
+        "confirmDelete": "Delete approach \"{name}\"? This action cannot be undone.",
+        "defaultBadge": "Default",
+        "orderBadge": "Order {order}",
+        "stats": {
+          "images": "{count} images",
+          "materials": "{count} materials",
+          "rooms": "{count} rooms"
+        },
+        "emptyTitle": "No approaches yet",
+        "emptyDescription": "Add an approach to start building inspiration content."
       }
     },
     "materials": {

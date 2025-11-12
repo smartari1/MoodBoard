@@ -23,7 +23,7 @@ const r2Client = new S3Client({
   },
 })
 
-export type EntityType = 'category' | 'subcategory' | 'style' | 'room' | 'material'
+export type EntityType = 'category' | 'subcategory' | 'style' | 'approach' | 'room' | 'material'
 
 /**
  * Generate R2 key path based on entity type and ID
@@ -75,6 +75,12 @@ export function generateR2Key(
         return `styles/${entityId}/rooms/${sanitizedRoomType}/${uniqueFilename}`
       }
       return `styles/${entityId}/${uniqueFilename}`
+    case 'approach':
+      if (!entityId || entityId === '') {
+        const tempId = `temp-${timestamp}-${uuidv4().substring(0, 8)}`
+        return `approaches/${tempId}/${uniqueFilename}`
+      }
+      return `approaches/${entityId}/${uniqueFilename}`
     case 'room':
       if (!projectId || !roomId) {
         throw new Error('Project ID and Room ID are required for room images')

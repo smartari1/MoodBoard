@@ -3,15 +3,54 @@
  * Provides real-time-like updates with auto-refetch
  */
 
-import type {
-    ApproveStyle,
-    CreateStyle,
-    StyleFilters,
-    UpdateStyle,
-} from '@/lib/validations/style'
+import type { CreateApproach, UpdateApproach } from '@/lib/validations/approach'
+import type { ApproveStyle, CreateStyle, StyleFilters, UpdateStyle } from '@/lib/validations/style'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
+
+export interface Approach {
+  id: string
+  styleId: string
+  slug: string
+  name: {
+    he: string
+    en: string
+  }
+  order: number
+  description?: {
+    he: string
+    en: string
+  } | null
+  images?: string[]
+  materialSet?: {
+    defaults: Array<{
+      materialId: string
+    }>
+    alternatives?: Array<{
+      usageArea: string
+      alternatives: string[]
+    }>
+  }
+  roomProfiles?: Array<{
+    roomType: string
+    materials?: string[]
+    images?: string[]
+    constraints?: {
+      waterResistance?: boolean
+      durability?: number
+      maintenance?: number
+    }
+  }>
+  metadata: {
+    isDefault: boolean
+    version: string
+    tags: string[]
+    usage: number
+  }
+  createdAt?: Date | string
+  updatedAt?: Date | string
+}
 
 export interface Style {
   id: string
@@ -51,25 +90,6 @@ export interface Style {
     category: string
   }
   images?: string[]
-  materialSet: {
-    defaults: Array<{
-      materialId: string
-    }>
-    alternatives?: Array<{
-      usageArea: string
-      alternatives: string[]
-    }>
-  }
-  roomProfiles: Array<{
-    roomType: string
-    materials?: string[]
-    images?: string[]
-    constraints?: {
-      waterResistance?: boolean
-      durability?: number
-      maintenance?: number
-    }
-  }>
   metadata: {
     version: string
     isPublic: boolean
@@ -88,6 +108,7 @@ export interface Style {
   }
   createdAt: Date | string
   updatedAt: Date | string
+  approaches?: Approach[]
 }
 
 interface StylesResponse {
@@ -103,6 +124,7 @@ interface StylesResponse {
 const STYLES_QUERY_KEY = 'styles'
 const ADMIN_STYLES_QUERY_KEY = 'admin-styles'
 const ADMIN_APPROVALS_QUERY_KEY = 'admin-approvals'
+const ADMIN_APPROACHES_QUERY_KEY = 'admin-approaches'
 
 /**
  * Fetch styles with filters (user-facing)
@@ -413,11 +435,6 @@ export function useCreateAdminStyle() {
         subCategoryId: data.subCategoryId,
         colorId: data.colorId,
         images: data.images,
-        materialSet: {
-          defaultsCount: data.materialSet?.defaults?.length || 0,
-          alternativesCount: data.materialSet?.alternatives?.length || 0,
-        },
-        roomProfilesCount: data.roomProfiles?.length || 0,
       }, null, 2))
       
       try {
@@ -493,13 +510,6 @@ export function useUpdateAdminStyle() {
         slug: data.slug,
         imagesCount: data.images?.length,
         images: data.images,
-        roomProfilesCount: data.roomProfiles?.length,
-        roomProfiles: data.roomProfiles?.map((rp: any) => ({
-          roomType: rp.roomType,
-          materialsCount: rp.materials?.length,
-          imagesCount: rp.images?.length,
-          images: rp.images,
-        })),
       })
       console.log('[UPDATE STYLE HOOK] Full update data:', JSON.stringify(data, null, 2))
 
@@ -557,7 +567,7 @@ export function useUpdateAdminStyle() {
           id: result.id,
           name: result.name,
           imagesCount: result.images?.length,
-          roomProfilesCount: result.roomProfiles?.length,
+          approachesCount: result.approaches?.length,
         })
         console.log('[UPDATE STYLE HOOK] Full response:', JSON.stringify(result, null, 2))
       } catch (jsonError) {
@@ -614,6 +624,170 @@ export function useDeleteAdminStyle() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [ADMIN_STYLES_QUERY_KEY] })
       queryClient.invalidateQueries({ queryKey: [STYLES_QUERY_KEY] })
+    },
+    onError: (error: any) => {
+      if (error?.message?.includes('Admin access') || error?.status === 403) {
+        const locale = window.location.pathname.split('/')[1] || 'he'
+        router.push(`/${locale}/dashboard`)
+      }
+    },
+  })
+}
+
+/**
+ * Hooks for managing approaches (admin only)
+ */
+export function useAdminApproaches(styleId: string) {
+  const { data: session } = useSession()
+  const router = useRouter()
+  const isAdmin = session?.user?.role === 'admin'
+
+  return useQuery({
+    queryKey: [ADMIN_APPROACHES_QUERY_KEY, styleId],
+    queryFn: async () => {
+      if (!isAdmin) {
+        throw new Error('Admin access required')
+      }
+
+      const response = await fetch(`/api/admin/styles/${styleId}/approaches`)
+
+      if (!response.ok) {
+        if (response.status === 403) {
+          throw new Error('Admin access required')
+        }
+        throw new Error('Failed to fetch approaches')
+      }
+
+      const data = await response.json()
+      return data.data as Approach[]
+    },
+    enabled: !!session && !!styleId && isAdmin,
+    refetchOnWindowFocus: true,
+    staleTime: 10000,
+    retry: false,
+    onError: (error: any) => {
+      if (error?.message?.includes('Admin access') || error?.status === 403) {
+        const locale = window.location.pathname.split('/')[1] || 'he'
+        router.push(`/${locale}/dashboard`)
+      }
+    },
+  })
+}
+
+export function useCreateApproach(styleId: string) {
+  const queryClient = useQueryClient()
+  const { data: session } = useSession()
+  const router = useRouter()
+  const isAdmin = session?.user?.role === 'admin'
+
+  return useMutation({
+    mutationFn: async (data: CreateApproach) => {
+      if (!isAdmin) {
+        throw new Error('Admin access required')
+      }
+
+      const response = await fetch(`/api/admin/styles/${styleId}/approaches`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      })
+
+      if (!response.ok) {
+        if (response.status === 403) {
+          throw new Error('Admin access required')
+        }
+        const error = await response.json().catch(() => ({ error: 'Unknown error' }))
+        throw new Error(error.error || 'Failed to create approach')
+      }
+
+      return response.json()
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [ADMIN_APPROACHES_QUERY_KEY, styleId] })
+      queryClient.invalidateQueries({ queryKey: [ADMIN_STYLES_QUERY_KEY] })
+      queryClient.invalidateQueries({ queryKey: [ADMIN_STYLES_QUERY_KEY, styleId] })
+    },
+    onError: (error: any) => {
+      if (error?.message?.includes('Admin access') || error?.status === 403) {
+        const locale = window.location.pathname.split('/')[1] || 'he'
+        router.push(`/${locale}/dashboard`)
+      }
+    },
+  })
+}
+
+export function useUpdateApproach(styleId: string) {
+  const queryClient = useQueryClient()
+  const { data: session } = useSession()
+  const router = useRouter()
+  const isAdmin = session?.user?.role === 'admin'
+
+  return useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: UpdateApproach }) => {
+      if (!isAdmin) {
+        throw new Error('Admin access required')
+      }
+
+      const response = await fetch(`/api/admin/styles/${styleId}/approaches/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      })
+
+      if (!response.ok) {
+        if (response.status === 403) {
+          throw new Error('Admin access required')
+        }
+        const error = await response.json().catch(() => ({ error: 'Unknown error' }))
+        throw new Error(error.error || 'Failed to update approach')
+      }
+
+      return response.json()
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [ADMIN_APPROACHES_QUERY_KEY, styleId] })
+      queryClient.invalidateQueries({ queryKey: [ADMIN_STYLES_QUERY_KEY] })
+      queryClient.invalidateQueries({ queryKey: [ADMIN_STYLES_QUERY_KEY, styleId] })
+    },
+    onError: (error: any) => {
+      if (error?.message?.includes('Admin access') || error?.status === 403) {
+        const locale = window.location.pathname.split('/')[1] || 'he'
+        router.push(`/${locale}/dashboard`)
+      }
+    },
+  })
+}
+
+export function useDeleteApproach(styleId: string) {
+  const queryClient = useQueryClient()
+  const { data: session } = useSession()
+  const router = useRouter()
+  const isAdmin = session?.user?.role === 'admin'
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      if (!isAdmin) {
+        throw new Error('Admin access required')
+      }
+
+      const response = await fetch(`/api/admin/styles/${styleId}/approaches/${id}`, {
+        method: 'DELETE',
+      })
+
+      if (!response.ok) {
+        if (response.status === 403) {
+          throw new Error('Admin access required')
+        }
+        const error = await response.json().catch(() => ({ error: 'Unknown error' }))
+        throw new Error(error.error || 'Failed to delete approach')
+      }
+
+      return id
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [ADMIN_APPROACHES_QUERY_KEY, styleId] })
+      queryClient.invalidateQueries({ queryKey: [ADMIN_STYLES_QUERY_KEY] })
+      queryClient.invalidateQueries({ queryKey: [ADMIN_STYLES_QUERY_KEY, styleId] })
     },
     onError: (error: any) => {
       if (error?.message?.includes('Admin access') || error?.status === 403) {

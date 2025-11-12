@@ -8,6 +8,13 @@
 
 ## 🎯 Recent Updates (January 2025)
 
+### ✅ Approach Layer Introduced (November 11, 2025)
+- Added **Approach** entity between Style and Inspiration pages (category ➜ style ➜ approach ➜ inspiration).
+- Migrated Prisma schema and seeded default approaches for legacy styles.
+- Delivered full admin CRUD (tabs + modal workflow) with dedicated `ApproachForm`.
+- Updated APIs and user routes to serve nested approach pages (`/styles/[style]/[approach]`).
+- Documented usage patterns and synced translations for new UI/UX.
+
 ### ✅ Image Upload Pattern Standardized (January 29, 2025)
 - **Standardized image upload pattern** across all entities (Styles, Sub-Categories, etc.)
 - **Edit Mode**: Pass `entityId` to ImageUpload → Images upload immediately → Trust URLs (no filtering)

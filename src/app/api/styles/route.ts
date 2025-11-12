@@ -125,6 +125,16 @@ export const GET = withAuth(async (req: NextRequest, auth) => {
             slug: true,
           },
         },
+        approaches: {
+          select: {
+            id: true,
+            slug: true,
+            name: true,
+            order: true,
+            metadata: true,
+          },
+          orderBy: { order: 'asc' },
+        },
       },
     })
 
@@ -185,10 +195,10 @@ export const POST = withAuth(async (req: NextRequest, auth) => {
         organizationId: auth.organizationId, // Organization-specific
         slug: uniqueSlug,
         name: body.name,
-        category: body.category,
-        palette: body.palette as any,
-        materialSet: body.materialSet as any,
-        roomProfiles: (body.roomProfiles || []) as any,
+        categoryId: body.categoryId,
+        subCategoryId: body.subCategoryId,
+        colorId: body.colorId,
+        images: body.images || [],
         metadata: {
           version: body.metadata?.version || '1.0.0',
           isPublic,
