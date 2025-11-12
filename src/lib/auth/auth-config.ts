@@ -170,6 +170,22 @@ export const authOptions: NextAuthOptions = {
     strategy: "jwt",  // Changed to JWT for better middleware compatibility
     maxAge: 30 * 24 * 60 * 60, // 30 days
   },
+  cookies: {
+    sessionToken: {
+      name: process.env.NODE_ENV === 'production' 
+        ? '__Secure-next-auth.session-token'
+        : 'next-auth.session-token',
+      options: {
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        secure: process.env.NODE_ENV === 'production',
+        domain: process.env.NODE_ENV === 'production' 
+          ? '.moodboard.co.il'  // Share cookie across subdomains
+          : undefined,
+      },
+    },
+  },
   secret: process.env.NEXTAUTH_SECRET,
   // Only enable debug logging when explicitly requested via AUTH_DEBUG env var
   // This prevents sensitive data (client secrets, tokens) from being logged

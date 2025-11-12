@@ -20,15 +20,21 @@ export default function SignInPage() {
   const [isSigningIn, setIsSigningIn] = useState(false)
   const [hasRedirected, setHasRedirected] = useState(false)
   
-  // Redirect if already authenticated - only once
+  // Redirect if already authenticated - only once with delay to prevent loops
   useEffect(() => {
     if (!isLoading && isAuthenticated && !hasRedirected) {
       setHasRedirected(true)
       const redirectUrl = searchParams.get('redirect_url') || `/${locale}/dashboard`
-      // Use window.location.replace for immediate redirect without history
-      window.location.replace(redirectUrl)
+      
+      // Add a small delay to ensure auth state is properly synced
+      const timer = setTimeout(() => {
+        // Use router.replace instead of window.location to work better with middleware
+        router.replace(redirectUrl)
+      }, 100)
+      
+      return () => clearTimeout(timer)
     }
-  }, [isAuthenticated, isLoading, searchParams, locale, hasRedirected])
+  }, [isAuthenticated, isLoading, searchParams, locale, hasRedirected, router])
 
   const handleSignIn = async () => {
     setIsSigningIn(true)

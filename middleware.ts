@@ -47,6 +47,16 @@ export async function middleware(request: NextRequest) {
 
   // Check authentication for protected routes
   if (isProtectedRoute && !token) {
+    // Prevent redirect loop: if we've been redirecting too many times, stop
+    const referer = request.headers.get('referer')
+    const isRedirectLoop = referer && referer.includes('/sign-in')
+    
+    if (isRedirectLoop) {
+      console.warn('Detected potential redirect loop, allowing request through')
+      // Don't redirect if we just came from sign-in
+      return intlMiddleware(request)
+    }
+    
     const signInUrl = new URL(`/${locale}/sign-in`, request.url)
     signInUrl.searchParams.set('redirect_url', pathname)
     return NextResponse.redirect(signInUrl)
