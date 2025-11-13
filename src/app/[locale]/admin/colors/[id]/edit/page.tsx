@@ -16,7 +16,7 @@ import { IconArrowLeft, IconAlertCircle, IconColorPicker } from '@tabler/icons-r
 // Barrel imports force compilation of ALL components (including heavy RichTextEditor, ImageUpload)
 // Direct imports only compile what's needed
 import { MoodBCard } from '@/components/ui/Card'
-import { FormSection } from '@/components/ui/FormSection'
+import { FormSection } from '@/components/ui/Form/FormSection'
 import { LoadingState } from '@/components/ui/LoadingState'
 import { ErrorState } from '@/components/ui/ErrorState'
 import { updateColorSchema, type UpdateColor } from '@/lib/validations/color'

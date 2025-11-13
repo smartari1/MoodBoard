@@ -16,7 +16,7 @@ import { IconArrowLeft, IconAlertCircle, IconColorPicker } from '@tabler/icons-r
 // Direct imports only compile what's needed
 import { MoodBButton } from '@/components/ui/Button'
 import { MoodBCard } from '@/components/ui/Card'
-import { FormSection } from '@/components/ui/FormSection'
+import { FormSection } from '@/components/ui/Form/FormSection'
 import { createColorSchema, type CreateColor } from '@/lib/validations/color'
 import { useCreateColor } from '@/hooks/useColors'
 import { useMemo } from 'react'
