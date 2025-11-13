@@ -33,24 +33,52 @@ export async function middleware(request: NextRequest) {
   const isAdminRoute = pathname.includes('/admin')
 
   // Try to get token, with error handling
+  // Must match cookie configuration in auth-config.ts
+  const cookieName = process.env.NODE_ENV === 'production'
+    ? '__Secure-authjs.session-token'
+    : 'authjs.session-token'
+
   let token = null
   let hasInvalidToken = false
+
+  // Debug: Check if cookies exist
+  const hasDevCookie = request.cookies.has('authjs.session-token')
+  const hasProdCookie = request.cookies.has('__Secure-authjs.session-token')
+
+  if (isProtectedRoute) {
+    console.log('[Middleware]', {
+      path: pathname,
+      hasDevCookie,
+      hasProdCookie,
+      cookieName,
+      env: process.env.NODE_ENV,
+    })
+  }
+
   try {
     token = await getToken({
       req: request,
       secret: process.env.NEXTAUTH_SECRET,
+      cookieName: cookieName,
+      // Use raw mode to get the token directly without additional processing
+      raw: false,
     })
+
+    if (isProtectedRoute) {
+      console.log('[Middleware] Token result:', token ? { userId: token.id, email: token.email } : 'null')
+    }
   } catch (error) {
-    console.error('Error getting token in middleware:', error)
+    console.error('[Middleware] Error getting token:', error)
     // If token validation fails, treat as unauthenticated and mark for cookie cleanup
     token = null
     hasInvalidToken = true
   }
 
   // If token is invalid or expired, clear the session cookies
-  if (hasInvalidToken || (!token && (request.cookies.has('authjs.session-token') || request.cookies.has('__Secure-authjs.session-token')))) {
+  if (hasInvalidToken || (!token && (hasDevCookie || hasProdCookie))) {
     // We have a cookie but no valid token - means the session is invalid/expired
     hasInvalidToken = true
+    console.log('[Middleware] Invalid token detected, will clear cookies')
   }
 
   // Check authentication for protected routes

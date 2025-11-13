@@ -14,7 +14,7 @@ export default function SignInPage() {
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const router = useRouter()
-  const { isAuthenticated, isLoading } = useAuth()
+  const { isAuthenticated, isLoading, user } = useAuth()
   const locale = pathname?.split('/')[1] || 'he'
   const t = useTranslations('auth')
   const [isSigningIn, setIsSigningIn] = useState(false)
@@ -23,27 +23,33 @@ export default function SignInPage() {
 
   // Redirect if already authenticated - with proper checks to prevent loops
   useEffect(() => {
-    if (!isLoading && isAuthenticated && !hasRedirected) {
+    // Only redirect if we have BOTH isAuthenticated AND a valid user object
+    // This prevents redirects with stale/cached session data
+    if (!isLoading && isAuthenticated && user && user.id && !hasRedirected) {
+      console.log('[SignIn] Authenticated with valid user, will redirect', { userId: user.id })
       // Add a delay to ensure session is fully validated and not stale
       // This prevents race conditions with middleware
       const timer = setTimeout(() => {
         setShouldRedirect(true)
-      }, 300)
+      }, 500) // Increased to 500ms for better stability
 
       return () => clearTimeout(timer)
+    } else if (!isLoading && !isAuthenticated) {
+      console.log('[SignIn] Not authenticated, staying on sign-in page')
     }
-  }, [isAuthenticated, isLoading, hasRedirected])
+  }, [isAuthenticated, isLoading, hasRedirected, user])
 
   // Separate effect for actual redirect to ensure proper state management
   useEffect(() => {
-    if (shouldRedirect && isAuthenticated && !hasRedirected) {
+    if (shouldRedirect && isAuthenticated && user && user.id && !hasRedirected) {
       setHasRedirected(true)
       const redirectUrl = searchParams.get('redirect_url') || `/${locale}/dashboard`
+      console.log('[SignIn] Redirecting to:', redirectUrl)
 
       // Use window.location for full navigation to ensure cookies are properly sent
       window.location.href = redirectUrl
     }
-  }, [shouldRedirect, isAuthenticated, hasRedirected, searchParams, locale])
+  }, [shouldRedirect, isAuthenticated, hasRedirected, searchParams, locale, user])
 
   const handleSignIn = async () => {
     setIsSigningIn(true)
