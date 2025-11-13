@@ -21,7 +21,7 @@ import { createRoomSchema, ROOM_TYPES, DIMENSION_UNITS, type CreateRoom } from '
 // FIX: Replaced barrel import with direct imports to improve compilation speed
 // Barrel imports force compilation of ALL components (including heavy RichTextEditor, ImageUpload)
 // Direct imports only compile what's needed
-import { FormSection } from '@/components/ui/FormSection'
+import { FormSection } from '@/components/ui/Form/FormSection'
 import { useAddRoom, useUpdateRoom } from '@/hooks/useRooms'
 
 interface RoomFormDrawerProps {

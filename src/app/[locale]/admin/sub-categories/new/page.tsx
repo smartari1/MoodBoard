@@ -16,7 +16,7 @@ import { IconArrowLeft, IconAlertCircle, IconInfoCircle } from '@tabler/icons-re
 // Barrel imports force compilation of ALL components (including heavy RichTextEditor, ImageUpload)
 // Direct imports only compile what's needed
 import { MoodBCard } from '@/components/ui/Card'
-import { FormSection } from '@/components/ui/FormSection'
+import { FormSection } from '@/components/ui/Form/FormSection'
 import { RichTextEditor } from '@/components/ui/RichTextEditor'
 import { ImageUpload } from '@/components/ui/ImageUpload'
 import { createSubCategorySchema, type CreateSubCategory } from '@/lib/validations/category'

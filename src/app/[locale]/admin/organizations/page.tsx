@@ -18,7 +18,7 @@ import { MoodBTable, MoodBTableHead, MoodBTableBody, MoodBTableRow, MoodBTableHe
 import { EmptyState } from '@/components/ui/EmptyState'
 import { LoadingState } from '@/components/ui/LoadingState'
 import { ErrorState } from '@/components/ui/ErrorState'
-import { FormSection } from '@/components/ui/FormSection'
+import { FormSection } from '@/components/ui/Form/FormSection'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { MoodBModal } from '@/components/ui/Modal'
 import { useOrganizations, useCreateOrganization, useUpdateOrganization, useDeleteOrganization, useOrganization } from '@/hooks/useOrganizations'
