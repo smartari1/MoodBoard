@@ -103,7 +103,7 @@
 - **ImageUpload Component** (`src/components/ui/ImageUpload.tsx`):
   - Drag & drop support with preview
   - **Creation Mode** (no entityId): Local file storage with blob URLs, tracks pending files via `onPendingFilesChange`
-  - **Edit Mode** (with entityId): Direct R2 upload immediately when files are added
+  - **Edit Mode** (with entityId): Direct GCP Storage upload immediately when files are added
   - Multi-image support (up to 20 images)
   - File validation (type, size - 10MB max)
   - Automatically uploads when `entityId` is provided
@@ -241,7 +241,7 @@ Implementation Details:
 ┌─────────────────────────────────────────────────────────┐
 │                  Data & Storage Layer                    │
 ├───────────────────────────────────────────────────────────┤
-│  MongoDB Atlas            │  Cloudflare R2              │
+│  MongoDB Atlas            │  Google Cloud Storage       │
 │  Redis (Upstash)          │  Meilisearch                │
 │  Webhooks                 │  Event Streaming            │
 └─────────────────────────────────────────────────────────┘
@@ -381,7 +381,7 @@ interface Category {
   description?: LocalizedString
   slug: string  // Unique
   order: number
-  images: string[]  // R2 URLs
+  images: string[]  // GCP Storage URLs
   subCategories: SubCategory[]
   styles: Style[]
 }
@@ -393,7 +393,7 @@ interface SubCategory {
   description?: LocalizedString
   slug: string  // Unique within category
   order: number
-  images: string[]  // R2 URLs
+  images: string[]  // GCP Storage URLs
   styles: Style[]
 }
 
@@ -887,7 +887,7 @@ services:
       - NEXTAUTH_URL=${NEXTAUTH_URL}
       - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}  # ✅ Configured
       - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}  # ✅ Configured
-      - R2_ACCESS_KEY=${R2_ACCESS_KEY}
+      - GCP_SERVICE_ACCOUNT_KEY=${GCP_SERVICE_ACCOUNT_KEY}
       - NEXT_PUBLIC_DEFAULT_LOCALE=${NEXT_PUBLIC_DEFAULT_LOCALE}  # 'he'
     depends_on:
       - redis
@@ -1160,7 +1160,7 @@ refactor: optimize material search query
    - Mitigation: Implement caching, optimize indexes, consider read replicas
 
 2. **File Storage Costs**
-   - Risk: High R2 storage costs
+   - Risk: High GCP Storage costs
    - Mitigation: Implement lifecycle policies, compress images, lazy delete
 
 3. **Multi-tenancy Security**

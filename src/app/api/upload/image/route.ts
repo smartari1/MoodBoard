@@ -1,12 +1,12 @@
 /**
  * Image Upload API
- * POST /api/upload/image - Upload image to R2
- * DELETE /api/upload/image - Delete image from R2
+ * POST /api/upload/image - Upload image to GCP Storage
+ * DELETE /api/upload/image - Delete image from GCP Storage
  */
 
 import { handleError, requirePermission, withAuth } from '@/lib/api/middleware'
 import { prisma } from '@/lib/db'
-import { deleteImageFromR2, uploadImageToR2, type EntityType } from '@/lib/storage/r2'
+import { deleteImageFromGCP, uploadImageToGCP, type EntityType } from '@/lib/storage/gcp-storage'
 import { imageDeleteSchema, imageUploadSchema, validateImageFile } from '@/lib/validations/upload'
 import { NextRequest, NextResponse } from 'next/server'
 
@@ -168,8 +168,8 @@ export const POST = withAuth(async (req: NextRequest, auth) => {
       }
     }
 
-    // Upload to R2
-    const imageUrl = await uploadImageToR2(
+    // Upload to GCP Storage
+    const imageUrl = await uploadImageToGCP(
       buffer,
       file.type,
       validatedData.entityType as EntityType,
@@ -196,7 +196,7 @@ export const POST = withAuth(async (req: NextRequest, auth) => {
 })
 
 /**
- * DELETE /api/upload/image - Delete image from R2
+ * DELETE /api/upload/image - Delete image from GCP Storage
  */
 export const DELETE = withAuth(async (req: NextRequest, auth) => {
   try {
@@ -205,14 +205,14 @@ export const DELETE = withAuth(async (req: NextRequest, auth) => {
     const body = await req.json()
     const validatedData = imageDeleteSchema.parse(body)
 
-    // Extract key from URL to verify it's a valid R2 URL
+    // Extract key from URL to verify it's a valid GCP Storage URL
     const url = new URL(validatedData.url)
-    if (!url.hostname.includes('r2.cloudflarestorage.com') && !url.hostname.includes('assets.moodb.com')) {
+    if (!url.hostname.includes('storage.googleapis.com') && !url.hostname.includes('moodb-assets')) {
       return NextResponse.json({ error: 'Invalid image URL' }, { status: 400 })
     }
 
-    // Delete from R2
-    await deleteImageFromR2(validatedData.url)
+    // Delete from GCP Storage
+    await deleteImageFromGCP(validatedData.url)
 
     return NextResponse.json({ success: true })
   } catch (error) {

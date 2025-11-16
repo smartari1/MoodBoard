@@ -74,6 +74,7 @@ export const PATCH = withAdmin(async (request: NextRequest, { params }: { params
         ...(validated.description !== undefined && { description: validated.description }),
         ...(validated.order !== undefined && { order: validated.order }),
         ...(validated.images && { images: validated.images }),
+        ...(validated.detailedContent !== undefined && { detailedContent: validated.detailedContent }),
         ...(validated.inspirationPillars !== undefined && { inspirationPillars: validated.inspirationPillars }),
         ...(validated.metadata && {
           metadata: {
@@ -105,8 +106,14 @@ export const PATCH = withAdmin(async (request: NextRequest, { params }: { params
  * DELETE /api/admin/approaches/[id]
  * Delete an approach
  */
-export const DELETE = withAdmin(async (request: NextRequest, { params }: { params: { id: string } }) => {
+export const DELETE = withAdmin(async (
+  request: NextRequest,
+  _auth,
+  context: { params: Promise<{ id: string }> }
+) => {
   try {
+    const params = await context.params
+
     // Check if approach exists
     const existing = await prisma.approach.findUnique({
       where: { id: params.id },
@@ -121,15 +128,11 @@ export const DELETE = withAdmin(async (request: NextRequest, { params }: { param
       return NextResponse.json({ error: 'Approach not found' }, { status: 404 })
     }
 
-    // Check if approach has any associated styles
+    // Cascade delete: First delete all associated styles, then the approach
     if (existing._count.styles > 0) {
-      return NextResponse.json(
-        {
-          error: 'Cannot delete approach with associated styles',
-          stylesCount: existing._count.styles,
-        },
-        { status: 400 }
-      )
+      await prisma.style.deleteMany({
+        where: { approachId: params.id },
+      })
     }
 
     await prisma.approach.delete({

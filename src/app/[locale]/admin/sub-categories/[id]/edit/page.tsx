@@ -24,6 +24,7 @@ import { ImageUpload } from '@/components/ui/ImageUpload'
 import { updateSubCategorySchema, type UpdateSubCategory } from '@/lib/validations/category'
 import { useSubCategory, useUpdateSubCategory } from '@/hooks/useCategories'
 import { hasHtmlContent } from '@/lib/utils/html'
+import { DetailedContentEditor } from '@/components/features/style-system/DetailedContentEditor'
 
 export default function AdminSubCategoryEditPage() {
   const t = useTranslations('admin.subCategories.create')
@@ -59,6 +60,32 @@ export default function AdminSubCategoryEditPage() {
       slug: '',
       order: 0,
       images: [],
+      detailedContent: {
+        he: {
+          introduction: '',
+          description: '',
+          period: '',
+          characteristics: [],
+          visualElements: [],
+          colorGuidance: '',
+          materialGuidance: '',
+          applications: [],
+          historicalContext: '',
+          culturalContext: '',
+        },
+        en: {
+          introduction: '',
+          description: '',
+          period: '',
+          characteristics: [],
+          visualElements: [],
+          colorGuidance: '',
+          materialGuidance: '',
+          applications: [],
+          historicalContext: '',
+          culturalContext: '',
+        },
+      },
     },
   })
 
@@ -71,6 +98,32 @@ export default function AdminSubCategoryEditPage() {
         slug: subCategory.slug,
         order: subCategory.order,
         images: subCategory.images || [],
+        detailedContent: subCategory.detailedContent || {
+          he: {
+            introduction: '',
+            description: '',
+            period: '',
+            characteristics: [],
+            visualElements: [],
+            colorGuidance: '',
+            materialGuidance: '',
+            applications: [],
+            historicalContext: '',
+            culturalContext: '',
+          },
+          en: {
+            introduction: '',
+            description: '',
+            period: '',
+            characteristics: [],
+            visualElements: [],
+            colorGuidance: '',
+            materialGuidance: '',
+            applications: [],
+            historicalContext: '',
+            culturalContext: '',
+          },
+        },
       })
       setSlugValue(subCategory.slug)
     }
@@ -342,6 +395,17 @@ export default function AdminSubCategoryEditPage() {
                 </Paper>
               </FormSection>
             </Stack>
+          </MoodBCard>
+
+          {/* Detailed Content Editor */}
+          <MoodBCard>
+            <DetailedContentEditor
+              control={control}
+              errors={errors}
+              watch={watch}
+              setValue={setValue}
+              entityType="subcategory"
+            />
           </MoodBCard>
 
           {/* Submit Buttons */}

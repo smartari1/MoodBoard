@@ -22,7 +22,7 @@ import {
 import { Dropzone, IMAGE_MIME_TYPE, FileWithPath } from '@mantine/dropzone'
 import { IconX, IconPhoto, IconUpload, IconAlertCircle } from '@tabler/icons-react'
 import { useImageUpload } from '@/hooks/useImageUpload'
-import type { EntityType } from '@/lib/storage/r2'
+import type { EntityType } from '@/lib/storage/gcp-storage'
 import { validateImageFile, MAX_IMAGE_SIZE } from '@/lib/validations/upload'
 
 interface ImageUploadProps {

@@ -21,6 +21,26 @@ export const inspirationPillarsSchema = z.object({
   shades: z.array(objectIdSchema).optional().default([]),
 })
 
+// Detailed Content Schema (AI-generated or manual content)
+export const detailedContentSchema = z.object({
+  introduction: z.string().optional(),
+  description: z.string().optional(),
+  period: z.string().optional(),
+  characteristics: z.array(z.string()).optional().default([]),
+  visualElements: z.array(z.string()).optional().default([]),
+  philosophy: z.string().optional(),
+  colorGuidance: z.string().optional(),
+  materialGuidance: z.string().optional(),
+  applications: z.array(z.string()).optional().default([]),
+  historicalContext: z.string().optional(),
+  culturalContext: z.string().optional(),
+})
+
+export const localizedDetailedContentSchema = z.object({
+  he: detailedContentSchema,
+  en: detailedContentSchema,
+})
+
 // Approach Metadata Schema
 export const approachMetadataSchema = z.object({
   isDefault: z.boolean().default(false),
@@ -36,6 +56,7 @@ export const createApproachSchema = z.object({
   order: z.number().int().min(0).default(0),
   description: localizedStringSchema.optional(),
   images: serverImagesSchema.optional(),
+  detailedContent: localizedDetailedContentSchema.optional(),
   inspirationPillars: inspirationPillarsSchema.optional(),
   metadata: approachMetadataSchema.optional(),
 })
@@ -47,6 +68,7 @@ export const updateApproachSchema = z.object({
   order: z.number().int().min(0).optional(),
   description: localizedStringSchema.optional(),
   images: serverImagesSchema.optional(),
+  detailedContent: localizedDetailedContentSchema.optional(),
   inspirationPillars: inspirationPillarsSchema.optional(),
   metadata: approachMetadataSchema.partial().optional(),
 })
@@ -58,6 +80,7 @@ export const createApproachFormSchema = z.object({
   order: z.number().int().min(0).default(0),
   description: localizedStringSchema.optional(),
   images: clientImagesSchema.optional(),
+  detailedContent: localizedDetailedContentSchema.optional(),
   inspirationPillars: inspirationPillarsSchema.optional(),
   metadata: approachMetadataSchema.optional(),
 })

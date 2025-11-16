@@ -15,12 +15,13 @@ import { LoadingState } from '@/components/ui/LoadingState'
 import { MoodBCard } from '@/components/ui/Card'
 import { MoodBTable, MoodBTableBody, MoodBTableCell, MoodBTableHead, MoodBTableHeader, MoodBTableRow } from '@/components/ui/Table'
 import { useApproaches, useDeleteApproach } from '@/hooks/useApproaches'
-import { ActionIcon, Badge, Button, Container, Drawer, Group, Menu, Stack, Text, TextInput } from '@mantine/core'
-import { IconDots, IconEdit, IconPlus, IconSearch, IconTrash } from '@tabler/icons-react'
+import { ActionIcon, Badge, Button, Container, Drawer, Group, Menu, Modal, Stack, Text, TextInput, Checkbox } from '@mantine/core'
+import { IconDots, IconEdit, IconEye, IconPlus, IconSearch, IconTrash } from '@tabler/icons-react'
 import { useTranslations } from 'next-intl'
 import { useParams, useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { ApproachForm } from './ApproachForm'
+import { DetailedContentViewer } from './DetailedContentViewer'
 
 export function ApproachesTable() {
   const t = useTranslations('admin.styleSystem.approaches')
@@ -37,6 +38,9 @@ export function ApproachesTable() {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false)
   const [deleteApproachId, setDeleteApproachId] = useState<string | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [viewDetailsApproach, setViewDetailsApproach] = useState<any>(null)
+  const [selectedIds, setSelectedIds] = useState<string[]>([])
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false)
 
   const handleCreate = () => {
     setSelectedApproach(null)
@@ -67,6 +71,36 @@ export function ApproachesTable() {
     }
   }
 
+  const handleBulkDelete = async () => {
+    if (selectedIds.length === 0) return
+
+    setIsBulkDeleting(true)
+    try {
+      await Promise.all(selectedIds.map((id) => deleteMutation.mutateAsync(id)))
+      setSelectedIds([])
+    } catch (error) {
+      console.error('Bulk delete error:', error)
+    } finally {
+      setIsBulkDeleting(false)
+    }
+  }
+
+  const handleSelectAll = () => {
+    if (selectedIds.length === filteredApproaches?.length) {
+      setSelectedIds([])
+    } else {
+      setSelectedIds(filteredApproaches?.map((a) => a.id) || [])
+    }
+  }
+
+  const handleSelectOne = (id: string) => {
+    if (selectedIds.includes(id)) {
+      setSelectedIds(selectedIds.filter((selectedId) => selectedId !== id))
+    } else {
+      setSelectedIds([...selectedIds, id])
+    }
+  }
+
   const filteredApproaches = approaches?.filter((approach) => {
     if (!search) return true
     const searchLower = search.toLowerCase()
@@ -90,9 +124,22 @@ export function ApproachesTable() {
               {t('description')}
             </Text>
           </div>
-          <Button leftSection={<IconPlus size={16} />} onClick={handleCreate} color="brand" variant="filled">
-            {t('create')}
-          </Button>
+          <Group>
+            {selectedIds.length > 0 && (
+              <Button
+                leftSection={<IconTrash size={16} />}
+                onClick={handleBulkDelete}
+                color="red"
+                variant="light"
+                loading={isBulkDeleting}
+              >
+                {locale === 'he' ? `מחק ${selectedIds.length} נבחרים` : `Delete ${selectedIds.length} selected`}
+              </Button>
+            )}
+            <Button leftSection={<IconPlus size={16} />} onClick={handleCreate} color="brand" variant="filled">
+              {t('create')}
+            </Button>
+          </Group>
         </Group>
 
         {/* Search */}
@@ -124,6 +171,13 @@ export function ApproachesTable() {
             <MoodBTable>
               <MoodBTableHead>
                 <MoodBTableRow>
+                  <MoodBTableHeader style={{ width: 40 }}>
+                    <Checkbox
+                      checked={selectedIds.length === filteredApproaches?.length && filteredApproaches.length > 0}
+                      indeterminate={selectedIds.length > 0 && selectedIds.length < (filteredApproaches?.length || 0)}
+                      onChange={handleSelectAll}
+                    />
+                  </MoodBTableHeader>
                   <MoodBTableHeader>{t('table.order')}</MoodBTableHeader>
                   <MoodBTableHeader>{t('table.name')}</MoodBTableHeader>
                   <MoodBTableHeader>{t('table.slug')}</MoodBTableHeader>
@@ -135,6 +189,9 @@ export function ApproachesTable() {
               <MoodBTableBody>
                 {filteredApproaches.map((approach) => (
                   <MoodBTableRow key={approach.id}>
+                    <MoodBTableCell>
+                      <Checkbox checked={selectedIds.includes(approach.id)} onChange={() => handleSelectOne(approach.id)} />
+                    </MoodBTableCell>
                     <MoodBTableCell>
                       <Text size="sm">{approach.order}</Text>
                     </MoodBTableCell>
@@ -178,6 +235,17 @@ export function ApproachesTable() {
                           </ActionIcon>
                         </Menu.Target>
                         <Menu.Dropdown>
+                          {approach.detailedContent && (
+                            <>
+                              <Menu.Item
+                                leftSection={<IconEye size={16} />}
+                                onClick={() => setViewDetailsApproach(approach)}
+                              >
+                                {locale === 'he' ? 'הצג פרטים מלאים' : 'View Full Details'}
+                              </Menu.Item>
+                              <Menu.Divider />
+                            </>
+                          )}
                           <Menu.Item leftSection={<IconEdit size={16} />} onClick={() => handleEdit(approach)}>
                             {tCommon('edit')}
                           </Menu.Item>
@@ -223,6 +291,30 @@ export function ApproachesTable() {
           loading={isDeleting}
           danger={true}
         />
+
+        {/* Detailed Content Modal */}
+        <Modal
+          opened={!!viewDetailsApproach}
+          onClose={() => setViewDetailsApproach(null)}
+          title={
+            viewDetailsApproach ? (
+              <Text fw={600} size="lg">
+                {viewDetailsApproach.name[locale as 'he' | 'en']}
+              </Text>
+            ) : null
+          }
+          size="xl"
+          dir={locale === 'he' ? 'rtl' : 'ltr'}
+        >
+          {viewDetailsApproach?.detailedContent && (
+            <DetailedContentViewer
+              content={viewDetailsApproach.detailedContent}
+              entityName={viewDetailsApproach.name}
+              entityType="approach"
+              images={viewDetailsApproach.images || []}
+            />
+          )}
+        </Modal>
       </Stack>
     </Container>
   )

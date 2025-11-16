@@ -17,6 +17,7 @@ import { useTranslations } from 'next-intl'
 import { useEffect } from 'react'
 import { Controller, useForm } from 'react-hook-form'
 import { z } from 'zod'
+import { DetailedContentEditor } from './DetailedContentEditor'
 
 type RoomTypeFormValues = z.infer<typeof createRoomTypeFormSchema>
 
@@ -39,6 +40,7 @@ export function RoomTypeForm({ roomType, onSuccess }: RoomTypeFormProps) {
     reset,
     setValue,
     getValues,
+    watch,
     formState: { errors, isSubmitting },
   } = useForm<RoomTypeFormValues>({
     resolver: zodResolver(createRoomTypeFormSchema),
@@ -48,6 +50,28 @@ export function RoomTypeForm({ roomType, onSuccess }: RoomTypeFormProps) {
       description: { he: '', en: '' },
       icon: '',
       order: 0,
+      detailedContent: {
+        he: {
+          introduction: '',
+          description: '',
+          period: '',
+          characteristics: [],
+          visualElements: [],
+          colorGuidance: '',
+          materialGuidance: '',
+          applications: [],
+        },
+        en: {
+          introduction: '',
+          description: '',
+          period: '',
+          characteristics: [],
+          visualElements: [],
+          colorGuidance: '',
+          materialGuidance: '',
+          applications: [],
+        },
+      },
     },
   })
 
@@ -59,6 +83,28 @@ export function RoomTypeForm({ roomType, onSuccess }: RoomTypeFormProps) {
         description: roomType.description || { he: '', en: '' },
         icon: roomType.icon || '',
         order: roomType.order,
+        detailedContent: roomType.detailedContent || {
+          he: {
+            introduction: '',
+            description: '',
+            period: '',
+            characteristics: [],
+            visualElements: [],
+            colorGuidance: '',
+            materialGuidance: '',
+            applications: [],
+          },
+          en: {
+            introduction: '',
+            description: '',
+            period: '',
+            characteristics: [],
+            visualElements: [],
+            colorGuidance: '',
+            materialGuidance: '',
+            applications: [],
+          },
+        },
       })
     }
   }, [roomType, reset])
@@ -207,6 +253,14 @@ export function RoomTypeForm({ roomType, onSuccess }: RoomTypeFormProps) {
             />
           </Stack>
         </FormSection>
+
+        <DetailedContentEditor
+          control={control}
+          errors={errors}
+          watch={watch}
+          setValue={setValue}
+          entityType="roomType"
+        />
 
         <Button type="submit" color="brand" fullWidth loading={isSubmitting}>
           {isEditMode ? tCommon('save') : tCommon('create')}

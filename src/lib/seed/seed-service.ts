@@ -1,0 +1,1216 @@
+/**
+ * Seed Service
+ *
+ * Main service for seeding the database with detailed content
+ * using Gemini AI to generate comprehensive descriptions
+ */
+
+import { PrismaClient } from '@prisma/client'
+import {
+  generateCategoryContent,
+  generateSubCategoryContent,
+  generateStyleContent,
+  generateApproachContent,
+  generateRoomTypeContent,
+  type LocalizedDetailedContent,
+} from '../ai/gemini'
+import { generateAndUploadImages } from '../ai/image-generation'
+import { parseAllBaseData, type ParsedData } from './parser'
+
+const prisma = new PrismaClient()
+
+export interface SeedOptions {
+  /**
+   * Whether to skip existing entities (don't overwrite)
+   */
+  skipExisting?: boolean
+
+  /**
+   * Only seed specific entity types
+   */
+  only?: ('categories' | 'subCategories' | 'approaches' | 'roomTypes' | 'styles')[]
+
+  /**
+   * Limit the number of items to seed (for testing)
+   */
+  limit?: number
+
+  /**
+   * Progress callback
+   */
+  onProgress?: (message: string, current?: number, total?: number) => void
+
+  /**
+   * Dry run - don't actually save to database
+   */
+  dryRun?: boolean
+
+  /**
+   * Generate images for entities (requires image generation API)
+   * Default: false (will use placeholders until API is integrated)
+   */
+  generateImages?: boolean
+
+  /**
+   * Number of images to generate per entity
+   * Default: 3
+   */
+  imagesPerEntity?: number
+}
+
+export interface SeedResult {
+  success: boolean
+  stats: {
+    categories: { created: number; updated: number; skipped: number }
+    subCategories: { created: number; updated: number; skipped: number }
+    approaches: { created: number; updated: number; skipped: number }
+    roomTypes: { created: number; updated: number; skipped: number }
+    styles: {
+      created: number
+      updated: number
+      skipped: number
+      // Extended stats for styles
+      totalSubCategories?: number
+      alreadyGenerated?: number
+      pendingBeforeSeed?: number
+    }
+  }
+  errors: Array<{ entity: string; error: string }>
+}
+
+/**
+ * Main seed function
+ */
+export async function seedAllContent(options: SeedOptions = {}): Promise<SeedResult> {
+  const { skipExisting = true, only, limit, onProgress, dryRun = false } = options
+
+  const result: SeedResult = {
+    success: true,
+    stats: {
+      categories: { created: 0, updated: 0, skipped: 0 },
+      subCategories: { created: 0, updated: 0, skipped: 0 },
+      approaches: { created: 0, updated: 0, skipped: 0 },
+      roomTypes: { created: 0, updated: 0, skipped: 0 },
+      styles: { created: 0, updated: 0, skipped: 0 },
+    },
+    errors: [],
+  }
+
+  try {
+    onProgress?.('📖 Parsing data from markdown file...')
+    const parsedData = parseAllBaseData()
+    onProgress?.('✅ Data parsed successfully')
+
+    // Seed in order: Approaches → Room Types → Categories → Styles → SubCategories
+
+    if (!only || only.includes('approaches')) {
+      await seedApproaches(parsedData, result, {
+        skipExisting,
+        limit,
+        onProgress,
+        dryRun,
+        generateImages: options.generateImages,
+        imagesPerEntity: options.imagesPerEntity
+      })
+    }
+
+    if (!only || only.includes('roomTypes')) {
+      await seedRoomTypes(parsedData, result, {
+        skipExisting,
+        limit,
+        onProgress,
+        dryRun,
+        generateImages: options.generateImages,
+        imagesPerEntity: options.imagesPerEntity
+      })
+    }
+
+    if (!only || only.includes('categories')) {
+      await seedCategories(parsedData, result, {
+        skipExisting,
+        limit,
+        onProgress,
+        dryRun,
+        generateImages: options.generateImages,
+        imagesPerEntity: options.imagesPerEntity
+      })
+    }
+
+    if (!only || only.includes('subCategories')) {
+      await seedSubCategories(parsedData, result, {
+        skipExisting,
+        limit,
+        onProgress,
+        dryRun,
+        generateImages: options.generateImages,
+        imagesPerEntity: options.imagesPerEntity
+      })
+    }
+
+    onProgress?.('✅ Seeding completed successfully!')
+    result.success = true
+  } catch (error) {
+    result.success = false
+    result.errors.push({
+      entity: 'global',
+      error: error instanceof Error ? error.message : String(error),
+    })
+    onProgress?.(`❌ Error: ${error instanceof Error ? error.message : String(error)}`)
+  } finally {
+    await prisma.$disconnect()
+  }
+
+  return result
+}
+
+/**
+ * Seed approaches
+ */
+async function seedApproaches(
+  data: ParsedData,
+  result: SeedResult,
+  options: SeedOptions
+): Promise<void> {
+  const { onProgress, skipExisting, limit, dryRun } = options
+  const approaches = limit ? data.approaches.slice(0, limit) : data.approaches
+
+  onProgress?.(`🎨 Seeding ${approaches.length} approaches...`, 0, approaches.length)
+
+  for (let i = 0; i < approaches.length; i++) {
+    const approachData = approaches[i]
+
+    try {
+      // Check if exists
+      const existing = await prisma.approach.findUnique({
+        where: { slug: approachData.slug },
+      })
+
+      if (existing && skipExisting) {
+        result.stats.approaches.skipped++
+        onProgress?.(
+          `⏭️  Skipping existing approach: ${approachData.name.he} / ${approachData.name.en}`,
+          i + 1,
+          approaches.length
+        )
+        continue
+      }
+
+      // Generate detailed content using Gemini
+      onProgress?.(
+        `🤖 Generating content for approach: ${approachData.name.he} / ${approachData.name.en}`,
+        i + 1,
+        approaches.length
+      )
+
+      const detailedContent = await generateApproachContent(approachData.name, {
+        description: approachData.description,
+      })
+
+      // Generate images if requested
+      let images: string[] = []
+      if (options.generateImages) {
+        onProgress?.(
+          `🖼️  Generating ${options.imagesPerEntity || 3} images for approach: ${approachData.name.he}`,
+          i + 1,
+          approaches.length
+        )
+
+        try {
+          images = await generateAndUploadImages({
+            entityType: 'approach',
+            entityName: approachData.name,
+            description: {
+              he: detailedContent.he.description || '',
+              en: detailedContent.en.description || '',
+            },
+            numberOfImages: options.imagesPerEntity || 3,
+          })
+        } catch (error) {
+          onProgress?.(
+            `⚠️  Warning: Failed to generate images for ${approachData.name.he}: ${error instanceof Error ? error.message : String(error)}`,
+            i + 1,
+            approaches.length
+          )
+        }
+      }
+
+      if (dryRun) {
+        onProgress?.(
+          `[DRY RUN] Would create/update approach: ${approachData.name.he}${images.length > 0 ? ` with ${images.length} images` : ''}`,
+          i + 1,
+          approaches.length
+        )
+        result.stats.approaches.created++
+        continue
+      }
+
+      // Create or update
+      const approach = await prisma.approach.upsert({
+        where: { slug: approachData.slug },
+        create: {
+          slug: approachData.slug,
+          name: approachData.name,
+          description: {
+            he: detailedContent.he.introduction || detailedContent.he.description || '',
+            en: detailedContent.en.introduction || detailedContent.en.description || '',
+          },
+          order: approachData.order,
+          images,
+          detailedContent,
+          metadata: {
+            isDefault: false,
+            version: '1.0.0',
+            tags: [],
+            usage: 0,
+          },
+        },
+        update: {
+          name: approachData.name,
+          description: {
+            he: detailedContent.he.introduction || detailedContent.he.description || '',
+            en: detailedContent.en.introduction || detailedContent.en.description || '',
+          },
+          order: approachData.order,
+          ...(images.length > 0 && { images }),
+          detailedContent,
+        },
+      })
+
+      if (existing) {
+        result.stats.approaches.updated++
+        onProgress?.(
+          `✏️  Updated approach: ${approach.name.he}`,
+          i + 1,
+          approaches.length
+        )
+      } else {
+        result.stats.approaches.created++
+        onProgress?.(
+          `✅ Created approach: ${approach.name.he}`,
+          i + 1,
+          approaches.length
+        )
+      }
+    } catch (error) {
+      result.errors.push({
+        entity: `approach:${approachData.slug}`,
+        error: error instanceof Error ? error.message : String(error),
+      })
+      onProgress?.(
+        `❌ Error with approach ${approachData.name.he}: ${error instanceof Error ? error.message : String(error)}`,
+        i + 1,
+        approaches.length
+      )
+    }
+  }
+}
+
+/**
+ * Seed room types
+ */
+async function seedRoomTypes(
+  data: ParsedData,
+  result: SeedResult,
+  options: SeedOptions
+): Promise<void> {
+  const { onProgress, skipExisting, limit, dryRun } = options
+  const roomTypes = limit ? data.roomTypes.slice(0, limit) : data.roomTypes
+
+  onProgress?.(`🏠 Seeding ${roomTypes.length} room types...`, 0, roomTypes.length)
+
+  for (let i = 0; i < roomTypes.length; i++) {
+    const roomTypeData = roomTypes[i]
+
+    try {
+      // Check if exists
+      const existing = await prisma.roomType.findUnique({
+        where: { slug: roomTypeData.slug },
+      })
+
+      if (existing && skipExisting) {
+        result.stats.roomTypes.skipped++
+        onProgress?.(
+          `⏭️  Skipping existing room type: ${roomTypeData.name.he}`,
+          i + 1,
+          roomTypes.length
+        )
+        continue
+      }
+
+      // Generate detailed content using Gemini
+      onProgress?.(
+        `🤖 Generating content for room type: ${roomTypeData.name.he} / ${roomTypeData.name.en}`,
+        i + 1,
+        roomTypes.length
+      )
+
+      const detailedContent = await generateRoomTypeContent(roomTypeData.name, {
+        category: roomTypeData.category,
+      })
+
+      if (dryRun) {
+        onProgress?.(
+          `[DRY RUN] Would create/update room type: ${roomTypeData.name.he}`,
+          i + 1,
+          roomTypes.length
+        )
+        result.stats.roomTypes.created++
+        continue
+      }
+
+      // Create or update
+      const roomType = await prisma.roomType.upsert({
+        where: { slug: roomTypeData.slug },
+        create: {
+          slug: roomTypeData.slug,
+          name: roomTypeData.name,
+          description: {
+            he: detailedContent.he.introduction || detailedContent.he.description || '',
+            en: detailedContent.en.introduction || detailedContent.en.description || '',
+          },
+          order: roomTypeData.order,
+          detailedContent,
+        },
+        update: {
+          name: roomTypeData.name,
+          description: {
+            he: detailedContent.he.introduction || detailedContent.he.description || '',
+            en: detailedContent.en.introduction || detailedContent.en.description || '',
+          },
+          order: roomTypeData.order,
+          detailedContent,
+        },
+      })
+
+      if (existing) {
+        result.stats.roomTypes.updated++
+        onProgress?.(
+          `✏️  Updated room type: ${roomType.name.he}`,
+          i + 1,
+          roomTypes.length
+        )
+      } else {
+        result.stats.roomTypes.created++
+        onProgress?.(
+          `✅ Created room type: ${roomType.name.he}`,
+          i + 1,
+          roomTypes.length
+        )
+      }
+    } catch (error) {
+      result.errors.push({
+        entity: `roomType:${roomTypeData.slug}`,
+        error: error instanceof Error ? error.message : String(error),
+      })
+      onProgress?.(
+        `❌ Error with room type ${roomTypeData.name.he}: ${error instanceof Error ? error.message : String(error)}`,
+        i + 1,
+        roomTypes.length
+      )
+    }
+  }
+}
+
+/**
+ * Seed categories (and styles within them)
+ */
+async function seedCategories(
+  data: ParsedData,
+  result: SeedResult,
+  options: SeedOptions
+): Promise<void> {
+  const { onProgress, skipExisting, limit, dryRun } = options
+  const categories = limit ? data.categories.slice(0, limit) : data.categories
+
+  onProgress?.(`📚 Seeding ${categories.length} categories...`, 0, categories.length)
+
+  for (let i = 0; i < categories.length; i++) {
+    const categoryData = categories[i]
+
+    try {
+      // Check if exists
+      const existing = await prisma.category.findUnique({
+        where: { slug: categoryData.slug },
+      })
+
+      if (existing && skipExisting) {
+        result.stats.categories.skipped++
+        onProgress?.(
+          `⏭️  Skipping existing category: ${categoryData.name.he}`,
+          i + 1,
+          categories.length
+        )
+        continue
+      }
+
+      // Generate detailed content using Gemini
+      onProgress?.(
+        `🤖 Generating content for category: ${categoryData.name.he} / ${categoryData.name.en}`,
+        i + 1,
+        categories.length
+      )
+
+      const detailedContent = await generateCategoryContent(categoryData.name, {
+        description: categoryData.description,
+        period: categoryData.period,
+      })
+
+      // Generate images if requested
+      let images: string[] = []
+      if (options.generateImages) {
+        onProgress?.(
+          `🖼️  Generating ${options.imagesPerEntity || 3} images for category: ${categoryData.name.he}`,
+          i + 1,
+          categories.length
+        )
+
+        try {
+          images = await generateAndUploadImages({
+            entityType: 'category',
+            entityName: categoryData.name,
+            description: categoryData.description,
+            period: categoryData.period,
+            numberOfImages: options.imagesPerEntity || 3,
+          })
+        } catch (error) {
+          onProgress?.(
+            `⚠️  Warning: Failed to generate images for ${categoryData.name.he}: ${error instanceof Error ? error.message : String(error)}`,
+            i + 1,
+            categories.length
+          )
+        }
+      }
+
+      if (dryRun) {
+        onProgress?.(
+          `[DRY RUN] Would create/update category: ${categoryData.name.he}${images.length > 0 ? ` with ${images.length} images` : ''}`,
+          i + 1,
+          categories.length
+        )
+        result.stats.categories.created++
+        continue
+      }
+
+      // Create or update category
+      const category = await prisma.category.upsert({
+        where: { slug: categoryData.slug },
+        create: {
+          slug: categoryData.slug,
+          name: categoryData.name,
+          description: {
+            he: detailedContent.he.introduction || categoryData.description.he,
+            en: detailedContent.en.introduction || categoryData.description.en,
+          },
+          order: categoryData.order,
+          images,
+          detailedContent,
+        },
+        update: {
+          name: categoryData.name,
+          description: {
+            he: detailedContent.he.introduction || categoryData.description.he,
+            en: detailedContent.en.introduction || categoryData.description.en,
+          },
+          order: categoryData.order,
+          ...(images.length > 0 && { images }),
+          detailedContent,
+        },
+      })
+
+      if (existing) {
+        result.stats.categories.updated++
+        onProgress?.(
+          `✏️  Updated category: ${category.name.he}`,
+          i + 1,
+          categories.length
+        )
+      } else {
+        result.stats.categories.created++
+        onProgress?.(
+          `✅ Created category: ${category.name.he}`,
+          i + 1,
+          categories.length
+        )
+      }
+    } catch (error) {
+      result.errors.push({
+        entity: `category:${categoryData.slug}`,
+        error: error instanceof Error ? error.message : String(error),
+      })
+      onProgress?.(
+        `❌ Error with category ${categoryData.name.he}: ${error instanceof Error ? error.message : String(error)}`,
+        i + 1,
+        categories.length
+      )
+    }
+  }
+}
+
+/**
+ * Seed sub-categories (all 60+ items from all categories)
+ */
+async function seedSubCategories(
+  data: ParsedData,
+  result: SeedResult,
+  options: SeedOptions
+): Promise<void> {
+  const { onProgress, skipExisting, limit, dryRun } = options
+  const subCategories = limit ? data.subCategories.slice(0, limit) : data.subCategories
+
+  onProgress?.(`📂 Seeding ${subCategories.length} sub-categories...`, 0, subCategories.length)
+
+  // Get all categories for lookup
+  const categories = await prisma.category.findMany({
+    select: { id: true, slug: true, name: true },
+  })
+
+  const categoryMap = new Map(categories.map((c) => [c.slug, c]))
+
+  for (let i = 0; i < subCategories.length; i++) {
+    const subCategoryData = subCategories[i]
+
+    try {
+      // Find parent category
+      const parentCategory = categoryMap.get(subCategoryData.categorySlug)
+
+      if (!parentCategory) {
+        onProgress?.(
+          `⚠️  Warning: Could not find category "${subCategoryData.categorySlug}" for sub-category "${subCategoryData.name.he}"`,
+          i + 1,
+          subCategories.length
+        )
+        result.errors.push({
+          entity: `subCategory:${subCategoryData.slug}`,
+          error: `Parent category not found: ${subCategoryData.categorySlug}`,
+        })
+        continue
+      }
+
+      // Check if exists (unique by slug + categoryId)
+      const existing = await prisma.subCategory.findFirst({
+        where: {
+          slug: subCategoryData.slug,
+          categoryId: parentCategory.id,
+        },
+      })
+
+      if (existing && skipExisting) {
+        result.stats.subCategories.skipped++
+        onProgress?.(
+          `⏭️  Skipping existing sub-category: ${subCategoryData.name.he}`,
+          i + 1,
+          subCategories.length
+        )
+        continue
+      }
+
+      // Generate detailed content using Gemini
+      onProgress?.(
+        `🤖 Generating content for sub-category: ${subCategoryData.name.he} / ${subCategoryData.name.en}`,
+        i + 1,
+        subCategories.length
+      )
+
+      const detailedContent = await generateSubCategoryContent(
+        subCategoryData.name,
+        parentCategory.name,
+        {
+          period: subCategoryData.period,
+        }
+      )
+
+      // Generate images if requested
+      let images: string[] = []
+      if (options.generateImages) {
+        onProgress?.(
+          `🖼️  Generating ${options.imagesPerEntity || 3} images for sub-category: ${subCategoryData.name.he}`,
+          i + 1,
+          subCategories.length
+        )
+
+        try {
+          images = await generateAndUploadImages({
+            entityType: 'subcategory',
+            entityName: subCategoryData.name,
+            description: {
+              he: detailedContent.he.description || '',
+              en: detailedContent.en.description || '',
+            },
+            period: subCategoryData.period,
+            numberOfImages: options.imagesPerEntity || 3,
+          })
+        } catch (error) {
+          onProgress?.(
+            `⚠️  Warning: Failed to generate images for ${subCategoryData.name.he}: ${error instanceof Error ? error.message : String(error)}`,
+            i + 1,
+            subCategories.length
+          )
+        }
+      }
+
+      if (dryRun) {
+        onProgress?.(
+          `[DRY RUN] Would create/update sub-category: ${subCategoryData.name.he}${images.length > 0 ? ` with ${images.length} images` : ''}`,
+          i + 1,
+          subCategories.length
+        )
+        result.stats.subCategories.created++
+        continue
+      }
+
+      // Create or update
+      if (existing) {
+        const updated = await prisma.subCategory.update({
+          where: { id: existing.id },
+          data: {
+            name: subCategoryData.name,
+            description: {
+              he: detailedContent.he.introduction || '',
+              en: detailedContent.en.introduction || '',
+            },
+            order: subCategoryData.order,
+            ...(images.length > 0 && { images }),
+            detailedContent,
+          },
+        })
+        result.stats.subCategories.updated++
+        onProgress?.(
+          `✏️  Updated sub-category: ${updated.name.he}`,
+          i + 1,
+          subCategories.length
+        )
+      } else {
+        const created = await prisma.subCategory.create({
+          data: {
+            slug: subCategoryData.slug,
+            name: subCategoryData.name,
+            description: {
+              he: detailedContent.he.introduction || '',
+              en: detailedContent.en.introduction || '',
+            },
+            order: subCategoryData.order,
+            categoryId: parentCategory.id,
+            images,
+            detailedContent,
+          },
+        })
+        result.stats.subCategories.created++
+        onProgress?.(
+          `✅ Created sub-category: ${created.name.he}`,
+          i + 1,
+          subCategories.length
+        )
+      }
+    } catch (error) {
+      result.errors.push({
+        entity: `subCategory:${subCategoryData.slug}`,
+        error: error instanceof Error ? error.message : String(error),
+      })
+      onProgress?.(
+        `❌ Error with sub-category ${subCategoryData.name.he}: ${error instanceof Error ? error.message : String(error)}`,
+        i + 1,
+        subCategories.length
+      )
+    }
+  }
+}
+
+/**
+ * Seed styles with AI-powered selection and comprehensive room profiles
+ *
+ * For each sub-category:
+ * 1. AI selects optimal approach and color
+ * 2. Generates hybrid poetic + factual content
+ * 3. Generates 3 general style images
+ * 4. Generates room profiles for all 24 room types
+ * 5. Generates 3 images per room type
+ */
+export async function seedStyles(
+  options: SeedOptions & {
+    categoryFilter?: string
+    subCategoryFilter?: string
+    generateRoomProfiles?: boolean
+    executionId?: string // For tracking in SeedExecution table
+    onStyleCompleted?: (styleId: string, styleName: { he: string; en: string }) => Promise<void>
+  } = {}
+): Promise<SeedResult> {
+  const {
+    skipExisting = true,
+    limit,
+    onProgress,
+    dryRun = false,
+    generateRoomProfiles = true,
+    executionId,
+    onStyleCompleted
+  } = options
+
+  const result: SeedResult = {
+    success: true,
+    stats: {
+      categories: { created: 0, updated: 0, skipped: 0 },
+      subCategories: { created: 0, updated: 0, skipped: 0 },
+      approaches: { created: 0, updated: 0, skipped: 0 },
+      roomTypes: { created: 0, updated: 0, skipped: 0 },
+      styles: { created: 0, updated: 0, skipped: 0 },
+    },
+    errors: [],
+  }
+
+  try {
+    // Step 1: Query all required data from database
+    onProgress?.('📊 Querying database for sub-categories, approaches, colors, and room types...')
+
+    const [subCategories, approaches, colors, roomTypes] = await Promise.all([
+      prisma.subCategory.findMany({
+        where: options.subCategoryFilter
+          ? { slug: options.subCategoryFilter }
+          : options.categoryFilter
+          ? { category: { slug: options.categoryFilter } }
+          : {},
+        include: { category: true },
+      }),
+      prisma.approach.findMany(),
+      prisma.color.findMany({
+        where: { organizationId: null }, // Only global colors
+      }),
+      prisma.roomType.findMany(),
+    ])
+
+    onProgress?.(
+      `✅ Found ${subCategories.length} sub-categories, ${approaches.length} approaches, ${colors.length} colors, ${roomTypes.length} room types`
+    )
+
+    // Step 1.5: Auto-filter sub-categories that already have styles (prevent duplicates)
+    onProgress?.('🔍 Checking for existing styles to prevent duplicates...')
+
+    const existingStyles = await prisma.style.findMany({
+      select: { subCategoryId: true },
+      distinct: ['subCategoryId'],
+    })
+
+    const alreadyGeneratedIds = new Set(existingStyles.map((s) => s.subCategoryId))
+
+    // Filter out sub-categories that already have styles
+    const pendingSubCategories = subCategories.filter(
+      (sc) => !alreadyGeneratedIds.has(sc.id)
+    )
+
+    onProgress?.(
+      `✅ Status: ${alreadyGeneratedIds.size}/${subCategories.length} sub-categories already have styles, ${pendingSubCategories.length} pending generation`
+    )
+
+    if (pendingSubCategories.length === 0) {
+      onProgress?.('✨ All sub-categories already have generated styles! No work to do.')
+      result.success = true
+      return result
+    }
+
+    // Apply limit to pending sub-categories only
+    const subCatsToProcess = limit
+      ? pendingSubCategories.slice(0, limit)
+      : pendingSubCategories
+
+    onProgress?.(
+      `📝 Will generate ${subCatsToProcess.length} styles from pending sub-categories`
+    )
+
+    // Update result stats with totals
+    result.stats.styles.totalSubCategories = subCategories.length
+    result.stats.styles.alreadyGenerated = alreadyGeneratedIds.size
+    result.stats.styles.pendingBeforeSeed = pendingSubCategories.length
+
+    // Import AI selection and generation functions
+    const { selectOptimalApproachAndColor, batchSelectOptimalCombinations } =
+      await import('../ai/style-selector')
+    const { generateStyleImages, generateStyleRoomImages } = await import('../ai/image-generation')
+    const { batchGenerateRoomProfiles } = await import('../ai/gemini')
+
+    // Step 2: Batch AI selection for all sub-categories
+    onProgress?.(
+      `🤖 AI selecting optimal approach & color combinations for ${subCatsToProcess.length} sub-categories...`,
+      0,
+      subCatsToProcess.length
+    )
+
+    const selections = await batchSelectOptimalCombinations(
+      subCatsToProcess,
+      approaches,
+      colors,
+      (message, current, total) => {
+        onProgress?.(message, current, total)
+      }
+    )
+
+    onProgress?.(`✅ AI selections complete!`)
+
+    // Step 3: Generate styles one by one
+    for (let i = 0; i < subCatsToProcess.length; i++) {
+      const subCategory = subCatsToProcess[i]
+      const selection = selections.get(subCategory.id)
+
+      if (!selection) {
+        result.errors.push({
+          entity: `style:${subCategory.slug}`,
+          error: 'No AI selection available',
+        })
+        continue
+      }
+
+      const selectedApproach = approaches.find((a) => a.id === selection.approachId)
+      const selectedColor = colors.find((c) => c.id === selection.colorId)
+
+      if (!selectedApproach || !selectedColor) {
+        result.errors.push({
+          entity: `style:${subCategory.slug}`,
+          error: 'Selected approach or color not found',
+        })
+        continue
+      }
+
+      try {
+        // Generate style name and slug
+        const styleName = {
+          he: `${subCategory.name.he} ${selectedApproach.name.he} ${selectedColor.name.he}`,
+          en: `${subCategory.name.en} ${selectedApproach.name.en} in ${selectedColor.name.en}`,
+        }
+        const styleSlug = `${subCategory.slug}-${selectedApproach.slug}-${selectedColor.name.en
+          .toLowerCase()
+          .replace(/\s+/g, '-')}`
+
+        onProgress?.(
+          `\n🎨 [${i + 1}/${subCatsToProcess.length}] Processing: ${styleName.en}`,
+          i + 1,
+          subCatsToProcess.length
+        )
+
+        // Check if exists
+        const existing = await prisma.style.findUnique({
+          where: { slug: styleSlug },
+        })
+
+        if (existing && skipExisting) {
+          result.stats.styles.skipped++
+          onProgress?.(
+            `⏭️  Skipping existing style: ${styleName.en}`,
+            i + 1,
+            subCatsToProcess.length
+          )
+          continue
+        }
+
+        // Step 3a: Generate hybrid content (poetic + factual)
+        onProgress?.(
+          `   📝 Generating hybrid content (poetic + factual)...`,
+          i + 1,
+          subCatsToProcess.length
+        )
+
+        const detailedContent = await generateStyleContent(styleName, {
+          category: { name: subCategory.category.name },
+          subCategory: {
+            name: subCategory.name,
+            description: subCategory.description,
+            detailedContent: subCategory.detailedContent,
+          },
+          approach: {
+            name: selectedApproach.name,
+            description: selectedApproach.description,
+            detailedContent: selectedApproach.detailedContent,
+          },
+          color: {
+            name: selectedColor.name,
+            hex: selectedColor.hex,
+            category: selectedColor.category,
+            description: selectedColor.description,
+          },
+        })
+
+        // Step 3b: Generate 3 general style images
+        let generalImages: string[] = []
+        if (options.generateImages) {
+          onProgress?.(
+            `   🖼️  Generating 3 general images (wide angle, detail, furniture)...`,
+            i + 1,
+            subCatsToProcess.length
+          )
+
+          try {
+            generalImages = await generateStyleImages(
+              styleName,
+              {
+                subCategoryName: subCategory.name.en,
+                approachName: selectedApproach.name.en,
+                colorName: selectedColor.name.en,
+                colorHex: selectedColor.hex,
+              },
+              (current, total, type) => {
+                onProgress?.(
+                  `      Image ${current}/${total}: ${type}`,
+                  i + 1,
+                  subCatsToProcess.length
+                )
+              }
+            )
+          } catch (error) {
+            onProgress?.(
+              `   ⚠️  Warning: Image generation failed, using placeholders`,
+              i + 1,
+              subCatsToProcess.length
+            )
+          }
+        }
+
+        if (dryRun) {
+          onProgress?.(
+            `   [DRY RUN] Would create style: ${styleName.en}`,
+            i + 1,
+            subCatsToProcess.length
+          )
+          onProgress?.(
+            `      - ${generalImages.length} general images`,
+            i + 1,
+            subCatsToProcess.length
+          )
+          result.stats.styles.created++
+          continue
+        }
+
+        // Step 3c: IMMEDIATELY save style to database (before room profiles)
+        // This ensures we don't lose work if crash happens during room generation
+        onProgress?.(
+          `   💾 Saving style to database (basic content + general images)...`,
+          i + 1,
+          subCatsToProcess.length
+        )
+
+        let style = await prisma.style.upsert({
+          where: { slug: styleSlug },
+          create: {
+            slug: styleSlug,
+            name: styleName,
+            categoryId: subCategory.categoryId,
+            subCategoryId: subCategory.id,
+            approachId: selectedApproach.id,
+            colorId: selectedColor.id,
+            images: generalImages,
+            detailedContent,
+            roomProfiles: [], // Start with empty, will add incrementally
+            metadata: {
+              version: '1.0.0',
+              isPublic: false,
+              tags: [
+                subCategory.slug,
+                selectedApproach.slug,
+                selectedColor.name.en.toLowerCase(),
+              ],
+              usage: 0,
+              aiGenerated: true,
+              aiSelection: {
+                approachConfidence: selection.confidence,
+                reasoning: selection.reasoning,
+              },
+            },
+          },
+          update: {
+            name: styleName,
+            categoryId: subCategory.categoryId,
+            subCategoryId: subCategory.id,
+            approachId: selectedApproach.id,
+            colorId: selectedColor.id,
+            images: generalImages.length > 0 ? generalImages : undefined,
+            detailedContent,
+            // Don't reset roomProfiles on update - we'll append to them
+          },
+        })
+
+        onProgress?.(
+          `   ✅ Style saved to database (ID: ${style.id})`,
+          i + 1,
+          subCatsToProcess.length
+        )
+
+        // Step 3d: Generate room profiles ONE BY ONE with immediate saves
+        if (generateRoomProfiles && options.generateImages) {
+          onProgress?.(
+            `   🏠 Generating ${roomTypes.length} room profiles (incremental saves)...`,
+            i + 1,
+            subCatsToProcess.length
+          )
+
+          const { generateRoomProfileContent } = await import('../ai/gemini')
+          const roomProfilesGenerated: any[] = []
+
+          const styleContext = {
+            name: styleName,
+            description: {
+              he: detailedContent.he.description,
+              en: detailedContent.en.description,
+            },
+            characteristics: detailedContent.he.characteristics || [],
+            visualElements: detailedContent.he.visualElements || [],
+            materialGuidance: {
+              he: detailedContent.he.materialGuidance,
+              en: detailedContent.en.materialGuidance,
+            },
+            primaryColor: {
+              name: selectedColor.name,
+              hex: selectedColor.hex,
+            },
+          }
+
+          for (let j = 0; j < roomTypes.length; j++) {
+            const roomType = roomTypes[j]
+
+            try {
+              onProgress?.(
+                `      Room ${j + 1}/${roomTypes.length}: ${roomType.name.en} - Generating content...`,
+                i + 1,
+                subCatsToProcess.length
+              )
+
+              // Generate room profile content
+              const roomProfile = await generateRoomProfileContent(roomType, styleContext)
+
+              onProgress?.(
+                `      Room ${j + 1}/${roomTypes.length}: ${roomType.name.en} - Generating 3 images...`,
+                i + 1,
+                subCatsToProcess.length
+              )
+
+              // Generate room-specific images
+              let roomImages: string[] = []
+              try {
+                roomImages = await generateStyleRoomImages(
+                  styleName,
+                  roomType.name.en,
+                  selectedColor.hex
+                )
+              } catch (error) {
+                onProgress?.(
+                  `      ⚠️  Room ${j + 1}/${roomTypes.length}: ${roomType.name.en} - Image generation failed, continuing...`,
+                  i + 1,
+                  subCatsToProcess.length
+                )
+              }
+
+              const completeRoomProfile = {
+                ...roomProfile,
+                images: roomImages,
+              }
+
+              // IMMEDIATELY save this room profile to database
+              onProgress?.(
+                `      Room ${j + 1}/${roomTypes.length}: ${roomType.name.en} - Saving to database...`,
+                i + 1,
+                subCatsToProcess.length
+              )
+
+              style = await prisma.style.update({
+                where: { id: style.id },
+                data: {
+                  roomProfiles: {
+                    push: completeRoomProfile,
+                  },
+                },
+              })
+
+              roomProfilesGenerated.push(completeRoomProfile)
+
+              onProgress?.(
+                `      ✅ Room ${j + 1}/${roomTypes.length}: ${roomType.name.en} - Saved!`,
+                i + 1,
+                subCatsToProcess.length
+              )
+
+              // Notify about progress if callback provided
+              if (onStyleCompleted && j === roomTypes.length - 1) {
+                // Last room completed, notify style is fully complete
+                await onStyleCompleted(style.id, styleName)
+              }
+
+              // Small delay to avoid rate limiting
+              if (j < roomTypes.length - 1) {
+                await new Promise(resolve => setTimeout(resolve, 500))
+              }
+
+            } catch (error) {
+              onProgress?.(
+                `      ❌ Room ${j + 1}/${roomTypes.length}: ${roomType.name.en} - Error: ${error instanceof Error ? error.message : String(error)}`,
+                i + 1,
+                subCatsToProcess.length
+              )
+              result.errors.push({
+                entity: `style:${styleSlug}:room:${roomType.slug}`,
+                error: error instanceof Error ? error.message : String(error),
+              })
+              // Continue with next room even if this one failed
+            }
+          }
+
+          onProgress?.(
+            `   ✅ All room profiles saved incrementally (${roomProfilesGenerated.length}/${roomTypes.length} successful)`,
+            i + 1,
+            subCatsToProcess.length
+          )
+        } else {
+          // No room profiles requested, notify style completion now
+          if (onStyleCompleted) {
+            await onStyleCompleted(style.id, styleName)
+          }
+        }
+
+        if (existing) {
+          result.stats.styles.updated++
+          onProgress?.(
+            `   ✏️  Updated style: ${style.name.en}`,
+            i + 1,
+            subCatsToProcess.length
+          )
+        } else {
+          result.stats.styles.created++
+          onProgress?.(
+            `   ✅ Created style: ${style.name.en}`,
+            i + 1,
+            subCatsToProcess.length
+          )
+        }
+
+        // Summary of what was saved
+        const finalRoomProfileCount = (style.roomProfiles as any[])?.length || 0
+        onProgress?.(
+          `      Summary: ${generalImages.length} general images, ${finalRoomProfileCount} room profiles saved`,
+          i + 1,
+          subCatsToProcess.length
+        )
+      } catch (error) {
+        result.errors.push({
+          entity: `style:${subCategory.slug}`,
+          error: error instanceof Error ? error.message : String(error),
+        })
+        onProgress?.(
+          `   ❌ Error: ${error instanceof Error ? error.message : String(error)}`,
+          i + 1,
+          subCatsToProcess.length
+        )
+      }
+    }
+
+    onProgress?.(`\n✅ Style seeding completed!`)
+    onProgress?.(
+      `   Created: ${result.stats.styles.created}, Updated: ${result.stats.styles.updated}, Skipped: ${result.stats.styles.skipped}, Errors: ${result.errors.length}`
+    )
+
+    result.success = result.errors.length === 0
+  } catch (error) {
+    result.success = false
+    result.errors.push({
+      entity: 'styles-global',
+      error: error instanceof Error ? error.message : String(error),
+    })
+    onProgress?.(`❌ Fatal error: ${error instanceof Error ? error.message : String(error)}`)
+  } finally {
+    await prisma.$disconnect()
+  }
+
+  return result
+}

@@ -90,7 +90,7 @@ export const clientImagesSchema = z.array(
 
 /**
  * Server-side images schema (for API validation)
- * Only allows HTTP/HTTPS URLs (e.g., Cloudflare R2)
+ * Only allows HTTP/HTTPS URLs (e.g., Google Cloud Storage)
  * Blob URLs are rejected as they're client-side only
  */
 export const serverImagesSchema = z.array(

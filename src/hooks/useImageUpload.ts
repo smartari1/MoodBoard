@@ -5,7 +5,7 @@
 
 import { useState, useCallback } from 'react'
 import { useMutation } from '@tanstack/react-query'
-import type { EntityType } from '@/lib/storage/r2'
+import type { EntityType } from '@/lib/storage/gcp-storage'
 
 interface UploadImageParams {
   file: File

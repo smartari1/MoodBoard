@@ -24,6 +24,7 @@ import { ImageUpload } from '@/components/ui/ImageUpload'
 import { updateCategorySchema, type UpdateCategory } from '@/lib/validations/category'
 import { useCategory, useUpdateCategory } from '@/hooks/useCategories'
 import { hasHtmlContent } from '@/lib/utils/html'
+import { DetailedContentEditor } from '@/components/features/style-system/DetailedContentEditor'
 
 export default function AdminCategoryEditPage() {
   const t = useTranslations('admin.categories.create')
@@ -59,18 +60,75 @@ export default function AdminCategoryEditPage() {
       slug: '',
       order: 0,
       images: [],
+      detailedContent: {
+        he: {
+          introduction: '',
+          description: '',
+          period: '',
+          characteristics: [],
+          visualElements: [],
+          colorGuidance: '',
+          materialGuidance: '',
+          applications: [],
+          historicalContext: '',
+          culturalContext: '',
+        },
+        en: {
+          introduction: '',
+          description: '',
+          period: '',
+          characteristics: [],
+          visualElements: [],
+          colorGuidance: '',
+          materialGuidance: '',
+          applications: [],
+          historicalContext: '',
+          culturalContext: '',
+        },
+      },
     },
   })
 
   // Load category data into form
   useEffect(() => {
     if (category) {
+      const detailedContent = category.detailedContent || {
+        he: {},
+        en: {},
+      }
+
       reset({
         name: category.name,
         description: category.description || { he: '', en: '' },
         slug: category.slug,
         order: category.order,
         images: category.images || [],
+        detailedContent: {
+          he: {
+            introduction: detailedContent.he?.introduction || '',
+            description: detailedContent.he?.description || '',
+            period: detailedContent.he?.period || '',
+            characteristics: detailedContent.he?.characteristics || [],
+            visualElements: detailedContent.he?.visualElements || [],
+            colorGuidance: detailedContent.he?.colorGuidance || '',
+            materialGuidance: detailedContent.he?.materialGuidance || '',
+            applications: detailedContent.he?.applications || [],
+            historicalContext: detailedContent.he?.historicalContext || '',
+            culturalContext: detailedContent.he?.culturalContext || '',
+          },
+          en: {
+            introduction: detailedContent.en?.introduction || '',
+            description: detailedContent.en?.description || '',
+            period: detailedContent.en?.period || '',
+            characteristics: detailedContent.en?.characteristics || [],
+            visualElements: detailedContent.en?.visualElements || [],
+            colorGuidance: detailedContent.en?.colorGuidance || '',
+            materialGuidance: detailedContent.en?.materialGuidance || '',
+            applications: detailedContent.en?.applications || [],
+            historicalContext: detailedContent.en?.historicalContext || '',
+            culturalContext: detailedContent.en?.culturalContext || '',
+          },
+        },
       })
       setSlugValue(category.slug)
     }
@@ -130,14 +188,17 @@ export default function AdminCategoryEditPage() {
     setValue('slug', value, { shouldValidate: true })
   }
 
-  const onSubmit = async (data: UpdateCategory) => {
+  const onSubmit = async (data: UpdateCategory, e?: React.BaseSyntheticEvent) => {
+    // Prevent default form submission
+    e?.preventDefault()
+
     if (!categoryId) return
 
     try {
       // Clean up empty description - check if HTML actually has content
       const hasHeContent = hasHtmlContent(data.description?.he)
       const hasEnContent = hasHtmlContent(data.description?.en)
-      
+
       const submitData = {
         ...data,
         description: (hasHeContent || hasEnContent)
@@ -148,10 +209,15 @@ export default function AdminCategoryEditPage() {
           : undefined,
         images: data.images || [],
       }
+
+      console.log('Submitting category update:', submitData)
       await updateMutation.mutateAsync({ id: categoryId, data: submitData })
+
+      console.log('Category updated successfully')
       router.push(`/${locale}/admin/categories/${categoryId}`)
     } catch (error) {
       console.error('Error updating category:', error)
+      // Don't navigate on error - let the error alert show
     }
   }
 
@@ -173,7 +239,7 @@ export default function AdminCategoryEditPage() {
 
   return (
     <Container size="xl" py="xl">
-      <form onSubmit={handleSubmit(onSubmit)}>
+      <form onSubmit={handleSubmit(onSubmit)} noValidate>
         <Stack gap="lg">
           {/* Header */}
           <Group>
@@ -326,6 +392,17 @@ export default function AdminCategoryEditPage() {
                 </Paper>
               </FormSection>
             </Stack>
+          </MoodBCard>
+
+          {/* Detailed Content Editor */}
+          <MoodBCard>
+            <DetailedContentEditor
+              control={control}
+              errors={errors}
+              watch={watch}
+              setValue={setValue}
+              entityType="category"
+            />
           </MoodBCard>
 
           {/* Submit Buttons */}

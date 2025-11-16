@@ -587,7 +587,8 @@
       "categories": {
         "neutral": "נייטרלי",
         "accent": "דגש",
-        "semantic": "סמנטי"
+        "semantic": "סמנטי",
+        "metallic": "מטאלי"
       },
       "roles": {
         "primary": "ראשי",

@@ -8,7 +8,7 @@
 * **Backend**: Next.js API Routes (בהמשך ניתן לפצל ל־NestJS מודולרי למיקרו-שירותים).
 * **DB**: MongoDB Atlas (Prisma MongoDB adapter או Mongoose—ממליץ Prisma לטיוב סכימות/Types).
 * **Auth**: NextAuth.js (Auth.js) עם Google OAuth Provider ✅ מיושם. מערכת אימות עצמאית עם תמיכה מלאה ב-OAuth, sessions, ו-RBAC. כולל יצירת ארגון אוטומטית בהרשמה, middleware לאימות, וניהול sessions עם database strategy.
-* **Storage**: Cloudflare R2 (assets, תמונות חומרים/מדיה לקוח) + Signed URLs • CDN דרך Cloudflare.
+* **Storage**: Google Cloud Storage (assets, תמונות חומרים/מדיה לקוח) + Public URLs • CDN דרך Google Cloud CDN.
 * **Domain/DNS**: Cloudflare.
 * **i18n**: `next-intl` ✅ מיושם (עברית כברירת מחדל, RTL/LTR דינמי, מוכנות לריבוי שפות). כולל תמיכה בגופנים עבריים (Heebo, Assistant), תרגומים לדפי אימות, וניווט דינמי לפי locale.
 * **חיפוש**: Meilisearch/Typesense (Self-host) או Atlas Search (בשלב שני).
@@ -90,7 +90,7 @@
 * **Material**: קטלוג חומרים עם מאפיינים (סוג, מראה/טקסטורה, תת־סוג, תחזוקה, עמידות, מחירון).
 * **Product**: פריטי ריהוט/תאורה/כלים סניטריים (מידות, וריאנטים, מחיר).
 * **Suppliers**: ספקים הם ארגונים (Organizations) - כל חומר מקושר לארגון דרך `organizationId`.
-* **תמונות/טקסטורות**: שמירה ב־R2, דוגמיות ריאליסטיות (רקע ניטרלי), תיוג צבעים.
+* **תמונות/טקסטורות**: שמירה ב־GCP Storage, דוגמיות ריאליסטיות (רקע ניטרלי), תיוג צבעים.
 * **תמחור**: מחיר עלות/מכירה, יחידות, חישוב פסולת/עודף (tiles, פרקט).
 
 ## 6) מנגנון תקציב והצעות מחיר

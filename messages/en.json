@@ -549,7 +549,8 @@
       "categories": {
         "neutral": "Neutral",
         "accent": "Accent",
-        "semantic": "Semantic"
+        "semantic": "Semantic",
+        "metallic": "Metallic"
       },
       "roles": {
         "primary": "Primary",

@@ -427,6 +427,9 @@ model Category {
   order       Int               @default(0) // For sorting
   images      String[]          @default([]) // Array of R2 image URLs
 
+  // Enhanced detailed content
+  detailedContent LocalizedDetailedContent?
+
   subCategories SubCategory[]
   styles        Style[]
 
@@ -447,6 +450,9 @@ model SubCategory {
   slug        String
   order       Int              @default(0) // For sorting within category
   images      String[]         @default([]) // Array of R2 image URLs
+
+  // Enhanced detailed content
+  detailedContent LocalizedDetailedContent?
 
   styles Style[]
 
@@ -483,6 +489,9 @@ model Style {
 
   images String[] @default([]) // Array of R2 image URLs
 
+  // Enhanced detailed content
+  detailedContent LocalizedDetailedContent?
+
   // Rooms for this style (inspiration page)
   roomProfiles RoomProfile[]
 
@@ -503,6 +512,26 @@ model Style {
 type LocalizedString {
   he String
   en String
+}
+
+// Enhanced content for detailed descriptions
+type LocalizedDetailedContent {
+  he DetailedContent
+  en DetailedContent
+}
+
+type DetailedContent {
+  introduction    String?   // Brief overview/opening paragraph (פתיח)
+  description     String?   // Full detailed description
+  period          String?   // Time period (e.g., "1920-1939", "עתיק–היום")
+  characteristics String[]  // Key characteristics and features
+  visualElements  String[]  // Visual elements and aesthetics
+  philosophy      String?   // Design philosophy (for approaches)
+  colorGuidance   String?   // Color palette and usage guidance
+  materialGuidance String?  // Material preferences and recommendations
+  applications    String[]  // Common applications and use cases
+  historicalContext String? // Historical background and evolution
+  culturalContext String?   // Cultural influences and significance
 }
 
 type MaterialSet {
@@ -558,6 +587,9 @@ model Approach {
   description LocalizedString?
   images      String[] @default([])
 
+  // Enhanced detailed content
+  detailedContent LocalizedDetailedContent?
+
   // Inspiration Pillars = Colors/Shades (גוונים / צבעים) - from flow diagram
   inspirationPillars InspirationPillars?
 
@@ -605,6 +637,9 @@ model RoomType {
   description LocalizedString?
   icon        String?
   order       Int @default(0)
+
+  // Enhanced detailed content
+  detailedContent LocalizedDetailedContent?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @default(now())
@@ -891,4 +926,87 @@ model AuditLog {
   @@index([actorId])
   @@index([organizationId, createdAt])
   @@map("audit_logs")
+}
+
+// ============================================
+// AI Seed Executions
+// ============================================
+
+model SeedExecution {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+
+  executedAt DateTime @default(now())
+  executedBy String?  @db.ObjectId // User who ran the seed
+  completedAt DateTime? // When it finished
+
+  // Configuration used
+  config SeedConfig
+
+  // Results
+  result      SeedResult
+  stats       SeedStats
+  errors      SeedError[]
+
+  // Generated styles with admin links
+  generatedStyles GeneratedStyleReference[]
+
+  // Performance metrics
+  duration      Int?   // Total seconds
+  estimatedCost Float  // USD
+  actualCost    Float? // If available from API metrics
+
+  // Status tracking
+  status String // 'running' | 'completed' | 'failed' | 'stopped'
+  error  String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([executedAt])
+  @@index([status])
+  @@index([executedBy])
+  @@map("seed_executions")
+}
+
+type SeedConfig {
+  limit                  Int?
+  categoryFilter         String?
+  subCategoryFilter      String?
+  generateImages         Boolean
+  generateRoomProfiles   Boolean
+  dryRun                 Boolean
+}
+
+type SeedResult {
+  success Boolean
+  message String?
+}
+
+type SeedStats {
+  totalSubCategories     Int
+  alreadyGenerated       Int
+  pendingBeforeSeed      Int
+  created                Int
+  updated                Int
+  skipped                Int
+  errorsCount            Int
+}
+
+type SeedError {
+  entity  String
+  error   String
+}
+
+type GeneratedStyleReference {
+  styleId        String
+  slug           String
+  name           LocalizedString
+  subCategoryId  String
+  subCategory    String // Name for display
+  approachId     String
+  approach       String // Name for display
+  colorId        String
+  color          String // Name for display
+  adminEditUrl   String // /admin/styles/{id}/edit
+  publicViewUrl  String // /styles/{slug}
 }

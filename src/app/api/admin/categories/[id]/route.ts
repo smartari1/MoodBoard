@@ -106,6 +106,7 @@ export const PATCH = withAdmin(async (
         ...(data.slug && { slug: data.slug }),
         ...(data.order !== undefined && { order: data.order }),
         ...(data.images !== undefined && { images: data.images }),
+        ...(data.detailedContent !== undefined && { detailedContent: data.detailedContent }),
         updatedAt: new Date(),
       },
       include: {
@@ -153,18 +154,30 @@ export const DELETE = withAdmin(async (
       return NextResponse.json({ error: 'Category not found' }, { status: 404 })
     }
 
-    // Prevent deletion if category has styles or sub-categories
-    if (category._count.styles > 0 || category._count.subCategories > 0) {
-      return NextResponse.json(
-        {
-          error: 'Cannot delete category with styles or sub-categories',
-          details: {
-            stylesCount: category._count.styles,
-            subCategoriesCount: category._count.subCategories,
-          },
-        },
-        { status: 400 }
-      )
+    // Cascade delete: First delete all associated styles, then subcategories, then the category
+    if (category._count.styles > 0) {
+      await prisma.style.deleteMany({
+        where: { categoryId: params.id },
+      })
+    }
+
+    if (category._count.subCategories > 0) {
+      // For each subcategory, delete its styles first
+      const subCategories = await prisma.subCategory.findMany({
+        where: { categoryId: params.id },
+        select: { id: true },
+      })
+
+      for (const subCat of subCategories) {
+        await prisma.style.deleteMany({
+          where: { subCategoryId: subCat.id },
+        })
+      }
+
+      // Then delete the subcategories
+      await prisma.subCategory.deleteMany({
+        where: { categoryId: params.id },
+      })
     }
 
     await prisma.category.delete({

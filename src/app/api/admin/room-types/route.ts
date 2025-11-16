@@ -53,6 +53,7 @@ export const POST = withAdmin(async (request: NextRequest) => {
         description: validated.description,
         icon: validated.icon,
         order: validated.order,
+        detailedContent: validated.detailedContent,
       },
     })
 

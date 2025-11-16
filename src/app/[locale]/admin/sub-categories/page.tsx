@@ -6,10 +6,11 @@
 'use client'
 
 import { useState } from 'react'
-import { Container, Title, Group, Stack, TextInput, Select, Pagination, ActionIcon, Menu, Text, Button, Badge } from '@mantine/core'
+import { Container, Title, Group, Stack, TextInput, Select, Pagination, ActionIcon, Menu, Text, Button, Badge, Modal, Checkbox } from '@mantine/core'
 import { useTranslations } from 'next-intl'
 import { useRouter, useParams } from 'next/navigation'
 import { IconPlus, IconSearch, IconDots, IconEdit, IconTrash, IconEye } from '@tabler/icons-react'
+import { DetailedContentViewer } from '@/components/features/style-system/DetailedContentViewer'
 // FIX: Replaced barrel import with direct imports to improve compilation speed
 // Barrel imports force compilation of ALL components (including heavy RichTextEditor, ImageUpload)
 // Direct imports only compile what's needed
@@ -39,6 +40,13 @@ export default function AdminSubCategoriesPage() {
   const [deleteSubCategoryId, setDeleteSubCategoryId] = useState<string | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
 
+  // Detailed content viewer
+  const [viewDetailsSubCategory, setViewDetailsSubCategory] = useState<any>(null)
+
+  // Bulk delete
+  const [selectedIds, setSelectedIds] = useState<string[]>([])
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false)
+
   // Fetch categories for filter
   const { data: categoriesData } = useCategories()
 
@@ -62,6 +70,36 @@ export default function AdminSubCategoriesPage() {
     }
   }
 
+  const handleBulkDelete = async () => {
+    if (selectedIds.length === 0) return
+
+    setIsBulkDeleting(true)
+    try {
+      await Promise.all(selectedIds.map((id) => deleteMutation.mutateAsync(id)))
+      setSelectedIds([])
+    } catch (error) {
+      console.error('Bulk delete error:', error)
+    } finally {
+      setIsBulkDeleting(false)
+    }
+  }
+
+  const handleSelectAll = () => {
+    if (selectedIds.length === data?.data.length) {
+      setSelectedIds([])
+    } else {
+      setSelectedIds(data?.data.map((sc) => sc.id) || [])
+    }
+  }
+
+  const handleSelectOne = (id: string) => {
+    if (selectedIds.includes(id)) {
+      setSelectedIds(selectedIds.filter((selectedId) => selectedId !== id))
+    } else {
+      setSelectedIds([...selectedIds, id])
+    }
+  }
+
   // Category options for filter
   const categoryOptions = categoriesData?.data.map((cat) => ({
     value: cat.id,
@@ -74,14 +112,27 @@ export default function AdminSubCategoriesPage() {
         {/* Header */}
         <Group justify="space-between">
           <Title order={1}>{t('title')}</Title>
-          <Button
-            leftSection={<IconPlus size={16} />}
-            onClick={() => router.push(`/${locale}/admin/sub-categories/new`)}
-            color="brand"
-            variant="filled"
-          >
-            {t('createSubCategory')}
-          </Button>
+          <Group>
+            {selectedIds.length > 0 && (
+              <Button
+                leftSection={<IconTrash size={16} />}
+                onClick={handleBulkDelete}
+                color="red"
+                variant="light"
+                loading={isBulkDeleting}
+              >
+                {locale === 'he' ? `מחק ${selectedIds.length} נבחרים` : `Delete ${selectedIds.length} selected`}
+              </Button>
+            )}
+            <Button
+              leftSection={<IconPlus size={16} />}
+              onClick={() => router.push(`/${locale}/admin/sub-categories/new`)}
+              color="brand"
+              variant="filled"
+            >
+              {t('createSubCategory')}
+            </Button>
+          </Group>
         </Group>
 
         {/* Filters */}
@@ -128,6 +179,13 @@ export default function AdminSubCategoriesPage() {
               <MoodBTable>
                 <MoodBTableHead>
                   <MoodBTableRow>
+                    <MoodBTableHeader style={{ width: 40 }}>
+                      <Checkbox
+                        checked={selectedIds.length === data.data.length && data.data.length > 0}
+                        indeterminate={selectedIds.length > 0 && selectedIds.length < data.data.length}
+                        onChange={handleSelectAll}
+                      />
+                    </MoodBTableHeader>
                     <MoodBTableHeader>{t('table.category')}</MoodBTableHeader>
                     <MoodBTableHeader>{t('table.name')}</MoodBTableHeader>
                     <MoodBTableHeader>{t('table.slug')}</MoodBTableHeader>
@@ -140,6 +198,12 @@ export default function AdminSubCategoriesPage() {
                 <MoodBTableBody>
                   {data.data.map((subCategory) => (
                     <MoodBTableRow key={subCategory.id}>
+                      <MoodBTableCell>
+                        <Checkbox
+                          checked={selectedIds.includes(subCategory.id)}
+                          onChange={() => handleSelectOne(subCategory.id)}
+                        />
+                      </MoodBTableCell>
                       <MoodBTableCell>
                         {subCategory.category && (
                           <Badge variant="light" color="brand">
@@ -181,6 +245,17 @@ export default function AdminSubCategoriesPage() {
                             </ActionIcon>
                           </Menu.Target>
                           <Menu.Dropdown>
+                            {subCategory.detailedContent && (
+                              <>
+                                <Menu.Item
+                                  leftSection={<IconEye size={16} />}
+                                  onClick={() => setViewDetailsSubCategory(subCategory)}
+                                >
+                                  {locale === 'he' ? 'הצג פרטים מלאים' : 'View Full Details'}
+                                </Menu.Item>
+                                <Menu.Divider />
+                              </>
+                            )}
                             <Menu.Item
                               leftSection={<IconEye size={16} />}
                               component={Link}
@@ -213,6 +288,29 @@ export default function AdminSubCategoriesPage() {
             </MoodBCard>
           </>
         )}
+
+        {/* Detailed Content Modal */}
+        <Modal
+          opened={!!viewDetailsSubCategory}
+          onClose={() => setViewDetailsSubCategory(null)}
+          title={
+            viewDetailsSubCategory ? (
+              <Text fw={600} size="lg">
+                {viewDetailsSubCategory.name[locale as 'he' | 'en']}
+              </Text>
+            ) : null
+          }
+          size="xl"
+          dir={locale === 'he' ? 'rtl' : 'ltr'}
+        >
+          {viewDetailsSubCategory?.detailedContent && (
+            <DetailedContentViewer
+              content={viewDetailsSubCategory.detailedContent}
+              entityName={viewDetailsSubCategory.name}
+              entityType="subcategory"
+            />
+          )}
+        </Modal>
 
         {/* Delete Confirmation */}
         <ConfirmDialog

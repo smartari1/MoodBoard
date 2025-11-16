@@ -115,6 +115,7 @@ export const POST = withAdmin(async (req: NextRequest) => {
         slug: data.slug,
         order: data.order,
         ...(data.images && { images: data.images }),
+        ...(data.detailedContent && { detailedContent: data.detailedContent }),
       },
       include: {
         _count: {

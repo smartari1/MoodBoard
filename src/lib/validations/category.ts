@@ -5,6 +5,7 @@
 
 import { z } from 'zod'
 import { imagesSchema } from './upload'
+import { detailedContentSchema, localizedDetailedContentSchema } from './approach'
 
 // LocalizedString schema
 const localizedStringSchema = z.object({
@@ -35,6 +36,7 @@ export const createCategorySchema = z.object({
   slug: z.string().min(1).regex(/^[a-z0-9-]+$/, 'Slug must be lowercase alphanumeric with hyphens'),
   order: z.number().int().min(0).default(0),
   images: imagesSchema.optional(),
+  detailedContent: localizedDetailedContentSchema.optional(),
 })
 
 export const updateCategorySchema = createCategorySchema.partial()
@@ -50,6 +52,7 @@ export const createSubCategorySchema = z.object({
   slug: z.string().min(1).regex(/^[a-z0-9-]+$/, 'Slug must be lowercase alphanumeric with hyphens'),
   order: z.number().int().min(0).default(0),
   images: imagesSchema.optional(),
+  detailedContent: localizedDetailedContentSchema.optional(),
 })
 
 export const updateSubCategorySchema = createSubCategorySchema.partial().omit({ categoryId: true })

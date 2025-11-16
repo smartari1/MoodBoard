@@ -15,12 +15,13 @@ import { LoadingState } from '@/components/ui/LoadingState'
 import { MoodBCard } from '@/components/ui/Card'
 import { MoodBTable, MoodBTableBody, MoodBTableCell, MoodBTableHead, MoodBTableHeader, MoodBTableRow } from '@/components/ui/Table'
 import { useDeleteRoomType, useRoomTypes } from '@/hooks/useRoomTypes'
-import { ActionIcon, Button, Container, Drawer, Group, Menu, Stack, Text, TextInput } from '@mantine/core'
-import { IconDots, IconEdit, IconPlus, IconSearch, IconTrash } from '@tabler/icons-react'
+import { ActionIcon, Button, Container, Drawer, Group, Menu, Modal, Stack, Text, TextInput, Checkbox } from '@mantine/core'
+import { IconDots, IconEdit, IconEye, IconPlus, IconSearch, IconTrash } from '@tabler/icons-react'
 import { useTranslations } from 'next-intl'
 import { useParams, useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { RoomTypeForm } from './RoomTypeForm'
+import { DetailedContentViewer } from './DetailedContentViewer'
 
 export function RoomTypesTable() {
   const t = useTranslations('admin.styleSystem.roomTypes')
@@ -37,6 +38,9 @@ export function RoomTypesTable() {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false)
   const [deleteRoomTypeId, setDeleteRoomTypeId] = useState<string | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [viewDetailsRoomType, setViewDetailsRoomType] = useState<any>(null)
+  const [selectedIds, setSelectedIds] = useState<string[]>([])
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false)
 
   const handleCreate = () => {
     setSelectedRoomType(null)
@@ -67,6 +71,36 @@ export function RoomTypesTable() {
     }
   }
 
+  const handleBulkDelete = async () => {
+    if (selectedIds.length === 0) return
+
+    setIsBulkDeleting(true)
+    try {
+      await Promise.all(selectedIds.map((id) => deleteMutation.mutateAsync(id)))
+      setSelectedIds([])
+    } catch (error) {
+      console.error('Bulk delete error:', error)
+    } finally {
+      setIsBulkDeleting(false)
+    }
+  }
+
+  const handleSelectAll = () => {
+    if (selectedIds.length === filteredRoomTypes?.length) {
+      setSelectedIds([])
+    } else {
+      setSelectedIds(filteredRoomTypes?.map((rt) => rt.id) || [])
+    }
+  }
+
+  const handleSelectOne = (id: string) => {
+    if (selectedIds.includes(id)) {
+      setSelectedIds(selectedIds.filter((selectedId) => selectedId !== id))
+    } else {
+      setSelectedIds([...selectedIds, id])
+    }
+  }
+
   const filteredRoomTypes = roomTypes?.filter((roomType) => {
     if (!search) return true
     const searchLower = search.toLowerCase()
@@ -90,9 +124,22 @@ export function RoomTypesTable() {
               {t('description')}
             </Text>
           </div>
-          <Button leftSection={<IconPlus size={16} />} onClick={handleCreate} color="brand" variant="filled">
-            {t('create')}
-          </Button>
+          <Group>
+            {selectedIds.length > 0 && (
+              <Button
+                leftSection={<IconTrash size={16} />}
+                onClick={handleBulkDelete}
+                color="red"
+                variant="light"
+                loading={isBulkDeleting}
+              >
+                {locale === 'he' ? `מחק ${selectedIds.length} נבחרים` : `Delete ${selectedIds.length} selected`}
+              </Button>
+            )}
+            <Button leftSection={<IconPlus size={16} />} onClick={handleCreate} color="brand" variant="filled">
+              {t('create')}
+            </Button>
+          </Group>
         </Group>
 
         {/* Search */}
@@ -124,6 +171,13 @@ export function RoomTypesTable() {
             <MoodBTable>
               <MoodBTableHead>
                 <MoodBTableRow>
+                  <MoodBTableHeader style={{ width: 40 }}>
+                    <Checkbox
+                      checked={selectedIds.length === filteredRoomTypes?.length && filteredRoomTypes.length > 0}
+                      indeterminate={selectedIds.length > 0 && selectedIds.length < (filteredRoomTypes?.length || 0)}
+                      onChange={handleSelectAll}
+                    />
+                  </MoodBTableHeader>
                   <MoodBTableHeader>{t('table.order')}</MoodBTableHeader>
                   <MoodBTableHeader>{t('table.icon')}</MoodBTableHeader>
                   <MoodBTableHeader>{t('table.name')}</MoodBTableHeader>
@@ -135,6 +189,9 @@ export function RoomTypesTable() {
               <MoodBTableBody>
                 {filteredRoomTypes.map((roomType) => (
                   <MoodBTableRow key={roomType.id}>
+                    <MoodBTableCell>
+                      <Checkbox checked={selectedIds.includes(roomType.id)} onChange={() => handleSelectOne(roomType.id)} />
+                    </MoodBTableCell>
                     <MoodBTableCell>
                       <Text size="sm">{roomType.order}</Text>
                     </MoodBTableCell>
@@ -176,6 +233,17 @@ export function RoomTypesTable() {
                           </ActionIcon>
                         </Menu.Target>
                         <Menu.Dropdown>
+                          {roomType.detailedContent && (
+                            <>
+                              <Menu.Item
+                                leftSection={<IconEye size={16} />}
+                                onClick={() => setViewDetailsRoomType(roomType)}
+                              >
+                                {locale === 'he' ? 'הצג פרטים מלאים' : 'View Full Details'}
+                              </Menu.Item>
+                              <Menu.Divider />
+                            </>
+                          )}
                           <Menu.Item leftSection={<IconEdit size={16} />} onClick={() => handleEdit(roomType)}>
                             {tCommon('edit')}
                           </Menu.Item>
@@ -220,6 +288,29 @@ export function RoomTypesTable() {
           loading={isDeleting}
           danger={true}
         />
+
+        {/* Detailed Content Modal */}
+        <Modal
+          opened={!!viewDetailsRoomType}
+          onClose={() => setViewDetailsRoomType(null)}
+          title={
+            viewDetailsRoomType ? (
+              <Text fw={600} size="lg">
+                {viewDetailsRoomType.name[locale as 'he' | 'en']}
+              </Text>
+            ) : null
+          }
+          size="xl"
+          dir={locale === 'he' ? 'rtl' : 'ltr'}
+        >
+          {viewDetailsRoomType?.detailedContent && (
+            <DetailedContentViewer
+              content={viewDetailsRoomType.detailedContent}
+              entityName={viewDetailsRoomType.name}
+              entityType="roomType"
+            />
+          )}
+        </Modal>
       </Stack>
     </Container>
   )

@@ -113,6 +113,7 @@ export const PATCH = withAdmin(async (
         ...(data.slug && { slug: data.slug }),
         ...(data.order !== undefined && { order: data.order }),
         ...(data.images !== undefined && { images: data.images }),
+        ...(data.detailedContent !== undefined && { detailedContent: data.detailedContent }),
         updatedAt: new Date(),
       },
       include: {
@@ -162,17 +163,11 @@ export const DELETE = withAdmin(async (
       return NextResponse.json({ error: 'Sub-category not found' }, { status: 404 })
     }
 
-    // Prevent deletion if sub-category has styles
+    // Cascade delete: First delete all associated styles, then the subcategory
     if (subCategory._count.styles > 0) {
-      return NextResponse.json(
-        {
-          error: 'Cannot delete sub-category with styles',
-          details: {
-            stylesCount: subCategory._count.styles,
-          },
-        },
-        { status: 400 }
-      )
+      await prisma.style.deleteMany({
+        where: { subCategoryId: params.id },
+      })
     }
 
     await prisma.subCategory.delete({

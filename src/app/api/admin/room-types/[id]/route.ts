@@ -15,8 +15,13 @@ export const dynamic = 'force-dynamic'
  * GET /api/admin/room-types/[id]
  * Get a single room type by ID
  */
-export const GET = withAdmin(async (request: NextRequest, { params }: { params: { id: string } }) => {
+export const GET = withAdmin(async (
+  request: NextRequest,
+  _auth,
+  context: { params: Promise<{ id: string }> }
+) => {
   try {
+    const params = await context.params
     const roomType = await prisma.roomType.findUnique({
       where: { id: params.id },
     })
@@ -36,8 +41,13 @@ export const GET = withAdmin(async (request: NextRequest, { params }: { params: 
  * PATCH /api/admin/room-types/[id]
  * Update a room type
  */
-export const PATCH = withAdmin(async (request: NextRequest, { params }: { params: { id: string } }) => {
+export const PATCH = withAdmin(async (
+  request: NextRequest,
+  _auth,
+  context: { params: Promise<{ id: string }> }
+) => {
   try {
+    const params = await context.params
     const body = await request.json()
     const validated = updateRoomTypeSchema.parse(body)
 
@@ -69,6 +79,7 @@ export const PATCH = withAdmin(async (request: NextRequest, { params }: { params
         ...(validated.description !== undefined && { description: validated.description }),
         ...(validated.icon !== undefined && { icon: validated.icon }),
         ...(validated.order !== undefined && { order: validated.order }),
+        ...(validated.detailedContent !== undefined && { detailedContent: validated.detailedContent }),
       },
     })
 
@@ -86,8 +97,14 @@ export const PATCH = withAdmin(async (request: NextRequest, { params }: { params
  * DELETE /api/admin/room-types/[id]
  * Delete a room type
  */
-export const DELETE = withAdmin(async (request: NextRequest, { params }: { params: { id: string } }) => {
+export const DELETE = withAdmin(async (
+  request: NextRequest,
+  _auth,
+  context: { params: Promise<{ id: string }> }
+) => {
   try {
+    const params = await context.params
+
     // Check if room type exists
     const existing = await prisma.roomType.findUnique({
       where: { id: params.id },

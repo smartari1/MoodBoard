@@ -9,14 +9,16 @@
 // Barrel imports force compilation of ALL components (including heavy RichTextEditor, ImageUpload)
 // Direct imports only compile what's needed
 import { FormSection } from '@/components/ui/Form/FormSection'
+import { ImageUpload } from '@/components/ui/ImageUpload'
 import { useCreateApproach, useUpdateApproach } from '@/hooks/useApproaches'
 import { createApproachFormSchema } from '@/lib/validations/approach'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Button, NumberInput, Stack, TextInput, Textarea } from '@mantine/core'
+import { Accordion, Button, NumberInput, Paper, Stack, Text, TextInput, Textarea } from '@mantine/core'
 import { useTranslations } from 'next-intl'
 import { useEffect } from 'react'
 import { Controller, useForm } from 'react-hook-form'
 import { z } from 'zod'
+import { DetailedContentEditor } from './DetailedContentEditor'
 
 type ApproachFormValues = z.infer<typeof createApproachFormSchema>
 
@@ -39,6 +41,7 @@ export function ApproachForm({ approach, onSuccess }: ApproachFormProps) {
     reset,
     setValue,
     getValues,
+    watch,
     formState: { errors, isSubmitting },
   } = useForm<ApproachFormValues>({
     resolver: zodResolver(createApproachFormSchema),
@@ -47,6 +50,31 @@ export function ApproachForm({ approach, onSuccess }: ApproachFormProps) {
       slug: '',
       order: 0,
       description: { he: '', en: '' },
+      images: [],
+      detailedContent: {
+        he: {
+          introduction: '',
+          description: '',
+          period: '',
+          characteristics: [],
+          visualElements: [],
+          philosophy: '',
+          colorGuidance: '',
+          materialGuidance: '',
+          applications: [],
+        },
+        en: {
+          introduction: '',
+          description: '',
+          period: '',
+          characteristics: [],
+          visualElements: [],
+          philosophy: '',
+          colorGuidance: '',
+          materialGuidance: '',
+          applications: [],
+        },
+      },
       metadata: {
         isDefault: false,
         version: '1.0.0',
@@ -63,6 +91,31 @@ export function ApproachForm({ approach, onSuccess }: ApproachFormProps) {
         slug: approach.slug,
         order: approach.order,
         description: approach.description || { he: '', en: '' },
+        images: approach.images || [],
+        detailedContent: approach.detailedContent || {
+          he: {
+            introduction: '',
+            description: '',
+            period: '',
+            characteristics: [],
+            visualElements: [],
+            philosophy: '',
+            colorGuidance: '',
+            materialGuidance: '',
+            applications: [],
+          },
+          en: {
+            introduction: '',
+            description: '',
+            period: '',
+            characteristics: [],
+            visualElements: [],
+            philosophy: '',
+            colorGuidance: '',
+            materialGuidance: '',
+            applications: [],
+          },
+        },
         metadata: approach.metadata || {
           isDefault: false,
           version: '1.0.0',
@@ -204,6 +257,37 @@ export function ApproachForm({ approach, onSuccess }: ApproachFormProps) {
             />
           </Stack>
         </FormSection>
+
+        {/* Images Section */}
+        <FormSection title={t('form.images') || 'Images'}>
+          <Controller
+            name="images"
+            control={control}
+            render={({ field }) => (
+              <ImageUpload
+                value={field.value || []}
+                onChange={(images) => {
+                  field.onChange(images)
+                  setValue('images', images)
+                }}
+                entityType="approach"
+                entityId={isEditMode ? approach?.id : ''}
+                maxImages={20}
+                multiple
+                error={errors.images?.message}
+              />
+            )}
+          />
+        </FormSection>
+
+        {/* Detailed Content Editor */}
+        <DetailedContentEditor
+          control={control}
+          errors={errors}
+          watch={watch}
+          setValue={setValue}
+          entityType="approach"
+        />
 
         <Button type="submit" color="brand" fullWidth loading={isSubmitting}>
           {isEditMode ? tCommon('save') : tCommon('create')}

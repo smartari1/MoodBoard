@@ -58,6 +58,7 @@ export const POST = withAdmin(async (request: NextRequest) => {
         description: validated.description,
         order: validated.order,
         images: validated.images || [],
+        detailedContent: validated.detailedContent,
         inspirationPillars: validated.inspirationPillars,
         metadata: {
           isDefault: validated.metadata?.isDefault || false,
