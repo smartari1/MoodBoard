@@ -106,9 +106,31 @@ export interface Style {
     name: string
     slug: string
   }
+  approachId: string
+  approach?: {
+    id: string
+    slug: string
+    name: {
+      he: string
+      en: string
+    }
+    order: number
+    description?: {
+      he: string
+      en: string
+    }
+    images?: string[]
+    metadata?: {
+      isDefault?: boolean
+      version?: string
+      tags?: string[]
+      usage?: number
+    }
+  }
+  detailedContent?: any
+  roomProfiles?: any[]
   createdAt: Date | string
   updatedAt: Date | string
-  approaches?: Approach[]
 }
 
 interface StylesResponse {
@@ -580,7 +602,8 @@ export function useUpdateAdminStyle() {
           id: result.id,
           name: result.name,
           imagesCount: result.images?.length,
-          approachesCount: result.approaches?.length,
+          approachId: result.approachId,
+          hasApproach: !!result.approach,
         })
         console.log('[UPDATE STYLE HOOK] Full response:', JSON.stringify(result, null, 2))
       } catch (jsonError) {

@@ -1153,6 +1153,7 @@ export async function seedStyles(
                 approachConfidence: selection.confidence,
                 reasoning: selection.reasoning,
               },
+              isComplete: false, // Mark as incomplete initially
             },
           },
         })
@@ -1296,10 +1297,28 @@ export async function seedStyles(
                 subCatsToProcess.length
               )
 
-              // Notify about progress if callback provided
-              if (onStyleCompleted && j === roomTypes.length - 1) {
-                // Last room completed, notify style is fully complete
-                await onStyleCompleted(style.id, styleName)
+              // Mark style as complete when last room is saved
+              if (j === roomTypes.length - 1) {
+                // Last room completed - mark style as complete
+                await prisma.style.update({
+                  where: { id: style.id },
+                  data: {
+                    metadata: {
+                      ...(style.metadata as any),
+                      isComplete: true,
+                    },
+                  },
+                })
+                onProgress?.(
+                  `   🎉 Style fully completed with all ${roomTypes.length} room profiles!`,
+                  i + 1,
+                  subCatsToProcess.length
+                )
+
+                // Notify about completion if callback provided
+                if (onStyleCompleted) {
+                  await onStyleCompleted(style.id, styleName)
+                }
               }
 
               // Small delay to avoid rate limiting
@@ -1327,27 +1346,30 @@ export async function seedStyles(
             subCatsToProcess.length
           )
         } else {
-          // No room profiles requested, notify style completion now
+          // No room profiles requested - mark style as complete immediately
+          await prisma.style.update({
+            where: { id: style.id },
+            data: {
+              metadata: {
+                ...(style.metadata as any),
+                isComplete: true, // Complete even without room profiles
+              },
+            },
+          })
+
+          // Notify style completion
           if (onStyleCompleted) {
             await onStyleCompleted(style.id, styleName)
           }
         }
 
-        if (existing) {
-          result.stats.styles.updated++
-          onProgress?.(
-            `   ✏️  Updated style: ${style.name.en}`,
-            i + 1,
-            subCatsToProcess.length
-          )
-        } else {
-          result.stats.styles.created++
-          onProgress?.(
-            `   ✅ Created style: ${style.name.en}`,
-            i + 1,
-            subCatsToProcess.length
-          )
-        }
+        // Always count as created (we filtered out existing sub-categories earlier)
+        result.stats.styles.created++
+        onProgress?.(
+          `   ✅ Created style: ${style.name.en}`,
+          i + 1,
+          subCatsToProcess.length
+        )
 
         // Summary of what was saved
         const finalRoomProfileCount = (style.roomProfiles as any[])?.length || 0
@@ -1578,10 +1600,28 @@ async function resumeStyleRoomGeneration({
         )
       }
 
-      // Notify about progress if callback provided
-      if (onStyleCompleted && j === roomTypes.length - 1) {
-        // Last room completed, notify style is fully complete
-        await onStyleCompleted(style.id, styleName)
+      // Mark style as complete when last room is saved
+      if (j === roomTypes.length - 1) {
+        // Last room completed - mark style as complete
+        await prisma.style.update({
+          where: { id: style.id },
+          data: {
+            metadata: {
+              ...(style.metadata as any),
+              isComplete: true,
+            },
+          },
+        })
+        onProgress?.(
+          `   🎉 Style fully completed with all ${roomTypes.length} room profiles!`,
+          0,
+          subCatsToProcess.length
+        )
+
+        // Notify about completion if callback provided
+        if (onStyleCompleted) {
+          await onStyleCompleted(style.id, styleName)
+        }
       }
 
       // Small delay to avoid rate limiting

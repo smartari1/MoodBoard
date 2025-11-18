@@ -53,18 +53,16 @@ export const GET = withAuth(async (req: NextRequest, auth) => {
             slug: true,
           },
         },
-        approaches: {
+        approach: {
           select: {
             id: true,
             slug: true,
             name: true,
             order: true,
-            materialSet: true,
-            roomProfiles: true,
+            description: true,
             images: true,
             metadata: true,
           },
-          orderBy: { order: 'asc' },
         },
         color: {
           select: {

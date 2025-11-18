@@ -35,15 +35,15 @@ export default async function LocaleLayout({
   return (
     <SessionProvider>
       <QueryProvider>
-        <ImageViewerProvider>
-          <div lang={locale} dir={direction}>
-            <NextIntlClientProvider messages={messages}>
-              <MantineProvider locale={locale}>
+        <div lang={locale} dir={direction}>
+          <NextIntlClientProvider messages={messages}>
+            <MantineProvider locale={locale}>
+              <ImageViewerProvider>
                 {children}
-              </MantineProvider>
-            </NextIntlClientProvider>
-          </div>
-        </ImageViewerProvider>
+              </ImageViewerProvider>
+            </MantineProvider>
+          </NextIntlClientProvider>
+        </div>
       </QueryProvider>
     </SessionProvider>
   );

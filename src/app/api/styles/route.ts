@@ -107,6 +107,17 @@ export const GET = withAuth(async (req: NextRequest, auth) => {
         style.metadata?.isPublic === true &&
         style.metadata?.approvalStatus === 'approved'
 
+      // Filter out incomplete styles (AI-generated styles that are not yet complete)
+      // Incomplete styles are marked with isComplete: false during generation
+      // This prevents showing partially generated styles to users
+      const isIncomplete =
+        style.metadata?.aiGenerated === true &&
+        style.metadata?.isComplete === false
+
+      if (isIncomplete) {
+        return false // Hide incomplete AI-generated styles
+      }
+
       // Filter based on scope
       if (filters.scope === 'global') {
         return isGlobal
