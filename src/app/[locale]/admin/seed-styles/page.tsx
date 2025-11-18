@@ -11,11 +11,13 @@
 import { useState } from 'react'
 import { Container, Title, Text, Stack, Group, Tabs, Paper, Divider } from '@mantine/core'
 import { IconRobot, IconEdit, IconHistory } from '@tabler/icons-react'
+import { useTranslations } from 'next-intl'
 import ManualGenerationTab from '@/components/admin/seed-styles/ManualGenerationTab'
 import BulkGenerationTab from '@/components/admin/seed-styles/BulkGenerationTab'
 import { ExecutionHistoryTable } from '@/components/admin/ExecutionHistoryTable'
 
 export default function SeedStylesPage() {
+  const t = useTranslations('admin.seed-styles')
   const [activeTab, setActiveTab] = useState<string | null>('bulk')
   const [refreshHistory, setRefreshHistory] = useState(0)
 
@@ -26,10 +28,10 @@ export default function SeedStylesPage() {
         <div>
           <Group gap="sm" mb="xs">
             <IconRobot size={32} />
-            <Title order={1}>AI Style Generation</Title>
+            <Title order={1}>{t('title')}</Title>
           </Group>
           <Text c="dimmed">
-            Generate styles manually with precise control or in bulk with AI-powered optimization
+            {t('subtitle')}
           </Text>
         </div>
 
@@ -37,10 +39,10 @@ export default function SeedStylesPage() {
         <Tabs value={activeTab} onChange={setActiveTab}>
           <Tabs.List>
             <Tabs.Tab value="bulk" leftSection={<IconRobot size={16} />}>
-              Bulk Generation
+              {t('tabs.bulk')}
             </Tabs.Tab>
             <Tabs.Tab value="manual" leftSection={<IconEdit size={16} />}>
-              Manual Generation
+              {t('tabs.manual')}
             </Tabs.Tab>
           </Tabs.List>
 
@@ -60,10 +62,10 @@ export default function SeedStylesPage() {
           <Stack gap="md">
             <Group gap="xs">
               <IconHistory size={24} />
-              <Title order={3}>Execution History</Title>
+              <Title order={3}>{t('history.title')}</Title>
             </Group>
             <Text c="dimmed" size="sm">
-              View all previous seed executions (bulk and manual)
+              {t('history.subtitle')}
             </Text>
             <ExecutionHistoryTable
               autoRefresh={false}

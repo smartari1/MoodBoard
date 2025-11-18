@@ -21,6 +21,10 @@ export interface RoomProfileContext {
   styleCharacteristics: string[]
   styleVisualElements: string[]
   styleMaterialGuidance: { he?: string; en?: string }
+  availableMaterials?: Array<{
+    name: { he: string; en: string }
+    sku: string
+  }>
 }
 
 export function buildRoomProfilePrompt(context: RoomProfileContext): string {
@@ -32,6 +36,7 @@ export function buildRoomProfilePrompt(context: RoomProfileContext): string {
     styleCharacteristics,
     styleVisualElements,
     styleMaterialGuidance,
+    availableMaterials,
   } = context
 
   const roomContent = roomType.detailedContent as any
@@ -58,6 +63,13 @@ ${formatArray(styleVisualElements.slice(0, 6))}
 Material Guidance (Hebrew): ${styleMaterialGuidance.he || 'N/A'}
 Material Guidance (English): ${styleMaterialGuidance.en || 'N/A'}
 
+${availableMaterials && availableMaterials.length > 0 ? `
+**AVAILABLE MATERIALS IN DATABASE** (IMPORTANT - USE ONLY THESE):
+${formatMaterialsList(availableMaterials)}
+
+⚠️ CRITICAL: You MUST only use materials from the list above. Do NOT invent new material names.
+Use the exact Hebrew and English names as shown.
+` : ''}
 ---
 
 **ROOM TYPE KNOWLEDGE**:
@@ -166,8 +178,10 @@ Create a detailed room profile showing how the **${styleName.en}** style is appl
    - Description: Which surfaces get which colors? (walls, floor, ceiling, furniture)
 
 3. **materials**:
-   - 4-6 materials appropriate for this room in this style
-   - Examples: "אבן טבעית / Natural stone", "עץ מלא / Solid wood", "שיש / Marble"
+   - 4-6 materials appropriate for this room in this style${availableMaterials && availableMaterials.length > 0 ? `
+   - ⚠️ IMPORTANT: Select ONLY from the available materials list provided above
+   - Use the EXACT names (both Hebrew and English) from the list` : `
+   - Examples: "אבן טבעית / Natural stone", "עץ מלא / Solid wood", "שיש / Marble"`}
    - Specify where each is used: floors, walls, countertops, furniture
    - Specify finish: matte, glossy, textured, natural
 
@@ -218,4 +232,11 @@ Create a detailed room profile showing how the **${styleName.en}** style is appl
 function formatArray(arr: string[]): string {
   if (!arr || arr.length === 0) return 'N/A'
   return arr.map((item, idx) => `  ${idx + 1}. ${item}`).join('\n')
+}
+
+function formatMaterialsList(materials: Array<{ name: { he: string; en: string }; sku: string }>): string {
+  if (!materials || materials.length === 0) return 'N/A'
+  return materials
+    .map((material, idx) => `  ${idx + 1}. ${material.name.he} / ${material.name.en} (SKU: ${material.sku})`)
+    .join('\n')
 }

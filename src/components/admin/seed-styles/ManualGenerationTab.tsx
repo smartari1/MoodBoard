@@ -8,6 +8,7 @@
 import { useState, useMemo, useRef } from 'react'
 import { Stack, Paper, Title, Select, MultiSelect, Switch, Group, Button, Badge, Collapse, Alert, Text } from '@mantine/core'
 import { IconPlayerPlay, IconChevronDown, IconChevronRight } from '@tabler/icons-react'
+import { useTranslations } from 'next-intl'
 import { useSubCategories } from '@/hooks/useCategories'
 import { useApproaches } from '@/hooks/useApproaches'
 import { useColors } from '@/hooks/useColors'
@@ -22,6 +23,8 @@ interface ManualGenerationTabProps {
 }
 
 export default function ManualGenerationTab({ onComplete }: ManualGenerationTabProps) {
+  const t = useTranslations('admin.seed-styles.manual')
+
   // Form state
   const [selectedSubCategory, setSelectedSubCategory] = useState<string | null>(null)
   const [selectedApproach, setSelectedApproach] = useState<string | null>(null)
@@ -93,14 +96,14 @@ export default function ManualGenerationTab({ onComplete }: ManualGenerationTabP
       })
 
       if (!response.ok) {
-        throw new Error('Failed to start generation')
+        throw new Error(t('failedToStart'))
       }
 
       const reader = response.body?.getReader()
       const decoder = new TextDecoder()
 
       if (!reader) {
-        throw new Error('No response body')
+        throw new Error(t('noResponseBody'))
       }
 
       while (true) {
@@ -150,7 +153,7 @@ export default function ManualGenerationTab({ onComplete }: ManualGenerationTabP
       }
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') {
-        setError('Generation stopped by user')
+        setError(t('generationStopped'))
       } else {
         setError(err instanceof Error ? err.message : 'Unknown error')
       }
@@ -165,16 +168,16 @@ export default function ManualGenerationTab({ onComplete }: ManualGenerationTabP
       {/* Configuration Form */}
       <Paper shadow="sm" p="lg" withBorder>
         <Stack gap="md">
-          <Title order={3}>Manual Style Generation</Title>
+          <Title order={3}>{t('title')}</Title>
           <Text c="dimmed" size="sm">
-            Create a single style with precise control over sub-category, approach, color, and room types
+            {t('subtitle')}
           </Text>
 
           {/* Sub-category Selector */}
           <Select
-            label="Sub-Category"
-            placeholder={loadingSubCategories ? 'Loading...' : 'Select a sub-category'}
-            description="The style will be generated for this sub-category"
+            label={t('subCategory')}
+            placeholder={loadingSubCategories ? t('loading') : t('selectSubCategory')}
+            description={t('subCategoryDesc')}
             data={
               subCategories?.data.map((sc) => ({
                 value: sc.slug,
@@ -190,9 +193,9 @@ export default function ManualGenerationTab({ onComplete }: ManualGenerationTabP
 
           {/* Approach Selector */}
           <Select
-            label="Approach"
-            placeholder={loadingApproaches ? 'Loading...' : 'Select an approach'}
-            description="The design approach for this style"
+            label={t('approach')}
+            placeholder={loadingApproaches ? t('loading') : t('selectApproach')}
+            description={t('approachDesc')}
             data={
               approaches?.data.map((a) => ({
                 value: a.id,
@@ -208,9 +211,9 @@ export default function ManualGenerationTab({ onComplete }: ManualGenerationTabP
 
           {/* Color Selector */}
           <Select
-            label="Color"
-            placeholder={loadingColors ? 'Loading...' : 'Select a color'}
-            description="The primary color palette for this style"
+            label={t('color')}
+            placeholder={loadingColors ? t('loading') : t('selectColor')}
+            description={t('colorDesc')}
             data={
               colors?.data.map((c) => ({
                 value: c.id,
@@ -226,9 +229,9 @@ export default function ManualGenerationTab({ onComplete }: ManualGenerationTabP
 
           {/* Room Types Multi-Select */}
           <MultiSelect
-            label="Room Types (Optional)"
-            description="Leave empty to generate all 24 room types"
-            placeholder="Select specific rooms or leave empty for all"
+            label={t('roomTypes')}
+            description={t('roomTypesDesc')}
+            placeholder={t('roomTypesPlaceholder')}
             data={ROOM_TYPES}
             value={selectedRooms}
             onChange={setSelectedRooms}
@@ -240,7 +243,7 @@ export default function ManualGenerationTab({ onComplete }: ManualGenerationTabP
 
           <Group gap="xs">
             <Text size="xs" c="dimmed">
-              Quick select:
+              {t('quickSelect')}
             </Text>
             <Button
               size="xs"
@@ -248,7 +251,7 @@ export default function ManualGenerationTab({ onComplete }: ManualGenerationTabP
               onClick={() => setSelectedRooms(['living-room', 'dining-room', 'kitchen'])}
               disabled={isRunning || !generateRoomProfiles}
             >
-              Main Rooms
+              {t('mainRooms')}
             </Button>
             <Button
               size="xs"
@@ -256,7 +259,7 @@ export default function ManualGenerationTab({ onComplete }: ManualGenerationTabP
               onClick={() => setSelectedRooms(['primary-bedroom', 'bedroom', 'bathroom'])}
               disabled={isRunning || !generateRoomProfiles}
             >
-              Bedrooms
+              {t('bedrooms')}
             </Button>
             <Button
               size="xs"
@@ -264,22 +267,22 @@ export default function ManualGenerationTab({ onComplete }: ManualGenerationTabP
               onClick={() => setSelectedRooms(['home-office', 'library-reading-area', 'family-room-tv-area'])}
               disabled={isRunning || !generateRoomProfiles}
             >
-              Work/Leisure
+              {t('workLeisure')}
             </Button>
           </Group>
 
           {/* Toggles */}
           <Switch
-            label="Generate Images (Gemini 2.5 Flash Image)"
-            description={`Will generate ${estimatedImages} images total (3 general${generateRoomProfiles ? ` + ${roomCount} rooms × 3 images` : ''})`}
+            label={t('generateImages')}
+            description={t('generateImagesDesc', { total: estimatedImages, rooms: roomCount })}
             checked={generateImages}
             onChange={(e) => setGenerateImages(e.currentTarget.checked)}
             disabled={isRunning}
           />
 
           <Switch
-            label="Generate Room Profiles"
-            description="Create detailed room-specific content and images"
+            label={t('generateRoomProfiles')}
+            description={t('generateRoomProfilesDesc')}
             checked={generateRoomProfiles}
             onChange={(e) => {
               setGenerateRoomProfiles(e.currentTarget.checked)
@@ -297,7 +300,7 @@ export default function ManualGenerationTab({ onComplete }: ManualGenerationTabP
                 <Group gap="xs">
                   {showCostBreakdown ? <IconChevronDown size={16} /> : <IconChevronRight size={16} />}
                   <Text fw={600} size="sm">
-                    Estimated Cost
+                    {t('estimatedCost')}
                   </Text>
                 </Group>
                 <Badge variant="filled" color="blue" size="lg">
@@ -320,13 +323,13 @@ export default function ManualGenerationTab({ onComplete }: ManualGenerationTabP
               color="green"
               disabled={!isFormValid || isRunning}
             >
-              Generate Style
+              {t('generateStyle')}
             </Button>
           </Group>
 
           {!isFormValid && (
             <Alert color="orange" variant="light">
-              <Text size="sm">Please select sub-category, approach, and color to continue</Text>
+              <Text size="sm">{t('formValidation')}</Text>
             </Alert>
           )}
         </Stack>

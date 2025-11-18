@@ -10,7 +10,8 @@
 'use client'
 
 import { useAuth } from '@/hooks/use-auth'
-import { AppShell, Collapse, Container, Group, NavLink, Stack, Text } from '@mantine/core'
+import { AppShell, Burger, Collapse, Container, Group, NavLink, Stack, Text } from '@mantine/core'
+import { useDisclosure } from '@mantine/hooks'
 import {
   IconBox,
   IconBuilding,
@@ -30,6 +31,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useMemo, useState } from 'react'
 import { ImageViewerProvider } from '@/contexts/ImageViewerContext'
+import { LanguageSwitcher } from '@/components/ui/LanguageSwitcher'
 
 interface AdminLayoutProps {
   children: React.ReactNode
@@ -40,11 +42,14 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   const pathname = usePathname()
   const { user } = useAuth()
 
+  // Mobile navbar state
+  const [mobileNavbarOpened, { toggle: toggleMobileNavbar, close: closeMobileNavbar }] = useDisclosure()
+
   // Memoize locale extraction to avoid recalculation
   const locale = useMemo(() => pathname?.split('/')[1] || 'he', [pathname])
 
   // Check if style system section should be open - memoize to avoid recalculation
-  const isStyleSystemActive = pathname?.includes('/admin/style-system')
+  const isStyleSystemActive = pathname?.includes('/admin/style-system') ?? false
   const [styleSystemOpen, setStyleSystemOpen] = useState(isStyleSystemActive)
 
   // Memoize navigation items to prevent recreation on every render
@@ -140,15 +145,35 @@ export function AdminLayout({ children }: AdminLayoutProps) {
           minHeight: '100vh',
         },
       }}
+      header={{ height: { base: 60, sm: 0 } }}
       navbar={{
         width: 250,
         breakpoint: 'sm',
+        collapsed: { mobile: !mobileNavbarOpened },
       }}
     >
+      {/* Mobile Header with Burger Menu */}
+      <AppShell.Header hiddenFrom="sm" style={{ backgroundColor: '#ffffff' }}>
+        <Group h="100%" px="md" justify="space-between">
+          <Text fw={700} size="lg" c="brand">
+            MoodB Admin
+          </Text>
+          <Group gap="xs">
+            <LanguageSwitcher currentLocale={locale} variant="button" />
+            <Burger
+              opened={mobileNavbarOpened}
+              onClick={toggleMobileNavbar}
+              size="sm"
+              aria-label="Toggle navigation"
+            />
+          </Group>
+        </Group>
+      </AppShell.Header>
+
       <AppShell.Navbar p="md" style={{ backgroundColor: '#ffffff' }}>
         <Stack gap="md">
           {/* Admin Header */}
-          <Group gap="sm" mb="lg">
+          <Group gap="sm" mb="lg" justify="space-between">
             <div>
               <Text fw={700} size="lg" c="brand">
                 MoodB Admin
@@ -157,6 +182,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                 {user?.email}
               </Text>
             </div>
+            <LanguageSwitcher currentLocale={locale} variant="button" />
           </Group>
 
           {/* Navigation */}
@@ -175,6 +201,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                   active={isActive}
                   variant="subtle"
                   color="brand"
+                  onClick={closeMobileNavbar}
                 />
               )
             })}
@@ -207,6 +234,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                       active={isActive}
                       variant="subtle"
                       color="brand"
+                      onClick={closeMobileNavbar}
                     />
                   )
                 })}
@@ -228,6 +256,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                   active={isActive}
                   variant="subtle"
                   color="brand"
+                  onClick={closeMobileNavbar}
                 />
               )
             })}
@@ -240,6 +269,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
             label={t('navigation.backToDashboard')}
             variant="subtle"
             mt="auto"
+            onClick={closeMobileNavbar}
           />
         </Stack>
       </AppShell.Navbar>

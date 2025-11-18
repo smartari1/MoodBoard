@@ -1094,6 +1094,20 @@ export async function seedStyles(
           const { generateRoomProfileContent } = await import('../ai/gemini')
           const roomProfilesGenerated: any[] = []
 
+          // Fetch available materials for AI to use (CRITICAL: prevents material mismatch warnings)
+          const availableMaterials = await prisma.material.findMany({
+            select: {
+              name: true,
+              sku: true,
+            },
+          })
+
+          onProgress?.(
+            `   📦 Loaded ${availableMaterials.length} available materials for AI selection`,
+            i + 1,
+            subCatsToProcess.length
+          )
+
           const styleContext = {
             name: styleName,
             description: {
@@ -1122,8 +1136,8 @@ export async function seedStyles(
                 subCatsToProcess.length
               )
 
-              // Generate room profile content
-              const roomProfile = await generateRoomProfileContent(roomType, styleContext)
+              // Generate room profile content (with available materials to prevent mismatches)
+              const roomProfile = await generateRoomProfileContent(roomType, styleContext, availableMaterials)
 
               onProgress?.(
                 `      Room ${j + 1}/${roomTypes.length}: ${roomType.name.en} - Generating 3 images...`,

@@ -591,7 +591,11 @@ export async function generateRoomProfileContent(
       name: { he: string; en: string }
       hex: string
     }
-  }
+  },
+  availableMaterials?: Array<{
+    name: { he: string; en: string }
+    sku: string
+  }>
 ): Promise<RoomProfile> {
   const model = getGenAI().getGenerativeModel({
     model: GEMINI_MODELS.FLASH,
@@ -614,6 +618,7 @@ export async function generateRoomProfileContent(
     styleCharacteristics: styleContext.characteristics,
     styleVisualElements: styleContext.visualElements,
     styleMaterialGuidance: styleContext.materialGuidance,
+    availableMaterials,
   })
 
   const result = await model.generateContent(prompt)
@@ -648,6 +653,10 @@ export async function batchGenerateRoomProfiles(
       hex: string
     }
   },
+  availableMaterials?: Array<{
+    name: { he: string; en: string }
+    sku: string
+  }>,
   onProgress?: (current: number, total: number, roomName: string) => void
 ): Promise<RoomProfile[]> {
   const profiles: RoomProfile[] = []
@@ -659,7 +668,7 @@ export async function batchGenerateRoomProfiles(
     try {
       onProgress?.(i + 1, total, roomType.name.en)
 
-      const profile = await generateRoomProfileContent(roomType, styleContext)
+      const profile = await generateRoomProfileContent(roomType, styleContext, availableMaterials)
       profiles.push(profile)
 
       // Rate limiting: 2 second delay between requests (safe for paid tier)

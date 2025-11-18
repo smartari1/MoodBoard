@@ -8,6 +8,7 @@
 import { useState, useMemo, useRef } from 'react'
 import { Stack, Paper, Title, NumberInput, Select, Switch, Group, Button, Radio, MultiSelect, Alert, Text, Badge, Collapse } from '@mantine/core'
 import { IconPlayerPlay, IconPlayerStop, IconChevronDown, IconChevronRight } from '@tabler/icons-react'
+import { useTranslations } from 'next-intl'
 import { calculateEstimatedCost } from '@/lib/seed/cost-calculator'
 import { CostBreakdownTable } from '@/components/admin/CostBreakdownTable'
 import { ProgressDisplay } from './ProgressDisplay'
@@ -20,6 +21,8 @@ interface BulkGenerationTabProps {
 }
 
 export default function BulkGenerationTab({ onComplete, resumeExecutionId }: BulkGenerationTabProps) {
+  const t = useTranslations('admin.seed-styles.bulk')
+
   // Configuration state
   const [limit, setLimit] = useState<number>(5)
   const [generateImages, setGenerateImages] = useState(true)
@@ -91,14 +94,14 @@ export default function BulkGenerationTab({ onComplete, resumeExecutionId }: Bul
       })
 
       if (!response.ok) {
-        throw new Error('Failed to start seeding')
+        throw new Error(t('failedToStart'))
       }
 
       const reader = response.body?.getReader()
       const decoder = new TextDecoder()
 
       if (!reader) {
-        throw new Error('No response body')
+        throw new Error(t('noResponseBody'))
       }
 
       while (true) {
@@ -150,7 +153,7 @@ export default function BulkGenerationTab({ onComplete, resumeExecutionId }: Bul
       }
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') {
-        setError('Seeding stopped by user')
+        setError(t('stoppedByUser'))
       } else {
         setError(err instanceof Error ? err.message : 'Unknown error')
       }
@@ -175,14 +178,14 @@ export default function BulkGenerationTab({ onComplete, resumeExecutionId }: Bul
       {/* Configuration */}
       <Paper shadow="sm" p="lg" withBorder>
         <Stack gap="md">
-          <Title order={3}>Bulk Style Generation</Title>
+          <Title order={3}>{t('title')}</Title>
           <Text c="dimmed" size="sm">
-            Generate multiple styles with AI-powered optimization and filtering options
+            {t('subtitle')}
           </Text>
 
           <NumberInput
-            label="Number of Styles to Generate"
-            description={`Generate styles for the first ${limit} sub-categories (max 60 total)`}
+            label={t('numberOfStyles')}
+            description={t('numberOfStylesDesc', { limit })}
             value={limit}
             onChange={(val) => setLimit(val as number)}
             min={1}
@@ -191,9 +194,9 @@ export default function BulkGenerationTab({ onComplete, resumeExecutionId }: Bul
           />
 
           <Select
-            label="Category Filter (Optional)"
-            description="Only generate styles for sub-categories in this category"
-            placeholder="All categories"
+            label={t('categoryFilter')}
+            description={t('categoryFilterDesc')}
+            placeholder={t('allCategories')}
             data={CATEGORY_OPTIONS}
             value={categoryFilter}
             onChange={setCategoryFilter}
@@ -202,16 +205,16 @@ export default function BulkGenerationTab({ onComplete, resumeExecutionId }: Bul
           />
 
           <Switch
-            label="Generate Images (Gemini 2.5 Flash Image)"
-            description={`Will generate ${estimatedImages} images total (3 general${generateRoomProfiles ? ` + ${roomCount} rooms × 3 images per style` : ''})`}
+            label={t('generateImages')}
+            description={t('generateImagesDesc', { total: estimatedImages, rooms: roomCount })}
             checked={generateImages}
             onChange={(e) => setGenerateImages(e.currentTarget.checked)}
             disabled={isRunning}
           />
 
           <Switch
-            label="Generate Room Profiles"
-            description="Create detailed room-specific content and images for each style"
+            label={t('generateRoomProfiles')}
+            description={t('generateRoomProfilesDesc')}
             checked={generateRoomProfiles}
             onChange={(e) => {
               setGenerateRoomProfiles(e.currentTarget.checked)
@@ -227,7 +230,7 @@ export default function BulkGenerationTab({ onComplete, resumeExecutionId }: Bul
             <Paper withBorder p="md" style={{ backgroundColor: '#f0f9ff' }}>
               <Stack gap="md">
                 <Text fw={600} size="sm">
-                  Room Selection
+                  {t('roomSelection')}
                 </Text>
 
                 <Radio.Group
@@ -240,17 +243,17 @@ export default function BulkGenerationTab({ onComplete, resumeExecutionId }: Bul
                   }}
                 >
                   <Stack gap="xs">
-                    <Radio value="all" label="Generate All 24 Room Types" description="Comprehensive generation for all rooms (default)" disabled={isRunning} />
-                    <Radio value="specific" label="Generate Specific Room Types Only" description="Select which rooms to generate (faster, lower cost)" disabled={isRunning} />
+                    <Radio value="all" label={t('allRooms')} description={t('allRoomsDesc')} disabled={isRunning} />
+                    <Radio value="specific" label={t('specificRooms')} description={t('specificRoomsDesc')} disabled={isRunning} />
                   </Stack>
                 </Radio.Group>
 
                 {roomSelection === 'specific' && (
                   <>
                     <MultiSelect
-                      label="Select Room Types"
-                      description="Choose one or more room types to generate"
-                      placeholder="Pick rooms..."
+                      label={t('selectRoomTypes')}
+                      description={t('selectRoomTypesDesc')}
+                      placeholder={t('pickRooms')}
                       data={ROOM_TYPES}
                       value={selectedRooms}
                       onChange={setSelectedRooms}
@@ -262,16 +265,16 @@ export default function BulkGenerationTab({ onComplete, resumeExecutionId }: Bul
 
                     <Group gap="xs">
                       <Text size="xs" c="dimmed">
-                        Quick select:
+                        {t('quickSelect')}
                       </Text>
                       <Button size="xs" variant="light" onClick={() => setSelectedRooms(['living-room', 'dining-room', 'kitchen'])} disabled={isRunning}>
-                        Main Rooms
+                        {t('mainRooms')}
                       </Button>
                       <Button size="xs" variant="light" onClick={() => setSelectedRooms(['primary-bedroom', 'bedroom', 'bathroom'])} disabled={isRunning}>
-                        Bedrooms
+                        {t('bedrooms')}
                       </Button>
                       <Button size="xs" variant="light" onClick={() => setSelectedRooms(['home-office', 'library-reading-area', 'family-room-tv-area'])} disabled={isRunning}>
-                        Work/Leisure
+                        {t('workLeisure')}
                       </Button>
                     </Group>
                   </>
@@ -280,7 +283,7 @@ export default function BulkGenerationTab({ onComplete, resumeExecutionId }: Bul
                 {roomSelection === 'specific' && selectedRooms.length > 0 && (
                   <Alert color="blue" variant="light">
                     <Text size="sm">
-                      Selected: {selectedRooms.length} room{selectedRooms.length > 1 ? 's' : ''} × 3 images = {selectedRooms.length * 3} images per style
+                      {t('selectedRooms', { count: selectedRooms.length, s: selectedRooms.length > 1 ? 'ים' : '', total: selectedRooms.length * 3 })}
                     </Text>
                   </Alert>
                 )}
@@ -288,7 +291,7 @@ export default function BulkGenerationTab({ onComplete, resumeExecutionId }: Bul
             </Paper>
           )}
 
-          <Switch label="Dry Run (Test Without Saving)" description="Simulate the process without saving to database" checked={dryRun} onChange={(e) => setDryRun(e.currentTarget.checked)} disabled={isRunning} />
+          <Switch label={t('dryRun')} description={t('dryRunDesc')} checked={dryRun} onChange={(e) => setDryRun(e.currentTarget.checked)} disabled={isRunning} />
 
           <Paper withBorder p="md" style={{ backgroundColor: '#f8f9fa' }}>
             <Stack gap="sm">
@@ -296,7 +299,7 @@ export default function BulkGenerationTab({ onComplete, resumeExecutionId }: Bul
                 <Group gap="xs">
                   {showCostBreakdown ? <IconChevronDown size={16} /> : <IconChevronRight size={16} />}
                   <Text fw={600} size="sm">
-                    Estimated Cost & Time
+                    {t('estimatedCostTime')}
                   </Text>
                 </Group>
                 <Group gap="md">
@@ -324,18 +327,18 @@ export default function BulkGenerationTab({ onComplete, resumeExecutionId }: Bul
                 color="green"
                 disabled={roomSelection === 'specific' && selectedRooms.length === 0 && generateRoomProfiles}
               >
-                Start Generation
+                {t('startGeneration')}
               </Button>
             ) : (
               <Button leftSection={<IconPlayerStop size={16} />} onClick={stopSeeding} size="lg" color="red" variant="light">
-                Stop
+                {t('stop')}
               </Button>
             )}
           </Group>
 
           {roomSelection === 'specific' && selectedRooms.length === 0 && generateRoomProfiles && (
             <Alert color="orange" variant="light">
-              <Text size="sm">Please select at least one room type or switch to "Generate All 24 Room Types"</Text>
+              <Text size="sm">{t('selectRoomsWarning')}</Text>
             </Alert>
           )}
         </Stack>

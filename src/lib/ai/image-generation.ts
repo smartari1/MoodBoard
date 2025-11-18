@@ -88,6 +88,8 @@ The image should:
 - Be photorealistic and professionally shot
 - Suitable for an interior design portfolio or magazine spread
 
+🚫 CRITICAL CONSTRAINT: DO NOT include any humans, human figures, portraits, or drawings/artwork depicting humans in the image. Focus ONLY on interior design elements, architecture, furniture, materials, and decor. No people should be visible anywhere in the scene.
+
 Style: Professional detail photography, macro perspective, dramatic lighting highlighting textures, high-end architectural digest quality.`
 
         // Add visual context from sub-category
@@ -125,6 +127,8 @@ The image should:
 - Include lighting fixtures and accessories that complete the look
 - Be photorealistic and professionally shot
 - Capture the balance and proportion typical of this style
+
+🚫 CRITICAL CONSTRAINT: DO NOT include any humans, human figures, portraits, or drawings/artwork depicting humans in the image. Focus ONLY on interior design elements, architecture, furniture, materials, and decor. No people should be visible anywhere in the scene.
 
 Style: Professional interior photography, medium shot, natural lighting, architectural digest quality, emphasizing furniture design and spatial relationships.`
 
@@ -165,6 +169,8 @@ The image should:
 - Feature excellent natural lighting and composition
 - Be photorealistic and professionally shot
 - Capture the overall atmosphere and aesthetic of this unique style combination
+
+🚫 CRITICAL CONSTRAINT: DO NOT include any humans, human figures, portraits, or drawings/artwork depicting humans in the image. Focus ONLY on interior design elements, architecture, furniture, materials, and decor. No people should be visible anywhere in the scene.
 
 Style: Professional interior photography, wide angle, high-end, architectural digest quality, natural lighting, showing full room context.`
 
@@ -215,6 +221,8 @@ The image should:
 - Feature excellent lighting appropriate to the room function
 - Be photorealistic and professionally shot
 - Show both aesthetics and functionality
+
+🚫 CRITICAL CONSTRAINT: DO NOT include any humans, human figures, portraits, or drawings/artwork depicting humans in the image. Focus ONLY on interior design elements, architecture, furniture, materials, and decor. No people should be visible anywhere in the scene.
 
 Style: Professional interior photography, architectural digest quality, natural lighting, full room view with focus on ${roomTypeName}-specific design elements and the ${styleName} aesthetic.`
 
@@ -299,6 +307,8 @@ The image should:
 - Be suitable for an interior design portfolio, museum catalog, or architectural digest magazine
 - Avoid modern elements that would be anachronistic to this period
 
+🚫 CRITICAL CONSTRAINT: DO NOT include any humans, human figures, portraits, or drawings/artwork depicting humans in the image. Focus ONLY on interior design elements, architecture, furniture, materials, and decor. No people should be visible anywhere in the scene.
+
 Style: Professional interior photography, high-end, architectural digest quality, museum-quality documentation, natural lighting appropriate to the era, wide angle shot showing full room context and spatial relationships.`
       break
 
@@ -377,6 +387,8 @@ The image should:
 - Be suitable for an interior design portfolio, style guide, or architectural digest magazine
 - Maintain period accuracy and authenticity
 
+🚫 CRITICAL CONSTRAINT: DO NOT include any humans, human figures, portraits, or drawings/artwork depicting humans in the image. Focus ONLY on interior design elements, architecture, furniture, materials, and decor. No people should be visible anywhere in the scene.
+
 Style: Professional interior photography, high-end, architectural digest quality, design magazine editorial, natural lighting that complements the style, wide angle showing full room with all characteristic ${entityName.en} elements clearly visible.`
       break
 
@@ -396,6 +408,8 @@ The image should:
 - Capture the essence of the ${entityName.en} approach to interior design
 - Be suitable for an interior design portfolio or magazine
 
+🚫 CRITICAL CONSTRAINT: DO NOT include any humans, human figures, portraits, or drawings/artwork depicting humans in the image. Focus ONLY on interior design elements, architecture, furniture, materials, and decor. No people should be visible anywhere in the scene.
+
 Style: Professional interior photography, high-end, architectural digest quality, natural lighting, emphasizing the ${entityName.en} design philosophy.`
       break
 
@@ -413,6 +427,8 @@ The image should:
 - Be photorealistic and professionally shot
 - Show the room's functionality and aesthetic appeal
 - Be suitable for an interior design portfolio or magazine
+
+🚫 CRITICAL CONSTRAINT: DO NOT include any humans, human figures, portraits, or drawings/artwork depicting humans in the image. Focus ONLY on interior design elements, architecture, furniture, materials, and decor. No people should be visible anywhere in the scene.
 
 Style: Professional interior photography, high-end, architectural digest quality, natural lighting, showing full room layout and design.`
       break

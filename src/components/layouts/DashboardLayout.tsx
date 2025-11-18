@@ -16,6 +16,9 @@ import { SidebarNavigation } from './SidebarNavigation'
 import { Logo } from './Logo'
 import { signOut } from 'next-auth/react'
 import { IconLogout, IconUser } from '@tabler/icons-react'
+import { LanguageSwitcher } from '@/components/ui/LanguageSwitcher'
+import { usePathname } from 'next/navigation'
+import { useMemo } from 'react'
 
 interface DashboardLayoutProps {
   children: React.ReactNode
@@ -24,6 +27,10 @@ interface DashboardLayoutProps {
 export function DashboardLayout({ children }: DashboardLayoutProps) {
   const [opened, { toggle }] = useDisclosure()
   const { user } = useAuth()
+  const pathname = usePathname()
+
+  // Memoize locale extraction to avoid recalculation
+  const locale = useMemo(() => pathname?.split('/')[1] || 'he', [pathname])
 
   // FIX: Removed isLoading, isAuthenticated checks, and useEffect redirect
   // Server layout already validates auth - no need for duplicate checking
@@ -53,35 +60,39 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             <Burger opened={opened} onClick={toggle} hiddenFrom="sm" size="sm" />
             <Logo />
           </Group>
-          
-          {user && (
-            <Menu shadow="md" width={200}>
-              <Menu.Target>
-                <Avatar
-                  src={user.imageUrl}
-                  alt={user.fullName || user.email}
-                  style={{ cursor: 'pointer' }}
-                />
-              </Menu.Target>
-              
-              <Menu.Dropdown>
-                <Menu.Label>
-                  <Text size="sm" fw={500}>{user.fullName || user.email}</Text>
-                  <Text size="xs" c="dimmed">{user.email}</Text>
-                </Menu.Label>
-                <Menu.Divider />
-                <Menu.Item leftSection={<IconUser size={16} />}>
-                  Profile
-                </Menu.Item>
-                <Menu.Item 
-                  leftSection={<IconLogout size={16} />}
-                  onClick={() => signOut({ callbackUrl: '/sign-in' })}
-                >
-                  Sign out
-                </Menu.Item>
-              </Menu.Dropdown>
-            </Menu>
-          )}
+
+          <Group gap="sm">
+            <LanguageSwitcher currentLocale={locale} variant="button" />
+
+            {user && (
+              <Menu shadow="md" width={200}>
+                <Menu.Target>
+                  <Avatar
+                    src={user.imageUrl}
+                    alt={user.fullName || user.email}
+                    style={{ cursor: 'pointer' }}
+                  />
+                </Menu.Target>
+
+                <Menu.Dropdown>
+                  <Menu.Label>
+                    <Text size="sm" fw={500}>{user.fullName || user.email}</Text>
+                    <Text size="xs" c="dimmed">{user.email}</Text>
+                  </Menu.Label>
+                  <Menu.Divider />
+                  <Menu.Item leftSection={<IconUser size={16} />}>
+                    Profile
+                  </Menu.Item>
+                  <Menu.Item
+                    leftSection={<IconLogout size={16} />}
+                    onClick={() => signOut({ callbackUrl: '/sign-in' })}
+                  >
+                    Sign out
+                  </Menu.Item>
+                </Menu.Dropdown>
+              </Menu>
+            )}
+          </Group>
         </Group>
       </AppShell.Header>
 
