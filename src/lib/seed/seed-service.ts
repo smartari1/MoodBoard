@@ -1044,14 +1044,34 @@ export async function seedStyles(
         })
 
         // Clean up AI-generated content to match Prisma schema
-        // Remove any extra fields that Gemini might have added (like imagePrompt, quote in poeticIntro)
+        // Remove any extra fields that Gemini might have added (like imagePrompt, quote, paragraph5 in poeticIntro)
         // Note: keywords is valid and optional in the schema
         if (detailedContent.he?.poeticIntro) {
-          const { imagePrompt: _heImagePrompt, quote: _heQuote, ...cleanHePoetic } = detailedContent.he.poeticIntro as any
+          const {
+            imagePrompt: _heImagePrompt,
+            quote: _heQuote,
+            paragraph5: _heParagraph5,
+            paragraph6: _heParagraph6,
+            paragraph7: _heParagraph7,
+            paragraph8: _heParagraph8,
+            paragraph9: _heParagraph9,
+            paragraph10: _heParagraph10,
+            ...cleanHePoetic
+          } = detailedContent.he.poeticIntro as any
           detailedContent.he.poeticIntro = cleanHePoetic
         }
         if (detailedContent.en?.poeticIntro) {
-          const { imagePrompt: _enImagePrompt, quote: _enQuote, ...cleanEnPoetic } = detailedContent.en.poeticIntro as any
+          const {
+            imagePrompt: _enImagePrompt,
+            quote: _enQuote,
+            paragraph5: _enParagraph5,
+            paragraph6: _enParagraph6,
+            paragraph7: _enParagraph7,
+            paragraph8: _enParagraph8,
+            paragraph9: _enParagraph9,
+            paragraph10: _enParagraph10,
+            ...cleanEnPoetic
+          } = detailedContent.en.poeticIntro as any
           detailedContent.en.poeticIntro = cleanEnPoetic
         }
 
@@ -1379,12 +1399,23 @@ export async function seedStyles(
           subCatsToProcess.length
         )
       } catch (error) {
+        // Enhanced error logging for debugging
+        const errorMessage = error instanceof Error ? error.message : String(error)
+        const errorStack = error instanceof Error ? error.stack : undefined
+
+        console.error(`Error processing style for ${subCategory.slug}:`, {
+          error: errorMessage,
+          stack: errorStack,
+          subCategory: subCategory.slug,
+          selection,
+        })
+
         result.errors.push({
           entity: `style:${subCategory.slug}`,
-          error: error instanceof Error ? error.message : String(error),
+          error: errorMessage,
         })
         onProgress?.(
-          `   ❌ Error: ${error instanceof Error ? error.message : String(error)}`,
+          `   ❌ Error: ${errorMessage}`,
           i + 1,
           subCatsToProcess.length
         )
