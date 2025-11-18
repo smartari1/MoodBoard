@@ -574,7 +574,7 @@ type RoomProfile {
 }
 
 type RoomColorPalette {
-  primaryId    String   @db.ObjectId  // References Color.id
+  primaryId    String?  @db.ObjectId  // References Color.id (optional for backward compatibility)
   secondaryIds String[] @db.ObjectId  // References Color.id[]
   accentIds    String[] @db.ObjectId  // References Color.id[]
   description  LocalizedString?

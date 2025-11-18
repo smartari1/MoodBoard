@@ -7,7 +7,7 @@ const objectIdSchema = z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid ObjectID f
 
 // Room Color Palette Schema (matches Prisma RoomColorPalette)
 export const roomColorPaletteSchema = z.object({
-  primaryId: objectIdSchema,
+  primaryId: objectIdSchema.optional(), // Optional for backward compatibility with old data
   secondaryIds: z.array(objectIdSchema).default([]),
   accentIds: z.array(objectIdSchema).default([]),
   description: localizedStringSchema.optional(),
