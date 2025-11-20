@@ -11,6 +11,59 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+
+enum PriceTier {
+  AFFORDABLE
+  LUXURY
+}
+
+enum PriceLevel {
+  REGULAR
+  LUXURY
+}
+
+enum ImageCategory {
+  ROOM_OVERVIEW
+  ROOM_DETAIL
+  MATERIAL
+  TEXTURE
+  COMPOSITE
+  ANCHOR
+}
+
+enum GenerationStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+type StyleGalleryItem {
+  id                 String   @default(uuid())
+  url                String
+  type               String   // 'scene', 'material', 'color'
+  
+  // For Scenes
+  sceneName          String?  // 'entry', 'living', 'dining', 'kitchen', 'master_bed', 'bath'
+  complementaryColor String?  // e.g., "#800020" (Bordeaux)
+  
+  // For Materials/Colors
+  linkedAssetId      String?  @db.ObjectId // Ref to Material.id or Color.id
+  
+  // Metadata
+  prompt             String?
+  createdAt          DateTime @default(now())
+}
+
+type RoomView {
+  id           String           @default(uuid())
+  url          String?          // Nullable if pending
+  orientation  String           // 'main', 'opposite', 'left', 'right'
+  prompt       String?
+  status       GenerationStatus @default(PENDING)
+  createdAt    DateTime         @default(now())
+}
+
 // ============================================
 // Multi-tenancy & Authentication
 // ============================================
@@ -29,6 +82,7 @@ model Organization {
   projects  Project[]
   styles    Style[]
   materials Material[]
+  textures  Texture[]  // Phase 2: Texture entities
   products  Product[]
   colors    Color[]
   auditLogs AuditLog[]
@@ -282,7 +336,8 @@ type StyleCustomization {
 type Room {
   id             String              @default(uuid())
   name           String
-  type           String // Living, Kitchen, Bedroom, Bath, etc.
+  type           String              // Living, Kitchen, Bedroom, Bath, etc.
+  parentCategory String?             // "Private", "Public", "Commercial"
   dimensions     Dimensions?
   notes          String?
   images         String[]            @default([]) // Array of R2 image URLs
@@ -488,13 +543,24 @@ model Style {
   colorId       String    @db.ObjectId
   color         Color     @relation(fields: [colorId], references: [id])
 
-  images String[] @default([]) // Array of R2 image URLs
+  // Phase 2: Category & Price Level
+  roomCategory      String?    // "Private", "Public", "Commercial"
+  priceLevel        PriceLevel @default(REGULAR)
+  compositeImageUrl String?    // Composite mood board image
+  anchorImageUrl    String?    // Anchor image (fruit on color palette)
+
+  priceTier   PriceTier @default(AFFORDABLE)
+  gallery     StyleGalleryItem[]
 
   // Enhanced detailed content
   detailedContent LocalizedDetailedContent?
 
   // Rooms for this style (inspiration page)
   roomProfiles RoomProfile[]
+
+  // Phase 2: Relations
+  images        StyleImage[]    // New: Categorized images
+  textureLinks  StyleTexture[]  // New: Many-to-many with textures (join model)
 
   metadata StyleMetadata
 
@@ -507,7 +573,36 @@ model Style {
   @@index([approachId])
   @@index([categoryId, subCategoryId, approachId])
   @@index([colorId])
+  @@index([priceLevel])
+  @@index([roomCategory])
   @@map("styles")
+}
+
+// Phase 2: Categorized Images for Styles
+model StyleImage {
+  id          String         @id @default(auto()) @map("_id") @db.ObjectId
+  styleId     String         @db.ObjectId
+  style       Style          @relation(fields: [styleId], references: [id], onDelete: Cascade)
+
+  url              String
+  imageCategory    ImageCategory @default(ROOM_OVERVIEW)
+  displayOrder     Int           @default(0)
+  description      String?
+  tags             String[]      @default([])
+  roomType         String?       // e.g., "living", "kitchen", "bedroom"
+
+  // Link to Texture entity (for TEXTURE category images)
+  textureId   String?   @db.ObjectId
+  texture     Texture?  @relation(fields: [textureId], references: [id])
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @default(now())
+
+  @@index([styleId])
+  @@index([styleId, imageCategory])
+  @@index([textureId])
+  @@index([displayOrder])
+  @@map("style_images")
 }
 
 type LocalizedString {
@@ -534,6 +629,10 @@ type DetailedContent {
   historicalContext String? // Historical background and evolution
   culturalContext String?   // Cultural influences and significance
   poeticIntro     PoeticIntro? // Poetic/artistic introduction for styles
+  
+  executiveSummary  String?   // Part B
+  requiredMaterials String[]  // Raw list from AI
+  requiredColors    String[]  // Raw list from AI
 }
 
 type PoeticIntro {
@@ -570,7 +669,7 @@ type RoomProfile {
   spatialConsiderations RoomSpatialConsiderations?
   decorativeElements    RoomDecorativeElement[]
   designTips            RoomDesignTip[]
-  images                String[]                  @default([])
+  views                 RoomView[]
 }
 
 type RoomColorPalette {
@@ -681,6 +780,7 @@ type StyleMetadata {
   // AI Generation tracking
   aiGenerated     Boolean?     @default(false)
   aiSelection     AISelection?
+  isComplete      Boolean?     @default(false) // Tracks if all room profiles are generated
 }
 
 // Room Types for managing available room categories
@@ -748,7 +848,11 @@ model Material {
   organizationId String?        @db.ObjectId  // Null for global materials
   organization   Organization?  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
-  sku      String          @unique
+  sku      String?         @unique
+  isAbstract      Boolean          @default(false)
+  generationStatus GenerationStatus @default(COMPLETED)
+  aiDescription   String?
+
   name     LocalizedString
   categoryId String        @db.ObjectId
   category MaterialCategory @relation(fields: [categoryId], references: [id])
@@ -765,6 +869,110 @@ model Material {
   @@index([organizationId, categoryId])
   @@index([categoryId])
   @@map("materials")
+}
+
+// ============================================
+// Phase 2: Texture Catalog (Similar to Materials)
+// ============================================
+
+model TextureCategory {
+  id          String            @id @default(auto()) @map("_id") @db.ObjectId
+  name        LocalizedString   // e.g., { he: "גימורי קיר", en: "Wall Finishes" }
+  description LocalizedString?
+  slug        String            @unique
+  order       Int               @default(0)
+  icon        String?
+
+  types    TextureType[]
+  textures Texture[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@index([order, slug])
+  @@map("texture_categories")
+}
+
+model TextureType {
+  id          String            @id @default(auto()) @map("_id") @db.ObjectId
+  name        LocalizedString   // e.g., { he: "מט", en: "Matte" }
+  description LocalizedString?
+  categoryId  String            @db.ObjectId
+  category    TextureCategory   @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  slug        String
+  order       Int               @default(0)
+
+  textures Texture[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@unique([categoryId, slug])
+  @@index([categoryId, order])
+  @@map("texture_types")
+}
+
+model Texture {
+  id             String           @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId String?          @db.ObjectId  // Null for global textures
+  organization   Organization?    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  // Basic Info
+  name           LocalizedString  // e.g., { he: "מט לבן", en: "Matte White" }
+  description    LocalizedString? // Usage description
+
+  // Categorization
+  categoryId     String           @db.ObjectId
+  category       TextureCategory  @relation(fields: [categoryId], references: [id])
+  typeId         String?          @db.ObjectId
+  type           TextureType?     @relation(fields: [typeId], references: [id])
+
+  // Properties
+  finish         String           // 'matte', 'glossy', 'satin', 'rough', 'smooth'
+  sheen          String?          // 'flat', 'eggshell', 'semi-gloss', 'high-gloss'
+  baseColor      String?          // HEX color if applicable
+
+  // AI Generation
+  isAbstract     Boolean          @default(false)  // AI-generated vs. real product
+  generationStatus GenerationStatus @default(COMPLETED)
+  aiDescription  String?          // AI-generated description
+
+  // Assets
+  imageUrl       String?          // Primary texture image
+  thumbnailUrl   String?          // Thumbnail
+  tags           String[]         @default([])
+
+  // Usage tracking
+  usage          Int              @default(0)  // How many styles use this texture
+
+  // Relations
+  styleLinks     StyleTexture[]   // Many-to-many with styles (join model)
+  styleImages    StyleImage[]     // Images using this texture
+
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @default(now())
+
+  @@index([organizationId])
+  @@index([categoryId, typeId])
+  @@index([finish])
+  @@index([usage])
+  @@map("textures")
+}
+
+// Join model for Style-Texture many-to-many relationship
+model StyleTexture {
+  id        String  @id @default(auto()) @map("_id") @db.ObjectId
+  styleId   String  @db.ObjectId
+  style     Style   @relation(fields: [styleId], references: [id], onDelete: Cascade)
+  textureId String  @db.ObjectId
+  texture   Texture @relation(fields: [textureId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([styleId, textureId])
+  @@index([styleId])
+  @@index([textureId])
+  @@map("style_textures")
 }
 
 type MaterialProperties {

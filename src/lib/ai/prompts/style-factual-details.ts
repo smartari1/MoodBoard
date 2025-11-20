@@ -26,13 +26,35 @@ export interface FactualDetailsContext {
   category: {
     name: { he: string; en: string }
   }
+  additionalContext?: string
+  // Phase 2: Price Level
+  priceLevel?: 'REGULAR' | 'LUXURY'
 }
 
 export function buildFactualDetailsPrompt(context: FactualDetailsContext): string {
-  const { styleName, subCategory, approach, color, category } = context
+  const { styleName, subCategory, approach, color, category, additionalContext, priceLevel } = context
 
   const subCategoryContent = subCategory.detailedContent as any
   const approachContent = approach.detailedContent as any
+
+  // Phase 2: Price Level Keywords
+  const priceLevelGuidance = priceLevel === 'LUXURY'
+    ? `**LUXURY TIER KEYWORDS** (inject throughout):
+- Exclusive, High-end, Custom-made, Bespoke
+- Sophisticated, Refined, Precious materials
+- Artisanal, Hand-crafted, Limited edition
+- Premium finishes, Designer pieces
+- Marble, Solid wood, Genuine leather, Silk
+- Polished brass, Crystal, Fine metals
+- Smart home integration, High-tech features`
+    : `**REGULAR TIER KEYWORDS** (inject throughout):
+- Accessible, Functional, Practical
+- Smart solutions, Value-oriented
+- Standard materials, Quality essentials
+- Cost-effective, Efficient, Versatile
+- Engineered wood, Synthetic leather, Cotton blends
+- Chrome, Aluminum, Glass
+- Modern conveniences, User-friendly features`
 
   return `You are an expert interior design historian creating DETAILED, FACTUAL content for a design style.
 
@@ -43,6 +65,10 @@ export function buildFactualDetailsPrompt(context: FactualDetailsContext): strin
 - **Sub-Category**: ${subCategory.name.he} / ${subCategory.name.en}
 - **Approach**: ${approach.name.he} / ${approach.name.en}
 - **Primary Color**: ${color.name.he} / ${color.name.en} (${color.hex})
+
+${additionalContext ? `**ADDITIONAL CONTEXT**:\n${additionalContext}\n` : ''}
+
+${priceLevel ? `${priceLevelGuidance}\n` : ''}
 
 ---
 
@@ -129,10 +155,11 @@ Generate comprehensive factual content for this style in BOTH Hebrew and English
    - Emotional/psychological impact of the color in this context
 
 7. **materialGuidance** (4-6 sentences):
-   - Recommended materials and textures
+   - Recommended materials and textures${priceLevel ? ` (${priceLevel} tier)` : ''}
    - Finishes (matte, glossy, textured, etc.)
    - Natural vs. synthetic materials
    - How materials relate to the historical period and approach
+   ${priceLevel ? `- **CRITICAL**: Use ${priceLevel} tier materials from keywords above` : ''}
 
 8. **historicalContext** (4-6 sentences):
    - Historical background of the sub-category style
@@ -152,6 +179,19 @@ Generate comprehensive factual content for this style in BOTH Hebrew and English
     - Example: "סלון רחב ידיים / Spacious living room"
     - Consider the practical applications from sub-category knowledge
 
+11. **executiveSummary** (Part B - 4-6 sentences):
+    - A strict summary format focusing on the core value proposition and target audience.
+    - Summarize the style's essence, key appeal, and ideal user.
+
+12. **requiredMaterials** (List of 15-25 items):
+    - Specific material names in English (e.g., "Oak Wood", "Carrara Marble", "Velvet").
+    ${priceLevel ? `- **CRITICAL**: Use ${priceLevel} tier materials only (see keywords above)` : ''}
+    - Used for asset generation.
+
+13. **requiredColors** (List of 10-15 items):
+    - Specific color names in English (e.g., "Sage Green", "Cream", "Charcoal").
+    - Used for asset generation.
+
 ---
 
 **RETURN FORMAT** (JSON):
@@ -167,7 +207,10 @@ Generate comprehensive factual content for this style in BOTH Hebrew and English
       "materialGuidance": "...",
       "historicalContext": "...",
       "culturalContext": "...",
-      "applications": ["...", "...", ...]
+      "applications": ["...", "...", ...],
+      "executiveSummary": "...",
+      "requiredMaterials": ["...", "...", ...],
+      "requiredColors": ["...", "...", ...]
     },
     "en": {
       "introduction": "...",
@@ -179,7 +222,10 @@ Generate comprehensive factual content for this style in BOTH Hebrew and English
       "materialGuidance": "...",
       "historicalContext": "...",
       "culturalContext": "...",
-      "applications": ["...", "...", ...]
+      "applications": ["...", "...", ...],
+      "executiveSummary": "...",
+      "requiredMaterials": ["...", "...", ...],
+      "requiredColors": ["...", "...", ...]
     }
   }
 }

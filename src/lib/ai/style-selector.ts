@@ -37,7 +37,7 @@ export async function selectOptimalApproachAndColor(
   const prompt = buildSelectionPrompt(subCategory, approaches, colors)
 
   const model = genAI.getGenerativeModel({
-    model: 'gemini-2.0-flash-exp',
+    model: 'gemini-2.0-flash-lite-preview-02-05',
     generationConfig: {
       temperature: 0.3, // Lower temperature for more consistent selections
       responseMimeType: 'application/json',

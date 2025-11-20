@@ -526,6 +526,10 @@ export default function AdminStyleDetailPage() {
     )
   }
 
+  const styleImages = style.gallery 
+    ? style.gallery.filter((i: any) => i.type === 'scene').map((i: any) => i.url)
+    : (style.images || [])
+
   const getCategoryColor = (category: string) => {
     const colors: Record<string, string> = {
       scandinavian: 'blue',
@@ -606,18 +610,18 @@ export default function AdminStyleDetailPage() {
             )}
 
             {/* Style Images */}
-            {style.images && style.images.length > 0 && (
+            {styleImages && styleImages.length > 0 && (
               <>
                 <Divider />
                 <div>
                   <Group gap="xs" mb="md">
                     <IconPhoto size={16} />
                     <Text fw={500} size="sm" c="dimmed">
-                      {t('detail.images') || 'תמונות'} ({style.images.length})
+                      {t('detail.images') || 'תמונות'} ({styleImages.length})
                     </Text>
                   </Group>
                   <SimpleGrid cols={{ base: 2, sm: 3, md: 4 }} spacing="md">
-                    {style.images.map((imageUrl: string, index: number) => (
+                    {styleImages.map((imageUrl: string, index: number) => (
                       <Paper
                         key={index}
                         p="xs"
@@ -634,7 +638,7 @@ export default function AdminStyleDetailPage() {
                             transition: 'transform 0.2s ease',
                           }}
                           onClick={() => openImages(
-                            style.images.map((url, idx) => ({
+                            styleImages.map((url: string, idx: number) => ({
                               url,
                               title: `${style.name.he} - תמונה ${idx + 1}`,
                               description: style.name.en
@@ -685,7 +689,7 @@ export default function AdminStyleDetailPage() {
               content={style.detailedContent}
               entityName={style.name}
               entityType="style"
-              images={style.images}
+              images={styleImages}
             />
           </MoodBCard>
         )}

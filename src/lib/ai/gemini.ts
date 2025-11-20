@@ -26,7 +26,7 @@ function getGenAI(): GoogleGenerativeAI {
 export const GEMINI_MODELS = {
   PRO: 'gemini-2.0-flash-exp',
   FLASH: 'gemini-2.0-flash-exp',
-  FLASH_LITE: 'gemini-2.5-flash-lite', // Lightweight, cost-effective model
+  FLASH_LITE: 'gemini-2.0-flash-lite-preview-02-05', // Lightweight, cost-effective model
 } as const
 
 /**
@@ -261,6 +261,8 @@ export async function generateStyleContent(
       category: string
       description?: { he?: string; en?: string }
     }
+    // Phase 2: Renamed from priceTier to priceLevel for consistency
+    priceLevel?: 'REGULAR' | 'LUXURY'
   }
 ): Promise<EnhancedLocalizedDetailedContent> {
   const model = getGenAI().getGenerativeModel({
@@ -293,14 +295,17 @@ export async function generateStyleContent(
   const poeticText = poeticResult.response.text()
   const poeticData = JSON.parse(poeticText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim())
 
-  // Step 2: Generate factual details
-  console.log(`Generating factual details for ${name.en}...`)
+  // Step 2: Generate factual details - Phase 2: Pass priceLevel directly
+  const priceLevel = context.priceLevel || 'REGULAR'
+  console.log(`Generating factual details for ${name.en} (Price Level: ${priceLevel})...`)
+
   const factualPrompt = buildFactualDetailsPrompt({
     styleName: name,
     subCategory: context.subCategory,
     approach: context.approach,
     color: context.color,
     category: context.category,
+    priceLevel: priceLevel, // Phase 2: Pass price level directly
   })
 
   const factualResult = await model.generateContent(factualPrompt)

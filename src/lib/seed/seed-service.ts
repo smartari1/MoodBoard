@@ -14,11 +14,83 @@ import {
   generateRoomTypeContent,
   type LocalizedDetailedContent,
 } from '../ai/gemini'
-import { generateAndUploadImages } from '../ai/image-generation'
+import { generateAndUploadImages, generateGoldenScenes, generateStyleRoomImages } from '../ai/image-generation'
 import { parseAllBaseData, type ParsedData } from './parser'
 import { convertRoomProfileToIds } from './room-profile-converter'
 
 const prisma = new PrismaClient()
+
+const GOLDEN_SCENES = [
+  { name: 'entry', promptSuffix: 'Exterior entrance, wide angle, welcoming atmosphere', complement: 'style-dependent' },
+  { name: 'living', promptSuffix: 'Living room, cozy, focal point fireplace or seating', complement: 'style-dependent' },
+  { name: 'dining', promptSuffix: 'Dining area, elegant table setting, lighting feature', complement: 'style-dependent' },
+  { name: 'kitchen', promptSuffix: 'Kitchen, functional and stylish, island or counter', complement: 'style-dependent' },
+  { name: 'master_bed', promptSuffix: 'Master bedroom, serene, plush bedding, relaxing', complement: 'style-dependent' },
+  { name: 'bath', promptSuffix: 'Bathroom, spa-like, clean lines, material focus', complement: 'style-dependent' },
+]
+
+function slugify(text: string): string {
+  return text.toString().toLowerCase()
+    .replace(/\s+/g, '-')           // Replace spaces with -
+    .replace(/[^\w\-]+/g, '')       // Remove all non-word chars
+    .replace(/\-\-+/g, '-')         // Replace multiple - with single -
+    .replace(/^-+/, '')             // Trim - from start of text
+    .replace(/-+$/, '')             // Trim - from end of text
+}
+
+async function ensureAssetsExist(
+  materialNames: string[],
+  colorNames: string[],
+  styleContext: string
+): Promise<{ materialIds: string[], colorIds: string[] }> {
+  
+  const materialIds: string[] = []
+  const colorIds: string[] = [] // We are not implementing color creation logic yet, just placeholder
+
+  for (const name of materialNames) {
+    // Fuzzy search
+    const existing = await prisma.material.findFirst({
+      where: { 
+        name: { is: { en: { contains: name, mode: 'insensitive' } } } 
+      }
+    })
+    
+    if (existing) {
+      materialIds.push(existing.id)
+    } else {
+      // Create Abstract
+      try {
+        const newMat = await prisma.material.create({
+          data: {
+            name: { en: name, he: name }, // Using English for Hebrew temporarily or need translation
+            sku: `ABSTRACT-${crypto.randomUUID()}`, // Generate unique SKU for abstract materials
+            categoryId: (await prisma.materialCategory.findFirst())?.id || '000000000000000000000000', // Fallback ID or logic
+            isAbstract: true,
+            generationStatus: 'PENDING',
+            aiDescription: `Material for ${styleContext}: ${name}`,
+            pricing: { cost: 0, retail: 0, unit: 'm2', currency: 'USD', bulkDiscounts: [] },
+            availability: { inStock: false, leadTime: 0, minOrder: 0 },
+            assets: { thumbnail: '', images: [] },
+            properties: {
+               typeId: '000000000000000000000000', // Placeholder
+               subType: 'Generic',
+               finish: [],
+               texture: 'Generic',
+               colorIds: [],
+               technical: { durability: 5, maintenance: 5, sustainability: 5 }
+            }
+          }
+        })
+        materialIds.push(newMat.id)
+      } catch (e) {
+        console.warn(`Failed to create abstract material ${name}:`, e)
+      }
+    }
+  }
+  // ... same for colors if needed, but colors usually exist globally
+  return { materialIds, colorIds }
+}
+
 
 export interface SeedOptions {
   /**
@@ -738,6 +810,8 @@ export async function seedStyles(
     manualMode?: boolean
     approachId?: string
     colorId?: string
+    // Phase 2: Price level control
+    priceLevel?: 'REGULAR' | 'LUXURY' | 'RANDOM'
   } = {}
 ): Promise<SeedResult> {
   const {
@@ -878,8 +952,8 @@ export async function seedStyles(
     // Import AI selection and generation functions
     const { selectOptimalApproachAndColor, batchSelectOptimalCombinations } =
       await import('../ai/style-selector')
-    const { generateStyleImages, generateStyleRoomImages } = await import('../ai/image-generation')
     const { batchGenerateRoomProfiles } = await import('../ai/gemini')
+    // Note: generateGoldenScenes and generateStyleRoomImages imported at top level now
 
     // Step 2: Batch AI selection OR manual selection
     let selections: Map<string, { approachId: string; colorId: string; confidence: number; reasoning: string }>
@@ -1016,9 +1090,17 @@ export async function seedStyles(
         // Note: No need to check if style exists - we already filtered to only
         // process sub-categories that have NO styles (lines 808-810)
 
-        // Step 3a: Generate hybrid content (poetic + factual)
+        // Phase 2: Determine price level for this style
+        let stylePriceLevel: 'REGULAR' | 'LUXURY'
+        if (options.priceLevel === 'RANDOM') {
+          stylePriceLevel = Math.random() > 0.5 ? 'LUXURY' : 'REGULAR'
+        } else {
+          stylePriceLevel = options.priceLevel || 'REGULAR'
+        }
+
+        // Act 1: The Script
         onProgress?.(
-          `   📝 Generating hybrid content (poetic + factual)...`,
+          `   📜 Act 1: The Script - Generating hybrid content (poetic + factual) [${stylePriceLevel}]...`,
           i + 1,
           subCatsToProcess.length
         )
@@ -1041,7 +1123,18 @@ export async function seedStyles(
             category: selectedColor.category,
             description: selectedColor.description,
           },
+          priceLevel: stylePriceLevel // Phase 2: Pass price level
         })
+
+        // Act 2: Asset Stubbing
+        onProgress?.(
+            `   🧱 Act 2: The Asset Prep - Ensuring assets exist (Materials/Colors)...`,
+            i + 1,
+            subCatsToProcess.length
+        )
+        const matNames = (detailedContent.he as any).requiredMaterials || []
+        const colNames = (detailedContent.he as any).requiredColors || []
+        await ensureAssetsExist(matNames, colNames, styleName.en)
 
         // Clean up AI-generated content to match Prisma schema
         // Remove any extra fields that Gemini might have added (like imagePrompt, quote, paragraph5 in poeticIntro)
@@ -1086,17 +1179,17 @@ export async function seedStyles(
             }
           : undefined
 
-        // Step 3b: Generate 3 general style images
-        let generalImages: string[] = []
+        // Act 3: The Golden Scenes
+        let galleryItems: any[] = []
         if (options.generateImages) {
           onProgress?.(
-            `   🖼️  Generating 3 general images (wide angle, detail, furniture)...`,
+            `   🖼️  Act 3: The Golden Scenes - Generating 6 varied views...`,
             i + 1,
             subCatsToProcess.length
           )
 
           try {
-            generalImages = await generateStyleImages(
+            const scenes = await generateGoldenScenes(
               styleName,
               {
                 subCategoryName: subCategory.name.en,
@@ -1104,19 +1197,29 @@ export async function seedStyles(
                 colorName: selectedColor.name.en,
                 colorHex: selectedColor.hex,
               },
-              visualContext,
-              subCategory.images || [], // Pass sub-category reference images
-              (current, total, type) => {
+              GOLDEN_SCENES,
+              (current, total, name) => {
                 onProgress?.(
-                  `      Image ${current}/${total}: ${type}`,
+                  `      Scene ${current}/${total}: ${name}`,
                   i + 1,
                   subCatsToProcess.length
                 )
               }
             )
+            
+            // Convert to StyleGalleryItem format
+            galleryItems = scenes.map(s => ({
+                id: crypto.randomUUID(),
+                url: s.url,
+                type: 'scene',
+                sceneName: s.sceneName,
+                complementaryColor: s.complement,
+                createdAt: new Date()
+            }))
+
           } catch (error) {
             onProgress?.(
-              `   ⚠️  Warning: Image generation failed, using placeholders`,
+              `   ⚠️  Warning: Scene generation failed`,
               i + 1,
               subCatsToProcess.length
             )
@@ -1130,7 +1233,7 @@ export async function seedStyles(
             subCatsToProcess.length
           )
           onProgress?.(
-            `      - ${generalImages.length} general images`,
+            `      - ${galleryItems.length} golden scenes`,
             i + 1,
             subCatsToProcess.length
           )
@@ -1138,27 +1241,27 @@ export async function seedStyles(
           continue
         }
 
-        // Step 3c: IMMEDIATELY save style to database (before room profiles)
-        // This ensures we don't lose work if crash happens during room generation
+        // Step 3c: IMMEDIATELY save style to database
         onProgress?.(
-          `   💾 Saving new style to database (basic content + general images)...`,
+          `   💾 Saving new style to database...`,
           i + 1,
           subCatsToProcess.length
         )
 
-        // Create new style (we know it doesn't exist because sub-category was filtered)
+        // Create new style
         let style = await prisma.style.create({
           data: {
-            organizationId: null, // Global style (not organization-specific)
+            organizationId: null,
             slug: styleSlug,
             name: styleName,
             categoryId: subCategory.categoryId,
             subCategoryId: subCategory.id,
             approachId: selectedApproach.id,
             colorId: selectedColor.id,
-            images: generalImages,
+            gallery: galleryItems, // New field
+            priceLevel: stylePriceLevel, // Phase 2: Use determined price level
             detailedContent,
-            roomProfiles: [], // Start with empty, will add incrementally
+            roomProfiles: [],
             metadata: {
               version: '1.0.0',
               isPublic: false,
@@ -1166,6 +1269,7 @@ export async function seedStyles(
                 subCategory.slug,
                 selectedApproach.slug,
                 selectedColor.name.en.toLowerCase(),
+                stylePriceLevel.toLowerCase(), // Phase 2: Add price level tag
               ],
               usage: 0,
               aiGenerated: true,
@@ -1173,7 +1277,7 @@ export async function seedStyles(
                 approachConfidence: selection.confidence,
                 reasoning: selection.reasoning,
               },
-              isComplete: false, // Mark as incomplete initially
+              isComplete: false,
             },
           },
         })
@@ -1183,6 +1287,98 @@ export async function seedStyles(
           i + 1,
           subCatsToProcess.length
         )
+
+        // Phase 2: Generate textures, materials, and special images
+        if (options.generateImages) {
+          // Import Phase 2 generators
+          const { generateTexturesForStyle } = await import('./texture-generator')
+          const { generateMaterialImages } = await import('./material-generator')
+          const { generateSpecialImages } = await import('./special-image-generator')
+
+          // Act 3.5: Texture Generation
+          if (detailedContent.en.materialGuidance) {
+            onProgress?.(
+              `   🧱 Act 3.5: Texture Generation - Creating reusable texture entities...`,
+              i + 1,
+              subCatsToProcess.length
+            )
+
+            try {
+              await generateTexturesForStyle(
+                style.id,
+                detailedContent.en.materialGuidance,
+                stylePriceLevel,
+                {
+                  maxTextures: 5,
+                  generateImages: true, // Generate texture close-up images
+                }
+              )
+            } catch (error) {
+              onProgress?.(
+                `   ⚠️  Warning: Texture generation failed`,
+                i + 1,
+                subCatsToProcess.length
+              )
+            }
+          }
+
+          // Act 3.6: Material Close-Up Images
+          if (detailedContent.en.requiredMaterials && detailedContent.en.requiredMaterials.length > 0) {
+            onProgress?.(
+              `   🔬 Act 3.6: Material Images - Generating close-up material photos...`,
+              i + 1,
+              subCatsToProcess.length
+            )
+
+            try {
+              await generateMaterialImages({
+                styleId: style.id,
+                styleName,
+                requiredMaterials: detailedContent.en.requiredMaterials,
+                priceLevel: stylePriceLevel,
+                maxImages: 5,
+                tags: [styleSlug],
+              })
+            } catch (error) {
+              onProgress?.(
+                `   ⚠️  Warning: Material image generation failed`,
+                i + 1,
+                subCatsToProcess.length
+              )
+            }
+          }
+
+          // Act 3.7: Special Images (Composite & Anchor)
+          onProgress?.(
+            `   ✨ Act 3.7: Special Images - Creating composite and anchor shots...`,
+            i + 1,
+            subCatsToProcess.length
+          )
+
+          try {
+            await generateSpecialImages({
+              styleId: style.id,
+              styleName,
+              description: {
+                he: detailedContent.he.description,
+                en: detailedContent.en.description,
+              },
+              styleContext: {
+                subCategoryName: subCategory.name.en,
+                approachName: selectedApproach.name.en,
+                colorName: selectedColor.name.en,
+                colorHex: selectedColor.hex,
+              },
+              tags: [styleSlug, stylePriceLevel.toLowerCase()],
+            })
+          } catch (error) {
+            onProgress?.(
+              `   ⚠️  Warning: Special image generation failed`,
+              i + 1,
+              subCatsToProcess.length
+            )
+          }
+        }
 
         // Step 3d: Generate room profiles ONE BY ONE with immediate saves
         if (generateRoomProfiles && options.generateImages) {
@@ -1246,25 +1442,40 @@ export async function seedStyles(
                 subCatsToProcess.length
               )
 
-              // Generate room-specific images
-              let roomImages: string[] = []
+              // Act 4: Spatial Walkthrough
+              let roomViews: any[] = []
               try {
                 onProgress?.(
-                  `      🎨 Room ${j + 1}/${roomTypes.length}: ${roomType.name.en} - Starting image generation (visualContext: ${!!visualContext}, referenceImages: ${subCategory.images?.length || 0})...`,
+                  `      🎥 Act 4: The Spatial Walkthrough - Room ${j + 1}/${roomTypes.length}: ${roomType.name.en} (4 views)...`,
                   i + 1,
                   subCatsToProcess.length
                 )
 
-                roomImages = await generateStyleRoomImages(
+                const rawViews = await generateStyleRoomImages(
                   styleName,
                   roomType.name.en,
                   selectedColor.hex,
                   visualContext, // Use same visual context from sub-category
-                  subCategory.images || [] // Pass sub-category reference images
+                  subCategory.images || [], // Pass sub-category reference images
+                  (current, total) => {
+                    onProgress?.(
+                      `      Processing view ${current}/${total}...`,
+                      i + 1,
+                      subCatsToProcess.length
+                    )
+                  }
                 )
+                
+                roomViews = rawViews.map(v => ({
+                    id: crypto.randomUUID(),
+                    url: v.url,
+                    orientation: v.orientation,
+                    status: 'COMPLETED',
+                    createdAt: new Date()
+                }))
 
                 onProgress?.(
-                  `      ✅ Room ${j + 1}/${roomTypes.length}: ${roomType.name.en} - Generated ${roomImages.length} images`,
+                  `      ✅ Room ${j + 1}/${roomTypes.length}: ${roomType.name.en} - Generated ${roomViews.length} views`,
                   i + 1,
                   subCatsToProcess.length
                 )
@@ -1280,7 +1491,7 @@ export async function seedStyles(
 
               const completeRoomProfile = {
                 ...roomProfile,
-                images: roomImages,
+                views: roomViews, // Changed from images: roomImages
               }
 
               // Convert AI-generated room profile to use Color and Material IDs
@@ -1394,7 +1605,7 @@ export async function seedStyles(
         // Summary of what was saved
         const finalRoomProfileCount = (style.roomProfiles as any[])?.length || 0
         onProgress?.(
-          `      Summary: ${generalImages.length} general images, ${finalRoomProfileCount} room profiles saved`,
+          `      Summary: ${galleryItems.length} golden scenes, ${finalRoomProfileCount} room profiles saved`,
           i + 1,
           subCatsToProcess.length
         )
@@ -1555,25 +1766,40 @@ async function resumeStyleRoomGeneration({
         subCatsToProcess.length
       )
 
-      // Generate room-specific images
-      let roomImages: string[] = []
+      // Act 4: Spatial Walkthrough (Resume)
+      let roomViews: any[] = []
       try {
         onProgress?.(
-          `      🎨 Room ${j + 1}/${roomTypes.length}: ${roomType.name.en} - Starting image generation...`,
+          `      🎥 Act 4: The Spatial Walkthrough - Room ${j + 1}/${roomTypes.length}: ${roomType.name.en} (4 views)...`,
           0,
           subCatsToProcess.length
         )
 
-        roomImages = await generateStyleRoomImages(
+        const rawViews = await generateStyleRoomImages(
           styleName,
           roomType.name.en,
           selectedColor.hex,
           visualContext,
-          subCategory.images || []
+          subCategory.images || [],
+          (current, total) => {
+            onProgress?.(
+              `      Processing view ${current}/${total}...`,
+              0,
+              subCatsToProcess.length
+            )
+          }
         )
+        
+        roomViews = rawViews.map(v => ({
+            id: crypto.randomUUID(),
+            url: v.url,
+            orientation: v.orientation,
+            status: 'COMPLETED',
+            createdAt: new Date()
+        }))
 
         onProgress?.(
-          `      ✅ Room ${j + 1}/${roomTypes.length}: ${roomType.name.en} - Generated ${roomImages.length} images`,
+          `      ✅ Room ${j + 1}/${roomTypes.length}: ${roomType.name.en} - Generated ${roomViews.length} views`,
           0,
           subCatsToProcess.length
         )
@@ -1589,7 +1815,7 @@ async function resumeStyleRoomGeneration({
 
       const completeRoomProfile = {
         ...roomProfile,
-        images: roomImages,
+        views: roomViews,
       }
 
       // Convert AI-generated room profile to use Color and Material IDs

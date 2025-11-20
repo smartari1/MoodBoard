@@ -54,6 +54,15 @@ export const roomDesignTipSchema = z.object({
   category: z.enum(['layout', 'color', 'lighting', 'furniture', 'decoration', 'general']).optional(),
 })
 
+const roomViewSchema = z.object({
+  id: z.string().optional(),
+  url: z.string().optional().nullable(),
+  orientation: z.string(),
+  prompt: z.string().optional().nullable(),
+  status: z.enum(['PENDING', 'PROCESSING', 'COMPLETED', 'FAILED']).optional(),
+  createdAt: z.date().optional()
+})
+
 // Room Profile Schema (for client-side forms - allows blob URLs for preview)
 // Matches Prisma RoomProfile type
 export const roomProfileSchema = z.object({
@@ -67,6 +76,7 @@ export const roomProfileSchema = z.object({
   decorativeElements: z.array(roomDecorativeElementSchema).optional().default([]),
   designTips: z.array(roomDesignTipSchema).optional().default([]),
   images: clientImagesSchema.optional().default([]),
+  views: z.array(roomViewSchema).optional().default([]),
 })
 
 // Room Profile Schema for API (server-side - only HTTPS URLs)
@@ -81,12 +91,24 @@ export const roomProfileApiSchema = z.object({
   decorativeElements: z.array(roomDecorativeElementSchema).optional().default([]),
   designTips: z.array(roomDesignTipSchema).optional().default([]),
   images: serverImagesSchema.optional().default([]),
+  views: z.array(roomViewSchema).optional().default([]),
 })
 
 // AI Selection Schema (for tracking AI-generated style decisions)
 export const aiSelectionSchema = z.object({
   approachConfidence: z.number().min(0).max(1), // AI confidence score (0.0-1.0)
   reasoning: localizedStringSchema, // Why this approach/color was chosen
+})
+
+const styleGalleryItemSchema = z.object({
+  id: z.string().optional(),
+  url: z.string(),
+  type: z.string(),
+  sceneName: z.string().optional().nullable(),
+  complementaryColor: z.string().optional().nullable(),
+  linkedAssetId: objectIdSchema.optional().nullable(),
+  prompt: z.string().optional().nullable(),
+  createdAt: z.date().optional()
 })
 
 // Style Metadata Schema
@@ -104,6 +126,7 @@ export const styleMetadataSchema = z.object({
   // AI Generation tracking
   aiGenerated: z.boolean().default(false).optional(),
   aiSelection: aiSelectionSchema.nullable().optional(),
+  isComplete: z.boolean().optional(),
 })
 
 // Create Style Schema (API - only accepts HTTPS URLs)
@@ -116,6 +139,13 @@ export const createStyleSchema = z.object({
   slug: z.string().regex(/^[a-z0-9-]+$/, 'Invalid slug format').optional(),
   colorId: objectIdSchema,
   images: serverImagesSchema.optional(),
+  gallery: z.array(styleGalleryItemSchema).optional(),
+  priceTier: z.enum(['AFFORDABLE', 'LUXURY']).optional(),
+  // Phase 2: Category & Price Level
+  roomCategory: z.string().optional(),
+  priceLevel: z.enum(['REGULAR', 'LUXURY']).default('REGULAR'),
+  compositeImageUrl: z.string().url().optional(),
+  anchorImageUrl: z.string().url().optional(),
   roomProfiles: z.array(roomProfileApiSchema).optional().default([]),
   metadata: styleMetadataSchema.optional(),
 })
@@ -130,6 +160,13 @@ export const updateStyleSchema = z.object({
   slug: z.string().regex(/^[a-z0-9-]+$/, 'Invalid slug format').optional(),
   colorId: objectIdSchema.optional(),
   images: serverImagesSchema.optional(),
+  gallery: z.array(styleGalleryItemSchema).optional(),
+  priceTier: z.enum(['AFFORDABLE', 'LUXURY']).optional(),
+  // Phase 2: Category & Price Level
+  roomCategory: z.string().optional(),
+  priceLevel: z.enum(['REGULAR', 'LUXURY']).optional(),
+  compositeImageUrl: z.string().url().optional(),
+  anchorImageUrl: z.string().url().optional(),
   roomProfiles: z.array(roomProfileApiSchema).optional(),
   metadata: styleMetadataSchema.partial().optional(),
 })
@@ -144,6 +181,13 @@ export const createStyleFormSchema = z.object({
   slug: z.string().regex(/^[a-z0-9-]+$/, 'Invalid slug format').optional(),
   colorId: objectIdSchema,
   images: clientImagesSchema.optional(),
+  gallery: z.array(styleGalleryItemSchema).optional(),
+  priceTier: z.enum(['AFFORDABLE', 'LUXURY']).optional(),
+  // Phase 2: Category & Price Level
+  roomCategory: z.string().optional(),
+  priceLevel: z.enum(['REGULAR', 'LUXURY']).default('REGULAR'),
+  compositeImageUrl: z.string().optional(), // Can be blob URL for preview
+  anchorImageUrl: z.string().optional(), // Can be blob URL for preview
   roomProfiles: z.array(roomProfileSchema).optional().default([]),
   metadata: styleMetadataSchema.optional(),
 })

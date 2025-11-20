@@ -50,6 +50,7 @@ export type RoomDimensions = z.infer<typeof roomDimensionsSchema>
 export const createRoomSchema = z.object({
   name: z.string().min(1, 'Room name is required').max(100, 'Room name is too long'),
   type: z.enum(ROOM_TYPES),
+  parentCategory: z.string().max(50).optional(), // Phase 2: "Private", "Public", "Commercial"
   dimensions: roomDimensionsSchema.optional(),
   notes: z.string().max(1000, 'Notes are too long').optional(),
   images: imagesSchema.optional(),
@@ -64,6 +65,7 @@ export const updateRoomSchema = z.object({
   id: z.string().uuid('Invalid room ID'),
   name: z.string().min(1, 'Room name is required').max(100, 'Room name is too long').optional(),
   type: z.enum(ROOM_TYPES).optional(),
+  parentCategory: z.string().max(50).optional().nullable(), // Phase 2
   dimensions: roomDimensionsSchema.optional().nullable(),
   notes: z.string().max(1000, 'Notes are too long').optional().nullable(),
   images: imagesSchema.optional(),
@@ -78,6 +80,7 @@ export const roomSchema = z.object({
   id: z.string().uuid(),
   name: z.string(),
   type: z.enum(ROOM_TYPES),
+  parentCategory: z.string().optional().nullable(), // Phase 2
   dimensions: roomDimensionsSchema.optional().nullable(),
   notes: z.string().optional().nullable(),
 })

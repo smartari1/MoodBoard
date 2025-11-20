@@ -23,6 +23,51 @@
 - **Reference Implementation**: `src/app/[locale]/admin/sub-categories/[id]/edit/page.tsx`
 - **Documentation**: Updated in CLAUDE.md, technical-plan.md, and progress.md
 
+### 🚀 Phase 2: Rich Image Generation & Texture Entities (November 2025) - NEW PLANNING
+**Status**: 🟡 Planning Complete, Ready for Implementation
+**Documentation**: See `Memory/phase2/` folder for complete planning docs
+**Timeline**: 3 weeks (Nov 20 - Dec 11, 2025)
+
+**Key Features**:
+1. **Category System**
+   - Room father category (flexible, user-defined)
+   - Style room category (one per style)
+   - Luxury vs Regular price level (affects ALL image generation)
+
+2. **Rich Image Generation** (~102 images per style)
+   - 60 Room Overview images (varied room types, different aspect ratios)
+   - 25 Material images (realistic mood board style, NOT plain squares)
+   - 15 Texture images (shown in atmospheric context)
+   - 1 Composite mood board (AI-generated Pinterest-style collage)
+   - 1 Anchor image (fruit on color palette)
+
+3. **Texture Entity Layer**
+   - Textures become reusable database entities (like Materials/Colors)
+   - Find-or-create pattern during generation
+   - Link textures to styles (many-to-many)
+   - Usage tracking across styles
+   - UI: Display textures next to materials
+
+**Planning Documents**:
+- `Memory/phase2/README.md` - Overview and navigation guide
+- `Memory/phase2/00-requirements.md` - Original user requirements
+- `Memory/phase2/SIMPLE_CATEGORY_LUXURY_UPDATES.md` - Foundation (5 hours)
+- `Memory/phase2/COMPLETE_PHASE2_PLAN.md` - Full plan without texture entities (2 weeks)
+- `Memory/phase2/PHASE2_WITH_TEXTURE_ENTITIES.md` - **FINAL COMPLETE PLAN** (3 weeks) ⭐
+- `Memory/phase2/TASK_LIST.md` - Detailed task breakdown (60 tasks)
+
+**Implementation Status**: Not started (awaiting approval)
+
+---
+
+### ✅ Phase 2: Deep Inspiration & Spatial Consistency (November 2025) - EXISTING
+- **Database Schema**: Updated `Style` model to use `gallery` (Composite Type) instead of `images` array. Added `PriceTier` enum.
+- **Golden Scenes**: Implemented logic to generate 6 predefined "Golden Scenes" (Entry, Living, Dining, Kitchen, Bed, Bath).
+- **Spatial Walkthrough**: Implemented 4-view generation (Main, Opposite, Left, Right) for room profiles.
+- **Asset Stubbing**: Implemented logic to create abstract materials/colors if they don't exist.
+- **Seeding**: Updated `seed-service.ts` to support the new 4-Act structure (Script, Assets, Golden Scenes, Walkthrough).
+- **Admin UI**: Updated Style Detail page and Detailed Content Viewer to display new data structure.
+
 ## 🎉 Completed Milestones
 
 ### ✅ Phase 1: Client Management - COMPLETE (November 2, 2025)

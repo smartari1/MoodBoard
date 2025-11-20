@@ -32,6 +32,17 @@ export interface DetailedContent {
   applications?: string[]
   historicalContext?: string
   culturalContext?: string
+  poeticIntro?: {
+    title: string
+    subtitle: string
+    paragraph1: string
+    paragraph2: string
+    paragraph3: string
+    paragraph4: string
+  }
+  executiveSummary?: string
+  requiredMaterials?: string[]
+  requiredColors?: string[]
 }
 
 export interface LocalizedDetailedContent {
@@ -76,7 +87,46 @@ export function DetailedContentViewer({
           <Tabs.Tab value="bilingual" leftSection={<IconWorld size={16} />}>
             {locale === 'he' ? 'דו־לשוני' : 'Bilingual'}
           </Tabs.Tab>
+          {currentContent.executiveSummary && (
+            <Tabs.Tab value="summary" leftSection={<IconBulb size={16} />}>
+              {locale === 'he' ? 'תקציר מנהלים' : 'Executive Summary'}
+            </Tabs.Tab>
+          )}
         </Tabs.List>
+
+        {/* Summary Tab */}
+        <Tabs.Panel value="summary" pt="md">
+          <Stack gap="lg">
+            <Box>
+               <Title order={4} mb="sm">{locale === 'he' ? 'תקציר מנהלים' : 'Executive Summary'}</Title>
+               <Text size="md" style={{ lineHeight: 1.7 }}>
+                 {currentContent.executiveSummary}
+               </Text>
+            </Box>
+            
+            {(currentContent.requiredMaterials?.length || 0) > 0 && (
+               <Box>
+                 <Title order={5} mb="xs">{locale === 'he' ? 'רשימת חומרים לייצור' : 'Production Materials'}</Title>
+                 <SimpleGrid cols={{ base: 1, sm: 2 }}>
+                    {(currentContent.requiredMaterials || []).map((m, i) => (
+                      <Text key={i} size="sm">• {m}</Text>
+                    ))}
+                 </SimpleGrid>
+               </Box>
+            )}
+             
+            {(currentContent.requiredColors?.length || 0) > 0 && (
+               <Box>
+                 <Title order={5} mb="xs">{locale === 'he' ? 'רשימת צבעים לייצור' : 'Production Colors'}</Title>
+                 <SimpleGrid cols={{ base: 1, sm: 2 }}>
+                    {(currentContent.requiredColors || []).map((c, i) => (
+                      <Text key={i} size="sm">• {c}</Text>
+                    ))}
+                 </SimpleGrid>
+               </Box>
+            )}
+          </Stack>
+        </Tabs.Panel>
 
         {/* Overview Tab */}
         <Tabs.Panel value="overview" pt="md">
