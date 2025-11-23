@@ -76,7 +76,8 @@
       "users": "Users",
       "translations": "Translations",
       "seedStyles": "Seed Styles",
-      "backToDashboard": "Back to Dashboard"
+      "backToDashboard": "Back to Dashboard",
+      "roomCategories": "Room Categories"
     },
     "dashboard": {
       "title": "Admin Dashboard",
@@ -482,6 +483,52 @@
           "updateSuccess": "Room type updated successfully",
           "error": "Error saving room type"
         }
+      },
+      "roomCategories": {
+        "loading": "Loading room categories...",
+        "error": "Error loading room categories",
+        "search": "Search categories...",
+        "showInactive": "Show inactive",
+        "create": "Create New Category",
+        "noResults": "No results found",
+        "empty": "No room categories",
+        "tryDifferentSearch": "Try a different search",
+        "emptyDescription": "Create your first category to get started",
+        "name": "Name",
+        "slug": "Slug",
+        "roomTypes": "Room Types",
+        "order": "Order",
+        "status": "Status",
+        "rooms": "rooms",
+        "active": "Active",
+        "inactive": "Inactive",
+        "deactivate": "Deactivate",
+        "activate": "Activate",
+        "editCategory": "Edit Category",
+        "createCategory": "Create Category",
+        "deleteConfirmTitle": "Delete Category?",
+        "deleteConfirmMessage": "Are you sure you want to delete this category? This action cannot be undone.",
+        "form": {
+          "basicInfo": "Basic Information",
+          "nameHe": "Name (Hebrew)",
+          "nameHePlaceholder": "e.g., Private, Public, Commercial",
+          "nameEn": "Name (English)",
+          "nameEnPlaceholder": "e.g., Private, Public, Commercial",
+          "slug": "Slug",
+          "slugPlaceholder": "e.g., private, public, commercial",
+          "icon": "Icon",
+          "iconPlaceholder": "e.g., 🏠, 🏛️, 🏢",
+          "order": "Display Order",
+          "orderPlaceholder": "0, 1, 2, ...",
+          "description": "Description",
+          "descriptionHe": "Description (Hebrew)",
+          "descriptionHePlaceholder": "Optional description of the category...",
+          "descriptionEn": "Description (English)",
+          "descriptionEnPlaceholder": "Optional description of the category..."
+        },
+        "title": "Room Categories",
+        "description": "Manage categories for classifying room types (Private, Public, Commercial)",
+        "actions": "Actions"
       }
     },
     "categories": {

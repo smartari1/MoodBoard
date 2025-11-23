@@ -87,7 +87,8 @@
       "users": "משתמשים",
       "translations": "תרגומים",
       "seedStyles": "יצירת סגנונות",
-      "backToDashboard": "חזור לדשבורד"
+      "backToDashboard": "חזור לדשבורד",
+      "roomCategories": "קטגוריות חדרים"
     },
     "dashboard": {
       "title": "דשבורד מנהל",
@@ -486,6 +487,52 @@
           "updateSuccess": "סוג החדר עודכן בהצלחה",
           "error": "שגיאה בשמירת סוג החדר"
         }
+      },
+      "roomCategories": {
+        "loading": "טוען קטגוריות חדרים...",
+        "error": "שגיאה בטעינת קטגוריות חדרים",
+        "search": "חיפוש קטגוריות...",
+        "showInactive": "הצג לא פעילים",
+        "create": "צור קטגוריה חדשה",
+        "noResults": "לא נמצאו תוצאות",
+        "empty": "אין קטגוריות חדרים",
+        "tryDifferentSearch": "נסה חיפוש אחר",
+        "emptyDescription": "צור את הקטגוריה הראשונה שלך כדי להתחיל",
+        "name": "שם",
+        "slug": "מזהה",
+        "roomTypes": "סוגי חדרים",
+        "order": "סדר",
+        "status": "סטטוס",
+        "rooms": "חדרים",
+        "active": "פעיל",
+        "inactive": "לא פעיל",
+        "deactivate": "השבת",
+        "activate": "הפעל",
+        "editCategory": "ערוך קטגוריה",
+        "createCategory": "צור קטגוריה",
+        "deleteConfirmTitle": "מחק קטגוריה?",
+        "deleteConfirmMessage": "האם אתה בטוח שברצונך למחוק קטגוריה זו? פעולה זו לא ניתנת לביטול.",
+        "form": {
+          "basicInfo": "מידע בסיסי",
+          "nameHe": "שם בעברית",
+          "nameHePlaceholder": "לדוגמה: פרטי, ציבורי, מסחרי",
+          "nameEn": "שם באנגלית",
+          "nameEnPlaceholder": "לדוגמה: Private, Public, Commercial",
+          "slug": "מזהה (Slug)",
+          "slugPlaceholder": "לדוגמה: private, public, commercial",
+          "icon": "אייקון",
+          "iconPlaceholder": "לדוגמה: 🏠, 🏛️, 🏢",
+          "order": "סדר תצוגה",
+          "orderPlaceholder": "0, 1, 2, ...",
+          "description": "תיאור",
+          "descriptionHe": "תיאור בעברית",
+          "descriptionHePlaceholder": "תיאור אופציונלי של הקטגוריה...",
+          "descriptionEn": "תיאור באנגלית",
+          "descriptionEnPlaceholder": "תיאור אופציונלי של הקטגוריה..."
+        },
+        "title": "קטגוריות חדרים",
+        "description": "ניהול קטגוריות לסיווג סוגי חדרים (פרטי, ציבורי, מסחרי)",
+        "actions": "פעולות"
       }
     },
     "categories": {

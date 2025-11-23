@@ -138,16 +138,16 @@ export function RoomCategoriesTable() {
             />
           ) : (
             <MoodBTable>
-              <MoodBTableHeader>
+              <MoodBTableHead>
                 <MoodBTableRow>
-                  <MoodBTableHead>{t('name')}</MoodBTableHead>
-                  <MoodBTableHead>{t('slug')}</MoodBTableHead>
-                  <MoodBTableHead>{t('roomTypes')}</MoodBTableHead>
-                  <MoodBTableHead>{t('order')}</MoodBTableHead>
-                  <MoodBTableHead>{t('status')}</MoodBTableHead>
-                  <MoodBTableHead className="text-right">{tCommon('actions')}</MoodBTableHead>
+                  <MoodBTableHeader>{t('name')}</MoodBTableHeader>
+                  <MoodBTableHeader>{t('slug')}</MoodBTableHeader>
+                  <MoodBTableHeader>{t('roomTypes')}</MoodBTableHeader>
+                  <MoodBTableHeader>{t('order')}</MoodBTableHeader>
+                  <MoodBTableHeader>{t('status')}</MoodBTableHeader>
+                  <MoodBTableHeader className="text-right">{t('actions')}</MoodBTableHeader>
                 </MoodBTableRow>
-              </MoodBTableHeader>
+              </MoodBTableHead>
               <MoodBTableBody>
                 {filteredCategories.map((category) => (
                   <MoodBTableRow key={category.id} className={!category.active ? 'opacity-50' : ''}>
