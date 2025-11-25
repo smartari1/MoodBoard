@@ -16,6 +16,7 @@ import { useImageUpload } from '@/hooks/useImageUpload'
 import { useMaterialCategories, useMaterialTypes } from '@/hooks/useMaterialCategories'
 import { useCreateMaterial, useUpdateMaterial } from '@/hooks/useMaterials'
 import { useOrganizations } from '@/hooks/useOrganizations'
+import { useTextures } from '@/hooks/useTextures'
 import { createMaterialSchema, type CreateMaterial } from '@/lib/validations/material'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { ActionIcon, Alert, Button, Container, Group, MultiSelect, NumberInput, Select, SimpleGrid, Skeleton, Stack, Switch, Text, TextInput, Title } from '@mantine/core'
@@ -76,7 +77,8 @@ export default function AdminMaterialNewPage() {
         en: '',
       },
       categoryId: '',
-      organizationId: organization?.id || '',
+      supplierIds: [], // Optional array of supplier (organization) IDs
+      textureId: null,
       properties: {
         typeId: '',
         subType: '',
@@ -113,11 +115,17 @@ export default function AdminMaterialNewPage() {
     },
   })
 
-  // Watch categoryId to filter types (must be after useForm)
+  // Watch categoryId to filter types and textures (must be after useForm)
   // Use selective subscription to avoid unnecessary re-renders
   const categoryId = watch('categoryId')
   const { data: typesData } = useMaterialTypes('', categoryId, {
     enabled: !!categoryId,
+  })
+
+  // Fetch textures filtered by selected category
+  const { data: texturesData } = useTextures({
+    materialCategoryId: categoryId || undefined,
+    limit: 100,
   })
 
   // Prepare color options for MultiSelect
@@ -146,8 +154,17 @@ export default function AdminMaterialNewPage() {
     }))
   }, [typesData])
 
-  // Prepare organization options
-  const organizationOptions = useMemo(() => {
+  // Prepare texture options filtered by category
+  const textureOptions = useMemo(() => {
+    const textures = texturesData?.data || []
+    return textures.map((texture) => ({
+      value: texture.id,
+      label: `${texture.name.he} (${texture.name.en})`,
+    }))
+  }, [texturesData])
+
+  // Prepare supplier (organization) options
+  const supplierOptions = useMemo(() => {
     return organizations.map((org) => ({
       value: org.id,
       label: org.name,
@@ -211,6 +228,23 @@ export default function AdminMaterialNewPage() {
       />
     ),
     [t, typeOptions, errors.properties?.typeId?.message, categoryId]
+  )
+
+  const renderTextureSelect = useCallback(
+    ({ field }: { field: any }) => (
+      <Select
+        label={t('texture')}
+        placeholder={t('texturePlaceholder')}
+        data={textureOptions}
+        value={field.value || null}
+        onChange={field.onChange}
+        error={errors.textureId?.message}
+        disabled={!categoryId}
+        searchable
+        clearable
+      />
+    ),
+    [t, textureOptions, errors.textureId, categoryId]
   )
 
   const renderDimensionUnitSelect = useCallback(
@@ -308,19 +342,20 @@ export default function AdminMaterialNewPage() {
     [t, errors.assets?.images?.message]
   )
 
-  const renderOrganizationSelect = useCallback(
+  const renderSuppliersSelect = useCallback(
     ({ field }: { field: any }) => (
-      <Select
-        label={t('organization')}
-        placeholder={t('organizationPlaceholder')}
-        data={organizationOptions}
-        {...field}
-        error={errors.organizationId?.message}
-        required
+      <MultiSelect
+        label={t('suppliers')}
+        placeholder={t('suppliersPlaceholder')}
+        data={supplierOptions}
+        value={field.value || []}
+        onChange={field.onChange}
+        error={errors.supplierIds?.message}
         searchable
+        clearable
       />
     ),
-    [t, organizationOptions, errors.organizationId?.message]
+    [t, supplierOptions, errors.supplierIds?.message]
   )
 
   const { fields: finishFields, append: appendFinish, remove: removeFinish } = useFieldArray({
@@ -418,13 +453,13 @@ export default function AdminMaterialNewPage() {
               </Text>
               <ul style={{ margin: 0, paddingInlineStart: '1.5rem' }}>
                 {errors.sku && <li>SKU: {errors.sku.message}</li>}
-                {errors.organizationId && <li>Organization: {errors.organizationId.message}</li>}
+                {errors.supplierIds && <li>Suppliers: {errors.supplierIds.message}</li>}
                 {errors.categoryId && <li>Category: {errors.categoryId.message}</li>}
                 {errors.name?.he && <li>Name (Hebrew): {errors.name.he.message}</li>}
                 {errors.name?.en && <li>Name (English): {errors.name.en.message}</li>}
                 {errors.properties?.typeId && <li>Type: {errors.properties.typeId.message}</li>}
                 {errors.properties?.subType && <li>Sub-type: {errors.properties.subType.message}</li>}
-                {errors.properties?.texture && <li>Texture: {errors.properties.texture.message}</li>}
+                {errors.textureId && <li>Texture: {errors.textureId.message}</li>}
                 {errors.properties?.colorIds && <li>Colors: {errors.properties.colorIds.message}</li>}
                 {errors.pricing?.cost && <li>Cost: {errors.pricing.cost.message}</li>}
                 {errors.pricing?.retail && <li>Retail: {errors.pricing.retail.message}</li>}
@@ -459,11 +494,6 @@ export default function AdminMaterialNewPage() {
                   required
                 />
                 <Controller
-                  name="organizationId"
-                  control={control}
-                  render={renderOrganizationSelect}
-                />
-                <Controller
                   name="categoryId"
                   control={control}
                   render={renderCategorySelect}
@@ -483,6 +513,15 @@ export default function AdminMaterialNewPage() {
                   required
                 />
               </SimpleGrid>
+
+              {/* Suppliers - Optional MultiSelect */}
+              <div style={{ marginTop: '1rem' }}>
+                <Controller
+                  name="supplierIds"
+                  control={control}
+                  render={renderSuppliersSelect}
+                />
+              </div>
             </FormSection>
           </MoodBCard>
 
@@ -502,12 +541,10 @@ export default function AdminMaterialNewPage() {
                   error={errors.properties?.subType?.message}
                   required
                 />
-                <TextInput
-                  label={t('texture')}
-                  placeholder={t('texturePlaceholder')}
-                  {...register('properties.texture')}
-                  error={errors.properties?.texture?.message}
-                  required
+                <Controller
+                  name="textureId"
+                  control={control}
+                  render={renderTextureSelect}
                 />
               </SimpleGrid>
 

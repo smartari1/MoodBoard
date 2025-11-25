@@ -14,7 +14,8 @@ export const dynamic = 'force-dynamic'
 
 
 /**
- * GET /api/admin/materials - List all materials (organization-scoped)
+ * GET /api/admin/materials - List all materials
+ * Returns materials with their suppliers (organizations)
  */
 export const GET = withAdmin(async (req: NextRequest, auth) => {
   try {
@@ -28,16 +29,9 @@ export const GET = withAdmin(async (req: NextRequest, auth) => {
       limit: parseInt(searchParams.get('limit') || '20'),
     })
 
-    // Build where clause - include both organization materials AND global materials
+    // Build where clause - materials are now global or filtered by supplier
     const where: any = {
-      AND: [
-        {
-          OR: [
-            { organizationId: auth.organizationId }, // Organization-specific materials
-            { organizationId: null }, // Global materials
-          ],
-        },
-      ],
+      AND: [],
     }
 
     // Add search filter (by name or SKU)
@@ -61,12 +55,30 @@ export const GET = withAdmin(async (req: NextRequest, auth) => {
       where.AND.push({ 'properties.typeId': filters.typeId })
     }
 
-    // Get total count
-    const total = await prisma.material.count({ where })
+    // Remove empty AND array
+    if (where.AND.length === 0) {
+      delete where.AND
+    }
 
-    // Get materials
+    // Get total count
+    const total = await prisma.material.count({ where: Object.keys(where).length > 0 ? where : undefined })
+
+    // Get materials with suppliers
     const materials = await prisma.material.findMany({
-      where,
+      where: Object.keys(where).length > 0 ? where : undefined,
+      include: {
+        suppliers: {
+          include: {
+            organization: {
+              select: {
+                id: true,
+                name: true,
+                slug: true,
+              },
+            },
+          },
+        },
+      },
       orderBy: { createdAt: 'desc' },
       skip: (filters.page - 1) * filters.limit,
       take: filters.limit,
@@ -89,14 +101,12 @@ export const GET = withAdmin(async (req: NextRequest, auth) => {
 
 /**
  * POST /api/admin/materials - Create material (admin only)
+ * Creates material and links to suppliers (organizations) via MaterialSupplier join table
  */
 export const POST = withAdmin(async (req: NextRequest, auth) => {
   try {
     // Validate request body
     const body = await validateRequest(req, createMaterialSchema)
-
-    // Use organizationId from body if provided, otherwise use auth context
-    const organizationId = body.organizationId || auth.organizationId
 
     // Validate that all colorIds exist in Color model (colors are global, no org check)
     if (body.properties.colorIds && body.properties.colorIds.length > 0) {
@@ -114,36 +124,83 @@ export const POST = withAdmin(async (req: NextRequest, auth) => {
       }
     }
 
-    // Check if SKU already exists for this organization
+    // Validate that all supplierIds exist
+    const supplierIds = body.supplierIds || []
+    if (supplierIds.length > 0) {
+      const orgs = await prisma.organization.findMany({
+        where: {
+          id: { in: supplierIds },
+        },
+      })
+
+      if (orgs.length !== supplierIds.length) {
+        return NextResponse.json(
+          { error: 'One or more supplier IDs are invalid' },
+          { status: 400 }
+        )
+      }
+    }
+
+    // Check if SKU already exists globally (SKU is now unique across all materials)
     const existingMaterial = await prisma.material.findFirst({
       where: {
         sku: body.sku.toUpperCase(),
-        organizationId: organizationId,
       },
     })
 
     if (existingMaterial) {
       return NextResponse.json(
-        { error: 'Material with this SKU already exists in this organization' },
+        { error: 'Material with this SKU already exists' },
         { status: 409 }
       )
     }
 
-    // Create material with organizationId
-    const material = await prisma.material.create({
-      data: {
-        organizationId: organizationId,
-        sku: body.sku.toUpperCase(), // Store in uppercase for consistency
-        name: body.name,
-        categoryId: body.categoryId,
-        properties: body.properties as any,
-        pricing: body.pricing as any,
-        availability: body.availability as any,
-        assets: body.assets || {
-          thumbnail: '',
-          images: [],
-        } as any,
-      },
+    // Create material and suppliers in a transaction
+    const material = await prisma.$transaction(async (tx) => {
+      // Create material
+      const newMaterial = await tx.material.create({
+        data: {
+          sku: body.sku.toUpperCase(), // Store in uppercase for consistency
+          name: body.name,
+          categoryId: body.categoryId,
+          textureId: body.textureId || null, // Link to Texture entity
+          properties: body.properties as any,
+          pricing: body.pricing as any,
+          availability: body.availability as any,
+          assets: body.assets || {
+            thumbnail: '',
+            images: [],
+          } as any,
+        },
+      })
+
+      // Create supplier links if any
+      if (supplierIds.length > 0) {
+        await tx.materialSupplier.createMany({
+          data: supplierIds.map((orgId) => ({
+            materialId: newMaterial.id,
+            organizationId: orgId,
+          })),
+        })
+      }
+
+      // Return material with suppliers
+      return tx.material.findUnique({
+        where: { id: newMaterial.id },
+        include: {
+          suppliers: {
+            include: {
+              organization: {
+                select: {
+                  id: true,
+                  name: true,
+                  slug: true,
+                },
+              },
+            },
+          },
+        },
+      })
     })
 
     return NextResponse.json(material, { status: 201 })

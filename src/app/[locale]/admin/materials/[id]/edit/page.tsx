@@ -14,6 +14,8 @@ import { useColors } from '@/hooks/useColors'
 import { useImageUpload } from '@/hooks/useImageUpload'
 import { useMaterialCategories, useMaterialTypes } from '@/hooks/useMaterialCategories'
 import { useMaterial, useUpdateMaterial } from '@/hooks/useMaterials'
+import { useOrganizations } from '@/hooks/useOrganizations'
+import { useTextures } from '@/hooks/useTextures'
 import { updateMaterialSchema, type UpdateMaterial } from '@/lib/validations/material'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { ActionIcon, Alert, Button, Container, Group, MultiSelect, NumberInput, Select, SimpleGrid, Skeleton, Stack, Switch, Text, TextInput, Title } from '@mantine/core'
@@ -69,6 +71,10 @@ export default function AdminMaterialEditPage() {
   const { data: categoriesData } = useMaterialCategories()
   const categories = categoriesData?.data || []
 
+  // Fetch organizations for suppliers
+  const { data: organizationsData } = useOrganizations()
+  const organizations = organizationsData?.data || []
+
   const {
     register,
     control,
@@ -82,19 +88,31 @@ export default function AdminMaterialEditPage() {
     resolver: zodResolver(updateMaterialSchema),
   })
 
-  // Watch categoryId to filter types
+  // Watch categoryId to filter types and textures
   const categoryId = watch('categoryId')
-  const { data: typesData } = useMaterialTypes('', categoryId || material?.categoryId, {
-    enabled: !!(categoryId || material?.categoryId),
+  const effectiveCategoryId = categoryId || material?.categoryId
+  const { data: typesData } = useMaterialTypes('', effectiveCategoryId, {
+    enabled: !!effectiveCategoryId,
+  })
+
+  // Fetch textures filtered by selected category
+  const { data: texturesData } = useTextures({
+    materialCategoryId: effectiveCategoryId || undefined,
+    limit: 100,
   })
 
   // Initialize form with material data
   useEffect(() => {
     if (material) {
+      // Extract supplier IDs from the suppliers array
+      const supplierIds = material.suppliers?.map((s: any) => s.organizationId) || []
+
       reset({
         sku: material.sku,
         name: material.name,
         categoryId: material.categoryId,
+        supplierIds,
+        textureId: material.textureId || null,
         properties: material.properties,
         pricing: material.pricing,
         availability: material.availability,
@@ -103,8 +121,8 @@ export default function AdminMaterialEditPage() {
     }
   }, [material, reset])
 
-  // Check if material is global (read-only)
-  const isGlobalMaterial = material?.organizationId === null
+  // Check if material has no suppliers (global material)
+  const isGlobalMaterial = !material?.suppliers || material.suppliers.length === 0
 
   // Prepare color options for MultiSelect
   const colorOptions = useMemo(() => {
@@ -131,6 +149,23 @@ export default function AdminMaterialEditPage() {
       label: `${type.name.he} (${type.name.en})`,
     }))
   }, [typesData])
+
+  // Prepare texture options filtered by category
+  const textureOptions = useMemo(() => {
+    const textures = texturesData?.data || []
+    return textures.map((texture) => ({
+      value: texture.id,
+      label: `${texture.name.he} (${texture.name.en})`,
+    }))
+  }, [texturesData])
+
+  // Prepare supplier (organization) options
+  const supplierOptions = useMemo(() => {
+    return organizations.map((org) => ({
+      value: org.id,
+      label: org.name,
+    }))
+  }, [organizations])
 
   const unitOptions = useMemo(
     () => [
@@ -272,7 +307,7 @@ export default function AdminMaterialEditPage() {
                 {errors.name?.en && <li>Name (English): {errors.name.en.message}</li>}
                 {errors.properties?.typeId && <li>Type: {errors.properties.typeId.message}</li>}
                 {errors.properties?.subType && <li>Sub-type: {errors.properties.subType.message}</li>}
-                {errors.properties?.texture && <li>Texture: {errors.properties.texture.message}</li>}
+                {errors.textureId && <li>Texture: {errors.textureId.message}</li>}
                 {errors.properties?.colorIds && <li>Colors: {errors.properties.colorIds.message}</li>}
                 {errors.pricing?.cost && <li>Cost: {errors.pricing.cost.message}</li>}
                 {errors.pricing?.retail && <li>Retail: {errors.pricing.retail.message}</li>}
@@ -334,6 +369,27 @@ export default function AdminMaterialEditPage() {
                   disabled={isGlobalMaterial}
                 />
               </SimpleGrid>
+
+              {/* Suppliers - Optional MultiSelect */}
+              <div style={{ marginTop: '1rem' }}>
+                <Controller
+                  name="supplierIds"
+                  control={control}
+                  render={({ field }) => (
+                    <MultiSelect
+                      label={t('suppliers')}
+                      placeholder={t('suppliersPlaceholder')}
+                      data={supplierOptions}
+                      value={field.value || []}
+                      onChange={field.onChange}
+                      error={errors.supplierIds?.message}
+                      searchable
+                      clearable
+                      disabled={isGlobalMaterial}
+                    />
+                  )}
+                />
+              </div>
             </FormSection>
           </MoodBCard>
 
@@ -363,12 +419,22 @@ export default function AdminMaterialEditPage() {
                   error={errors.properties?.subType?.message}
                   disabled={isGlobalMaterial}
                 />
-                <TextInput
-                  label={t('texture')}
-                  placeholder={t('texturePlaceholder')}
-                  {...register('properties.texture')}
-                  error={errors.properties?.texture?.message}
-                  disabled={isGlobalMaterial}
+                <Controller
+                  name="textureId"
+                  control={control}
+                  render={({ field }) => (
+                    <Select
+                      label={t('texture')}
+                      placeholder={t('texturePlaceholder')}
+                      data={textureOptions}
+                      value={field.value || null}
+                      onChange={field.onChange}
+                      error={errors.textureId?.message}
+                      disabled={isGlobalMaterial || !effectiveCategoryId}
+                      searchable
+                      clearable
+                    />
+                  )}
                 />
               </SimpleGrid>
 

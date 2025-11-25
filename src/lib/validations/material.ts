@@ -45,7 +45,7 @@ export const materialPropertiesSchema = z.object({
   typeId: z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid material type ID format'),
   subType: z.string().min(1, 'Sub-type is required'),
   finish: z.array(z.string()).default([]),
-  texture: z.string().min(1, 'Texture is required'),
+  texture: z.string().optional().default(''), // Free text texture description (optional - prefer textureId)
   colorIds: z.array(z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid color ID format')).min(1, 'At least one color is required'),
   dimensions: materialDimensionsSchema.optional(),
   technical: technicalSpecsSchema,
@@ -92,12 +92,24 @@ export const materialAssetsSchema = z.object({
   technicalSheet: assetUrlSchema,
 })
 
+// Supplier link schema (for many-to-many with organizations)
+export const materialSupplierSchema = z.object({
+  organizationId: z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid organization ID format'),
+  supplierSku: z.string().optional(),
+  supplierPrice: z.number().nonnegative().optional(),
+  isPreferred: z.boolean().default(false),
+  notes: z.string().optional(),
+})
+
 // Create Material Schema
 export const createMaterialSchema = z.object({
   sku: z.string().min(1, 'SKU is required'),
   name: localizedStringSchema,
   categoryId: z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid category ID format'),
-  organizationId: z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid organization ID format').optional(),
+  // Suppliers - optional array of organization IDs (many-to-many)
+  // Materials without suppliers are considered global/generic
+  supplierIds: z.array(z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid organization ID format')).optional().default([]),
+  textureId: z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid texture ID format').optional().nullable(),
   properties: materialPropertiesSchema,
   pricing: pricingSchema,
   availability: availabilitySchema,
@@ -127,6 +139,7 @@ export type DiscountTier = z.infer<typeof discountTierSchema>
 export type Pricing = z.infer<typeof pricingSchema>
 export type Availability = z.infer<typeof availabilitySchema>
 export type MaterialAssets = z.infer<typeof materialAssetsSchema>
+export type MaterialSupplierInput = z.infer<typeof materialSupplierSchema>
 export type CreateMaterial = z.infer<typeof createMaterialSchema>
 export type UpdateMaterial = z.infer<typeof updateMaterialSchema>
 export type MaterialFilters = z.infer<typeof materialFiltersSchema>

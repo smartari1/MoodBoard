@@ -34,15 +34,22 @@ export const GET = withAdmin(async (req: NextRequest) => {
       ]
     }
 
+    // Fetch categories without the expensive $lookup for materials
+    // This avoids the 16MB document size limit error
     const categories = await prisma.materialCategory.findMany({
       where: Object.keys(where).length > 0 ? where : {},
       include: {
         types: {
           orderBy: { order: 'asc' },
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            order: true,
+          }
         },
         _count: {
           select: {
-            materials: true,
             types: true,
           },
         },
@@ -50,9 +57,25 @@ export const GET = withAdmin(async (req: NextRequest) => {
       orderBy: { order: 'asc' },
     })
 
+    // Get material counts separately to avoid MongoDB $lookup size limit
+    const categoriesWithCounts = await Promise.all(
+      categories.map(async (category) => {
+        const materialCount = await prisma.material.count({
+          where: { categoryId: category.id }
+        })
+        return {
+          ...category,
+          _count: {
+            ...category._count,
+            materials: materialCount,
+          }
+        }
+      })
+    )
+
     return NextResponse.json({
-      data: categories,
-      count: categories.length,
+      data: categoriesWithCounts,
+      count: categoriesWithCounts.length,
     })
   } catch (error: any) {
     console.error('Material Categories API Error:', error)

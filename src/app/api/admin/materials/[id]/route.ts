@@ -22,7 +22,7 @@ function isValidObjectId(id: string): boolean {
 }
 
 /**
- * GET /api/admin/materials/[id] - Get material
+ * GET /api/admin/materials/[id] - Get material with suppliers
  */
 export const GET = withAdmin(async (req: NextRequest, auth) => {
   try {
@@ -41,13 +41,22 @@ export const GET = withAdmin(async (req: NextRequest, auth) => {
       )
     }
 
-    const material = await prisma.material.findFirst({
+    const material = await prisma.material.findUnique({
       where: {
         id: materialId,
-        OR: [
-          { organizationId: auth.organizationId }, // Organization-specific materials
-          { organizationId: null }, // Global materials
-        ],
+      },
+      include: {
+        suppliers: {
+          include: {
+            organization: {
+              select: {
+                id: true,
+                name: true,
+                slug: true,
+              },
+            },
+          },
+        },
       },
     })
 
@@ -62,7 +71,7 @@ export const GET = withAdmin(async (req: NextRequest, auth) => {
 })
 
 /**
- * PATCH /api/admin/materials/[id] - Update material
+ * PATCH /api/admin/materials/[id] - Update material with suppliers
  */
 export const PATCH = withAdmin(async (req: NextRequest, auth) => {
   try {
@@ -84,18 +93,18 @@ export const PATCH = withAdmin(async (req: NextRequest, auth) => {
     // Validate request body
     const body = await validateRequest(req, updateMaterialSchema)
 
-    // Check if material exists and belongs to user's organization
-    const existingMaterial = await prisma.material.findFirst({
-      where: {
-        id: materialId,
-        organizationId: auth.organizationId, // Only allow editing org-specific materials
+    // Check if material exists
+    const existingMaterial = await prisma.material.findUnique({
+      where: { id: materialId },
+      include: {
+        suppliers: true,
       },
     })
 
     if (!existingMaterial) {
       return NextResponse.json(
-        { error: 'Material not found or cannot be edited (global materials are read-only)' },
-        { status: 403 }
+        { error: 'Material not found' },
+        { status: 404 }
       )
     }
 
@@ -104,10 +113,6 @@ export const PATCH = withAdmin(async (req: NextRequest, auth) => {
       const colors = await prisma.color.findMany({
         where: {
           id: { in: body.properties.colorIds },
-          OR: [
-            { organizationId: auth.organizationId }, // Organization colors
-            { organizationId: null }, // Global colors
-          ],
         },
       })
 
@@ -119,37 +124,93 @@ export const PATCH = withAdmin(async (req: NextRequest, auth) => {
       }
     }
 
-    // Check if SKU is being updated and if it conflicts within the organization
+    // Validate supplierIds if provided
+    const supplierIds = body.supplierIds
+    if (supplierIds && supplierIds.length > 0) {
+      const orgs = await prisma.organization.findMany({
+        where: {
+          id: { in: supplierIds },
+        },
+      })
+
+      if (orgs.length !== supplierIds.length) {
+        return NextResponse.json(
+          { error: 'One or more supplier IDs are invalid' },
+          { status: 400 }
+        )
+      }
+    }
+
+    // Check if SKU is being updated and if it conflicts
     if (body.sku && body.sku !== existingMaterial.sku) {
       const skuConflict = await prisma.material.findFirst({
         where: {
           sku: body.sku.toUpperCase(),
-          organizationId: auth.organizationId,
           id: { not: materialId },
         },
       })
 
       if (skuConflict) {
         return NextResponse.json(
-          { error: 'Material with this SKU already exists in your organization' },
+          { error: 'Material with this SKU already exists' },
           { status: 409 }
         )
       }
     }
 
-    // Update material
-    const material = await prisma.material.update({
-      where: { id: materialId },
-      data: {
-        ...(body.sku && { sku: body.sku.toUpperCase() }),
-        ...(body.name && { name: body.name }),
-        ...(body.categoryId && { categoryId: body.categoryId }),
-        ...(body.properties && { properties: body.properties as any }),
-        ...(body.pricing && { pricing: body.pricing as any }),
-        ...(body.availability && { availability: body.availability as any }),
-        ...(body.assets !== undefined && { assets: body.assets as any }),
-        updatedAt: new Date(),
-      },
+    // Update material and suppliers in a transaction
+    const material = await prisma.$transaction(async (tx) => {
+      // Update material
+      await tx.material.update({
+        where: { id: materialId },
+        data: {
+          ...(body.sku && { sku: body.sku.toUpperCase() }),
+          ...(body.name && { name: body.name }),
+          ...(body.categoryId && { categoryId: body.categoryId }),
+          ...(body.textureId !== undefined && { textureId: body.textureId || null }),
+          ...(body.properties && { properties: body.properties as any }),
+          ...(body.pricing && { pricing: body.pricing as any }),
+          ...(body.availability && { availability: body.availability as any }),
+          ...(body.assets !== undefined && { assets: body.assets as any }),
+          updatedAt: new Date(),
+        },
+      })
+
+      // Update suppliers if provided
+      if (supplierIds !== undefined) {
+        // Delete existing suppliers
+        await tx.materialSupplier.deleteMany({
+          where: { materialId },
+        })
+
+        // Create new suppliers
+        if (supplierIds.length > 0) {
+          await tx.materialSupplier.createMany({
+            data: supplierIds.map((orgId) => ({
+              materialId,
+              organizationId: orgId,
+            })),
+          })
+        }
+      }
+
+      // Return updated material with suppliers
+      return tx.material.findUnique({
+        where: { id: materialId },
+        include: {
+          suppliers: {
+            include: {
+              organization: {
+                select: {
+                  id: true,
+                  name: true,
+                  slug: true,
+                },
+              },
+            },
+          },
+        },
+      })
     })
 
     return NextResponse.json(material)
@@ -160,6 +221,7 @@ export const PATCH = withAdmin(async (req: NextRequest, auth) => {
 
 /**
  * DELETE /api/admin/materials/[id] - Delete material
+ * Suppliers are automatically deleted via cascade
  */
 export const DELETE = withAdmin(async (req: NextRequest, auth) => {
   try {
@@ -178,25 +240,19 @@ export const DELETE = withAdmin(async (req: NextRequest, auth) => {
       )
     }
 
-    // Check if material exists and belongs to user's organization
-    const existingMaterial = await prisma.material.findFirst({
-      where: {
-        id: materialId,
-        organizationId: auth.organizationId, // Only allow deleting org-specific materials
-      },
+    // Check if material exists
+    const existingMaterial = await prisma.material.findUnique({
+      where: { id: materialId },
     })
 
     if (!existingMaterial) {
       return NextResponse.json(
-        { error: 'Material not found or cannot be deleted (global materials are read-only)' },
-        { status: 403 }
+        { error: 'Material not found' },
+        { status: 404 }
       )
     }
 
-    // TODO: Check if material is used in any styles before deletion
-    // For now, allow deletion (we can add usage tracking later)
-
-    // Delete material
+    // Delete material (suppliers are automatically deleted via cascade)
     await prisma.material.delete({
       where: { id: materialId },
     })

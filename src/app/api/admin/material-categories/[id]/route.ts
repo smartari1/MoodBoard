@@ -35,6 +35,7 @@ export const GET = withAdmin(async (req: NextRequest) => {
       )
     }
 
+    // Fetch category without materials count to avoid MongoDB $lookup size limit
     const category = await prisma.materialCategory.findUnique({
       where: { id: categoryId },
       include: {
@@ -43,7 +44,6 @@ export const GET = withAdmin(async (req: NextRequest) => {
         },
         _count: {
           select: {
-            materials: true,
             types: true,
           },
         },
@@ -57,7 +57,18 @@ export const GET = withAdmin(async (req: NextRequest) => {
       )
     }
 
-    return NextResponse.json(category)
+    // Count materials separately to avoid 16MB document size limit
+    const materialCount = await prisma.material.count({
+      where: { categoryId: category.id }
+    })
+
+    return NextResponse.json({
+      ...category,
+      _count: {
+        ...category._count,
+        materials: materialCount,
+      }
+    })
   } catch (error) {
     return handleError(error)
   }
@@ -106,6 +117,7 @@ export const PATCH = withAdmin(async (req: NextRequest) => {
       }
     }
 
+    // Update without materials count to avoid MongoDB $lookup size limit
     const category = await prisma.materialCategory.update({
       where: { id: categoryId },
       data: {
@@ -122,14 +134,24 @@ export const PATCH = withAdmin(async (req: NextRequest) => {
         },
         _count: {
           select: {
-            materials: true,
             types: true,
           },
         },
       },
     })
 
-    return NextResponse.json(category)
+    // Count materials separately to avoid 16MB document size limit
+    const materialCount = await prisma.material.count({
+      where: { categoryId: category.id }
+    })
+
+    return NextResponse.json({
+      ...category,
+      _count: {
+        ...category._count,
+        materials: materialCount,
+      }
+    })
   } catch (error) {
     return handleError(error)
   }
@@ -150,13 +172,12 @@ export const DELETE = withAdmin(async (req: NextRequest) => {
       )
     }
 
-    // Check if category exists
+    // Check if category exists (without materials to avoid $lookup size limit)
     const existing = await prisma.materialCategory.findUnique({
       where: { id: categoryId },
       include: {
         _count: {
           select: {
-            materials: true,
             types: true,
           },
         },
@@ -170,8 +191,13 @@ export const DELETE = withAdmin(async (req: NextRequest) => {
       )
     }
 
+    // Count materials separately to avoid 16MB document size limit
+    const materialCount = await prisma.material.count({
+      where: { categoryId: categoryId }
+    })
+
     // Prevent deletion if category has materials or types
-    if (existing._count.materials > 0) {
+    if (materialCount > 0) {
       return NextResponse.json(
         { error: 'Cannot delete category with existing materials' },
         { status: 409 }

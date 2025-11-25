@@ -81,7 +81,7 @@ model Organization {
   clients   Client[]
   projects  Project[]
   styles    Style[]
-  materials Material[]
+  materialSuppliers MaterialSupplier[]  // Many-to-many: Organization acts as supplier for materials
   textures  Texture[]  // Phase 2: Texture entities
   products  Product[]
   colors    Color[]
@@ -878,8 +878,10 @@ model MaterialType {
 
 model Material {
   id             String         @id @default(auto()) @map("_id") @db.ObjectId
-  organizationId String?        @db.ObjectId  // Null for global materials
-  organization   Organization?  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  // Suppliers (many-to-many with Organizations)
+  // Optional - materials without suppliers are global/generic
+  suppliers      MaterialSupplier[]
 
   sku      String?         @unique
   isAbstract      Boolean          @default(false)
@@ -905,11 +907,34 @@ model Material {
   createdAt DateTime @default(now())
   updatedAt DateTime @default(now())
 
-  @@index([organizationId])
-  @@index([organizationId, categoryId])
   @@index([categoryId])
   @@index([textureId])
   @@map("materials")
+}
+
+// Join table for Material ↔ Organization (suppliers)
+// Organizations act as suppliers for materials (many-to-many)
+model MaterialSupplier {
+  id             String       @id @default(auto()) @map("_id") @db.ObjectId
+  materialId     String       @db.ObjectId
+  organizationId String       @db.ObjectId
+
+  material       Material     @relation(fields: [materialId], references: [id], onDelete: Cascade)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  // Supplier-specific fields (optional)
+  supplierSku    String?      // SKU used by this specific supplier
+  supplierPrice  Float?       // Price from this supplier (can differ from base price)
+  isPreferred    Boolean      @default(false)  // Mark preferred supplier
+  notes          String?      // Notes about this supplier relationship
+
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @default(now())
+
+  @@unique([materialId, organizationId])
+  @@index([materialId])
+  @@index([organizationId])
+  @@map("material_suppliers")
 }
 
 // ============================================
