@@ -6,9 +6,9 @@ import { locales } from '@/i18n/request'
 import { SessionProvider } from '@/components/providers/SessionProvider'
 import { QueryProvider } from '@/lib/providers/QueryProvider'
 import { ImageViewerProvider } from '@/contexts/ImageViewerContext'
+import { NavigationProgress } from '@/components/ui/NavigationProgress'
 
-// Force dynamic rendering for faster builds (auth-required pages don't benefit from static generation)
-export const dynamic = 'force-dynamic'
+// Allow dynamic params for locale routes
 export const dynamicParams = true
 
 export default async function LocaleLayout({
@@ -38,6 +38,7 @@ export default async function LocaleLayout({
         <div lang={locale} dir={direction}>
           <NextIntlClientProvider messages={messages}>
             <MantineProvider locale={locale}>
+              <NavigationProgress />
               <ImageViewerProvider>
                 {children}
               </ImageViewerProvider>

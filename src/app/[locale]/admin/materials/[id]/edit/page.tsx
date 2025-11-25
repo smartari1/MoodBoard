@@ -64,7 +64,7 @@ export default function AdminMaterialEditPage() {
   const [pendingImageFiles, setPendingImageFiles] = useState<File[]>([])
 
   // Fetch all global colors
-  const { data: colorsData } = useColors({})
+  const { data: colorsData } = useColors({ page: 1, limit: 200 })
   const colors = colorsData?.data || []
 
   // Fetch material categories
@@ -104,25 +104,23 @@ export default function AdminMaterialEditPage() {
   // Initialize form with material data
   useEffect(() => {
     if (material) {
-      // Extract supplier IDs from the suppliers array
-      const supplierIds = material.suppliers?.map((s: any) => s.organizationId) || []
+      // Extract supplier IDs from the suppliers array (relation from API response)
+      const materialData = material as any
+      const supplierIds = materialData.suppliers?.map((s: any) => s.organizationId) || []
 
       reset({
-        sku: material.sku,
+        sku: material.sku || undefined,
         name: material.name,
         categoryId: material.categoryId,
         supplierIds,
-        textureId: material.textureId || null,
-        properties: material.properties,
-        pricing: material.pricing,
-        availability: material.availability,
-        assets: material.assets,
+        textureId: materialData.textureId || null,
+        properties: material.properties as any,
+        pricing: material.pricing as any,
+        availability: material.availability as any,
+        assets: material.assets as any,
       })
     }
   }, [material, reset])
-
-  // Check if material has no suppliers (global material)
-  const isGlobalMaterial = !material?.suppliers || material.suppliers.length === 0
 
   // Prepare color options for MultiSelect
   const colorOptions = useMemo(() => {
@@ -279,17 +277,6 @@ export default function AdminMaterialEditPage() {
             </Title>
           </Group>
 
-          {/* Read-only Alert */}
-          {isGlobalMaterial && (
-            <Alert
-              icon={<IconAlertCircle size={16} />}
-              title={t('readOnlyMaterial') || 'Read-Only Material'}
-              color="blue"
-            >
-              {t('readOnlyMessage') || 'This is a global material and cannot be edited. You can view its details but not make changes.'}
-            </Alert>
-          )}
-
           {/* Validation Errors Alert */}
           {Object.keys(errors).length > 0 && (
             <Alert
@@ -337,7 +324,6 @@ export default function AdminMaterialEditPage() {
                   placeholder={t('skuPlaceholder')}
                   {...register('sku')}
                   error={errors.sku?.message}
-                  disabled={isGlobalMaterial}
                 />
                 <Controller
                   name="categoryId"
@@ -350,8 +336,7 @@ export default function AdminMaterialEditPage() {
                       {...field}
                       error={errors.categoryId?.message}
                       searchable
-                      disabled={isGlobalMaterial}
-                    />
+                        />
                   )}
                 />
                 <TextInput
@@ -359,14 +344,12 @@ export default function AdminMaterialEditPage() {
                   placeholder={t('nameHePlaceholder')}
                   {...register('name.he')}
                   error={errors.name?.he?.message}
-                  disabled={isGlobalMaterial}
                 />
                 <TextInput
                   label={t('nameEn')}
                   placeholder={t('nameEnPlaceholder')}
                   {...register('name.en')}
                   error={errors.name?.en?.message}
-                  disabled={isGlobalMaterial}
                 />
               </SimpleGrid>
 
@@ -385,8 +368,7 @@ export default function AdminMaterialEditPage() {
                       error={errors.supplierIds?.message}
                       searchable
                       clearable
-                      disabled={isGlobalMaterial}
-                    />
+                        />
                   )}
                 />
               </div>
@@ -408,7 +390,7 @@ export default function AdminMaterialEditPage() {
                       {...field}
                       error={errors.properties?.typeId?.message}
                       searchable
-                      disabled={isGlobalMaterial || !categoryId}
+                      disabled={!categoryId}
                     />
                   )}
                 />
@@ -417,7 +399,6 @@ export default function AdminMaterialEditPage() {
                   placeholder={t('subTypePlaceholder')}
                   {...register('properties.subType')}
                   error={errors.properties?.subType?.message}
-                  disabled={isGlobalMaterial}
                 />
                 <Controller
                   name="textureId"
@@ -430,7 +411,7 @@ export default function AdminMaterialEditPage() {
                       value={field.value || null}
                       onChange={field.onChange}
                       error={errors.textureId?.message}
-                      disabled={isGlobalMaterial || !effectiveCategoryId}
+                      disabled={!effectiveCategoryId}
                       searchable
                       clearable
                     />
@@ -452,8 +433,7 @@ export default function AdminMaterialEditPage() {
                       onChange={field.onChange}
                       error={errors.properties?.colorIds?.message}
                       searchable
-                      disabled={isGlobalMaterial}
-                      renderOption={({ option }) => (
+                          renderOption={({ option }) => (
                         <Group gap="xs">
                           <div
                             style={{
@@ -476,16 +456,14 @@ export default function AdminMaterialEditPage() {
               <div style={{ marginTop: '1rem' }}>
                 <Group justify="space-between" mb="xs">
                   <Text size="sm" fw={500}>{t('finish')}</Text>
-                  {!isGlobalMaterial && (
-                    <Button
-                      size="xs"
-                      variant="light"
-                      leftSection={<IconPlus size={14} />}
-                      onClick={() => appendFinish('')}
-                    >
-                      {t('addFinish')}
-                    </Button>
-                  )}
+                  <Button
+                    size="xs"
+                    variant="light"
+                    leftSection={<IconPlus size={14} />}
+                    onClick={() => appendFinish('')}
+                  >
+                    {t('addFinish')}
+                  </Button>
                 </Group>
                 {finishFields.map((field, index) => (
                   <Group key={field.id} mb="xs">
@@ -493,17 +471,14 @@ export default function AdminMaterialEditPage() {
                       placeholder={t('finishPlaceholder')}
                       {...register(`properties.finish.${index}`)}
                       style={{ flex: 1 }}
-                      disabled={isGlobalMaterial}
                     />
-                    {!isGlobalMaterial && (
-                      <ActionIcon
-                        color="red"
-                        variant="subtle"
-                        onClick={() => removeFinish(index)}
-                      >
-                        <IconX size={16} />
-                      </ActionIcon>
-                    )}
+                    <ActionIcon
+                      color="red"
+                      variant="subtle"
+                      onClick={() => removeFinish(index)}
+                    >
+                      <IconX size={16} />
+                    </ActionIcon>
                   </Group>
                 ))}
               </div>
@@ -517,7 +492,6 @@ export default function AdminMaterialEditPage() {
                   max={10}
                   {...register('properties.technical.durability', { valueAsNumber: true })}
                   error={errors.properties?.technical?.durability?.message}
-                  disabled={isGlobalMaterial}
                 />
                 <NumberInput
                   label={t('maintenance')}
@@ -526,7 +500,6 @@ export default function AdminMaterialEditPage() {
                   max={10}
                   {...register('properties.technical.maintenance', { valueAsNumber: true })}
                   error={errors.properties?.technical?.maintenance?.message}
-                  disabled={isGlobalMaterial}
                 />
                 <NumberInput
                   label={t('sustainability')}
@@ -535,7 +508,6 @@ export default function AdminMaterialEditPage() {
                   max={10}
                   {...register('properties.technical.sustainability', { valueAsNumber: true })}
                   error={errors.properties?.technical?.sustainability?.message}
-                  disabled={isGlobalMaterial}
                 />
               </SimpleGrid>
             </FormSection>
@@ -551,7 +523,6 @@ export default function AdminMaterialEditPage() {
                   min={0}
                   {...register('pricing.cost', { valueAsNumber: true })}
                   error={errors.pricing?.cost?.message}
-                  disabled={isGlobalMaterial}
                 />
                 <NumberInput
                   label={t('retail')}
@@ -559,7 +530,6 @@ export default function AdminMaterialEditPage() {
                   min={0}
                   {...register('pricing.retail', { valueAsNumber: true })}
                   error={errors.pricing?.retail?.message}
-                  disabled={isGlobalMaterial}
                 />
                 <Controller
                   name="pricing.unit"
@@ -570,8 +540,7 @@ export default function AdminMaterialEditPage() {
                       data={unitOptions}
                       {...field}
                       error={errors.pricing?.unit?.message}
-                      disabled={isGlobalMaterial}
-                    />
+                        />
                   )}
                 />
                 <Controller
@@ -583,8 +552,7 @@ export default function AdminMaterialEditPage() {
                       data={currencyOptions}
                       {...field}
                       error={errors.pricing?.currency?.message}
-                      disabled={isGlobalMaterial}
-                    />
+                        />
                   )}
                 />
               </SimpleGrid>
@@ -593,16 +561,14 @@ export default function AdminMaterialEditPage() {
               <div style={{ marginTop: '1rem' }}>
                 <Group justify="space-between" mb="xs">
                   <Text size="sm" fw={500}>{t('bulkDiscounts')}</Text>
-                  {!isGlobalMaterial && (
-                    <Button
-                      size="xs"
-                      variant="light"
-                      leftSection={<IconPlus size={14} />}
-                      onClick={() => appendDiscount({ minQuantity: 1, discount: 0 })}
-                    >
-                      {t('addDiscount')}
-                    </Button>
-                  )}
+                  <Button
+                    size="xs"
+                    variant="light"
+                    leftSection={<IconPlus size={14} />}
+                    onClick={() => appendDiscount({ minQuantity: 1, discount: 0 })}
+                  >
+                    {t('addDiscount')}
+                  </Button>
                 </Group>
                 {discountFields.map((field, index) => (
                   <Group key={field.id} mb="xs">
@@ -612,7 +578,6 @@ export default function AdminMaterialEditPage() {
                       min={1}
                       {...register(`pricing.bulkDiscounts.${index}.minQuantity`, { valueAsNumber: true })}
                       style={{ flex: 1 }}
-                      disabled={isGlobalMaterial}
                     />
                     <NumberInput
                       label={t('discount')}
@@ -621,18 +586,15 @@ export default function AdminMaterialEditPage() {
                       max={100}
                       {...register(`pricing.bulkDiscounts.${index}.discount`, { valueAsNumber: true })}
                       style={{ flex: 1 }}
-                      disabled={isGlobalMaterial}
                     />
-                    {!isGlobalMaterial && (
-                      <ActionIcon
-                        color="red"
-                        variant="subtle"
-                        onClick={() => removeDiscount(index)}
-                        style={{ marginTop: '1.5rem' }}
-                      >
-                        <IconX size={16} />
-                      </ActionIcon>
-                    )}
+                    <ActionIcon
+                      color="red"
+                      variant="subtle"
+                      onClick={() => removeDiscount(index)}
+                      style={{ marginTop: '1.5rem' }}
+                    >
+                      <IconX size={16} />
+                    </ActionIcon>
                   </Group>
                 ))}
               </div>
@@ -651,8 +613,7 @@ export default function AdminMaterialEditPage() {
                       label={t('inStock')}
                       checked={field.value}
                       onChange={(e) => field.onChange(e.currentTarget.checked)}
-                      disabled={isGlobalMaterial}
-                    />
+                        />
                   )}
                 />
                 <NumberInput
@@ -661,7 +622,6 @@ export default function AdminMaterialEditPage() {
                   min={0}
                   {...register('availability.leadTime', { valueAsNumber: true })}
                   error={errors.availability?.leadTime?.message}
-                  disabled={isGlobalMaterial}
                 />
                 <NumberInput
                   label={t('minOrder')}
@@ -669,7 +629,6 @@ export default function AdminMaterialEditPage() {
                   min={0}
                   {...register('availability.minOrder', { valueAsNumber: true })}
                   error={errors.availability?.minOrder?.message}
-                  disabled={isGlobalMaterial}
                 />
               </SimpleGrid>
             </FormSection>
@@ -690,8 +649,7 @@ export default function AdminMaterialEditPage() {
                     onPendingFilesChange={setPendingImageFiles}
                     maxImages={20}
                     multiple
-                    disabled={isGlobalMaterial}
-                  />
+                    />
                 )}
               />
             </FormSection>
@@ -702,16 +660,14 @@ export default function AdminMaterialEditPage() {
             <Button variant="subtle" onClick={handleCancel}>
               {tCommon('cancel')}
             </Button>
-            {!isGlobalMaterial && (
-              <Button
-                type="submit"
-                color="brand"
-                loading={updateMutation.isPending || isSubmitting}
-                disabled={updateMutation.isPending || isSubmitting}
-              >
-                {t('submit')}
-              </Button>
-            )}
+            <Button
+              type="submit"
+              color="brand"
+              loading={updateMutation.isPending || isSubmitting}
+              disabled={updateMutation.isPending || isSubmitting}
+            >
+              {t('submit')}
+            </Button>
           </Group>
         </Stack>
       </form>

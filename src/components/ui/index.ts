@@ -37,3 +37,13 @@ export { ImageUpload } from './ImageUpload'
 // Icon Selector
 export { IconSelector } from './IconSelector'
 
+// Lazy-loaded versions (recommended for better performance)
+export {
+  LazyImageUpload,
+  LazyRichTextEditor,
+  LazyIconSelector,
+  ImageUploadSkeleton,
+  RichTextEditorSkeleton,
+  IconSelectorSkeleton,
+} from './lazy'
+

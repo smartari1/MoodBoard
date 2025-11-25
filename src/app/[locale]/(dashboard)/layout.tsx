@@ -3,6 +3,9 @@ import { DashboardLayout } from '@/components/layouts'
 import { getSession } from '@/lib/auth/auth'
 import { redirect } from 'next/navigation'
 
+// Force dynamic for auth-protected routes
+export const dynamic = 'force-dynamic'
+
 export const metadata: Metadata = {
   title: 'Dashboard | MoodB',
   description: 'MoodB Dashboard',

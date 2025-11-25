@@ -12,15 +12,35 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 
+// Supplier interface for Material ↔ Organization relationship
+export interface MaterialSupplier {
+  id: string
+  materialId: string
+  organizationId: string
+  supplierSku?: string | null
+  supplierPrice?: number | null
+  isPreferred: boolean
+  notes?: string | null
+  organization?: {
+    id: string
+    name: string
+    slug: string
+  }
+  createdAt: Date | string
+  updatedAt: Date | string
+}
+
 export interface Material {
   id: string
-  organizationId: string
-  sku: string
+  sku: string | null
   name: {
     he: string
     en: string
   }
   categoryId: string
+  textureId?: string | null
+  // Suppliers (organizations) - many-to-many relationship
+  suppliers?: MaterialSupplier[]
   properties: {
     typeId: string
     subType: string

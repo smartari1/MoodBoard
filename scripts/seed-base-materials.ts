@@ -221,13 +221,13 @@ async function seedBaseMaterials() {
           continue
         }
 
-        // Create material
+        // Create material (global material - no suppliers)
         const material = await prisma.material.create({
           data: {
             sku: materialData.sku,
             name: materialData.name,
             categoryId: category.id,
-            organizationId: null, // Global material
+            // No suppliers = global material
             properties: {
               typeId: type.id,
               subType: materialData.subType,

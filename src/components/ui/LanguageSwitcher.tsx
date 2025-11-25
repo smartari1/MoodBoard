@@ -6,10 +6,10 @@
 
 'use client'
 
-import { usePathname, useRouter } from 'next/navigation'
-import { ActionIcon, Menu, Tooltip } from '@mantine/core'
+import { ActionIcon, Menu, Tooltip, Loader } from '@mantine/core'
 import { IconLanguage } from '@tabler/icons-react'
 import { locales, type Locale } from '@/i18n/request'
+import { useRouting } from '@/hooks/useRouting'
 
 interface LanguageSwitcherProps {
   currentLocale: string
@@ -25,26 +25,7 @@ export function LanguageSwitcher({
   currentLocale,
   variant = 'menu'
 }: LanguageSwitcherProps) {
-  const router = useRouter()
-  const pathname = usePathname()
-
-  const switchLanguage = (newLocale: Locale) => {
-    if (!pathname) return
-
-    // Replace the current locale in the pathname with the new locale
-    // pathname is like "/he/admin/styles" or "/en/dashboard"
-    const segments = pathname.split('/')
-
-    // segments[0] is empty, segments[1] is current locale
-    if (segments.length >= 2 && locales.includes(segments[1] as Locale)) {
-      segments[1] = newLocale
-      const newPath = segments.join('/')
-      router.push(newPath)
-    } else {
-      // Fallback: prepend locale
-      router.push(`/${newLocale}${pathname}`)
-    }
-  }
+  const { switchLocale, isPending } = useRouting()
 
   if (variant === 'button') {
     return (
@@ -52,12 +33,13 @@ export function LanguageSwitcher({
         <ActionIcon
           variant="subtle"
           size="lg"
+          loading={isPending}
           onClick={() => {
             const nextLocale = currentLocale === 'he' ? 'en' : 'he'
-            switchLanguage(nextLocale as Locale)
+            switchLocale(nextLocale as Locale)
           }}
         >
-          <IconLanguage size={20} />
+          {isPending ? <Loader size={16} /> : <IconLanguage size={20} />}
         </ActionIcon>
       </Tooltip>
     )
@@ -66,8 +48,13 @@ export function LanguageSwitcher({
   return (
     <Menu shadow="md" width={200} position="bottom-end">
       <Menu.Target>
-        <ActionIcon variant="subtle" size="lg" aria-label="Switch language">
-          <IconLanguage size={20} />
+        <ActionIcon
+          variant="subtle"
+          size="lg"
+          aria-label="Switch language"
+          loading={isPending}
+        >
+          {isPending ? <Loader size={16} /> : <IconLanguage size={20} />}
         </ActionIcon>
       </Menu.Target>
 
@@ -76,7 +63,8 @@ export function LanguageSwitcher({
         {locales.map((locale) => (
           <Menu.Item
             key={locale}
-            onClick={() => switchLanguage(locale)}
+            onClick={() => switchLocale(locale)}
+            disabled={isPending}
             style={{
               backgroundColor: currentLocale === locale ? 'rgba(223, 37, 56, 0.1)' : undefined,
             }}

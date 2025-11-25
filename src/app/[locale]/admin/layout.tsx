@@ -7,6 +7,9 @@ import { redirect } from 'next/navigation'
 import { getSession } from '@/lib/auth/auth'
 import { AdminLayout as AdminLayoutComponent } from '@/components/layouts/AdminLayout'
 
+// Force dynamic for auth-protected routes
+export const dynamic = 'force-dynamic'
+
 export default async function AdminLayout({
   children,
   params,

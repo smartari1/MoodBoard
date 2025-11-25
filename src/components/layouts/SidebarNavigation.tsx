@@ -1,29 +1,30 @@
 'use client'
 
 import { useTranslations } from 'next-intl'
-import { usePathname } from 'next/navigation'
 import Link from 'next/link'
-import { 
-  IconLayoutDashboard, 
-  IconFolder, 
-  IconUsers, 
-  IconPalette, 
+import {
+  IconLayoutDashboard,
+  IconFolder,
+  IconUsers,
+  IconPalette,
   IconCoins,
   IconBox,
   IconSettings,
 } from '@tabler/icons-react'
 import { NavLink, Stack } from '@mantine/core'
+import { useRouting } from '@/hooks/useRouting'
+import type { Icon } from '@tabler/icons-react'
 
 interface NavItem {
   label: string
-  icon: React.ComponentType<{ size?: number }>
+  icon: Icon
   href: string
   translationKey: string
 }
 
 export function SidebarNavigation() {
   const t = useTranslations('navigation')
-  const pathname = usePathname()
+  const { localizedHref, isActive, prefetch } = useRouting()
 
   const navItems: NavItem[] = [
     {
@@ -70,16 +71,13 @@ export function SidebarNavigation() {
     },
   ]
 
-  // Extract locale from pathname
-  const locale = pathname?.split('/')[1] || 'he'
-
   return (
     <Stack gap="xs" p="md">
       {navItems.map((item) => {
         const Icon = item.icon
-        const fullHref = `/${locale}${item.href}`
-        const isActive = pathname?.includes(item.href) || false
-        
+        const fullHref = localizedHref(item.href)
+        const active = isActive(item.href)
+
         return (
           <NavLink
             key={item.href}
@@ -87,9 +85,10 @@ export function SidebarNavigation() {
             href={fullHref}
             label={item.label}
             leftSection={<Icon size={20} />}
-            active={isActive}
+            active={active}
             variant="subtle"
             color="brand"
+            onMouseEnter={() => prefetch(item.href)}
           />
         )
       })}

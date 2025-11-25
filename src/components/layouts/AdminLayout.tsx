@@ -28,10 +28,10 @@ import {
 } from '@tabler/icons-react'
 import { useTranslations } from 'next-intl'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
 import { useMemo, useState } from 'react'
 import { ImageViewerProvider } from '@/contexts/ImageViewerContext'
 import { LanguageSwitcher } from '@/components/ui/LanguageSwitcher'
+import { useRouting } from '@/hooks/useRouting'
 
 interface AdminLayoutProps {
   children: React.ReactNode
@@ -39,17 +39,14 @@ interface AdminLayoutProps {
 
 export function AdminLayout({ children }: AdminLayoutProps) {
   const t = useTranslations('admin')
-  const pathname = usePathname()
+  const { locale, pathname, isActive, prefetch } = useRouting()
   const { user } = useAuth()
 
   // Mobile navbar state
   const [mobileNavbarOpened, { toggle: toggleMobileNavbar, close: closeMobileNavbar }] = useDisclosure()
 
-  // Memoize locale extraction to avoid recalculation
-  const locale = useMemo(() => pathname?.split('/')[1] || 'he', [pathname])
-
   // Check if style system section should be open - memoize to avoid recalculation
-  const isStyleSystemActive = pathname?.includes('/admin/style-system') ?? false
+  const isStyleSystemActive = isActive('/admin/style-system')
   const [styleSystemOpen, setStyleSystemOpen] = useState(isStyleSystemActive)
 
   // Memoize navigation items to prevent recreation on every render
@@ -194,7 +191,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
           <Stack gap="xs">
             {navItems.map((item) => {
               const Icon = item.icon
-              const isActive = pathname === item.href
+              const active = isActive(item.href.replace(`/${locale}`, ''), true)
 
               return (
                 <NavLink
@@ -203,10 +200,11 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                   href={item.href}
                   label={item.label}
                   leftSection={<Icon size={20} />}
-                  active={isActive}
+                  active={active}
                   variant="subtle"
                   color="brand"
                   onClick={closeMobileNavbar}
+                  onMouseEnter={() => prefetch(item.href.replace(`/${locale}`, ''))}
                 />
               )
             })}
@@ -227,7 +225,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
               <Stack gap={2} ml="md">
                 {styleSystemItems.map((item) => {
                   const Icon = item.icon
-                  const isActive = pathname === item.href || pathname?.startsWith(item.href + '/')
+                  const active = isActive(item.href.replace(`/${locale}`, ''))
 
                   return (
                     <NavLink
@@ -236,10 +234,11 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                       href={item.href}
                       label={item.label}
                       leftSection={<Icon size={18} />}
-                      active={isActive}
+                      active={active}
                       variant="subtle"
                       color="brand"
                       onClick={closeMobileNavbar}
+                      onMouseEnter={() => prefetch(item.href.replace(`/${locale}`, ''))}
                     />
                   )
                 })}
@@ -249,7 +248,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
             {/* Other Items */}
             {otherItems.map((item) => {
               const Icon = item.icon
-              const isActive = pathname === item.href || pathname?.startsWith(item.href + '/')
+              const active = isActive(item.href.replace(`/${locale}`, ''))
 
               return (
                 <NavLink
@@ -258,10 +257,11 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                   href={item.href}
                   label={item.label}
                   leftSection={<Icon size={20} />}
-                  active={isActive}
+                  active={active}
                   variant="subtle"
                   color="brand"
                   onClick={closeMobileNavbar}
+                  onMouseEnter={() => prefetch(item.href.replace(`/${locale}`, ''))}
                 />
               )
             })}

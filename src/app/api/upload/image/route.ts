@@ -110,22 +110,29 @@ export const POST = withAuth(async (req: NextRequest, auth) => {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
       }
     } else if (validatedData.entityType === 'material') {
-      // For materials in creation mode (empty entityId), allow upload using auth.organizationId
+      // For materials in creation mode (empty entityId), allow upload
       if (!validatedData.entityId || validatedData.entityId === '') {
-        // Creation mode - use auth.organizationId
-        // This is allowed since we're creating a new material
+        // Creation mode - allow upload
+        // Materials can be global (no suppliers) or assigned later
       } else {
-        // Edit mode - verify material exists and user has access
+        // Edit mode - verify material exists
         const material = await prisma.material.findUnique({
           where: { id: validatedData.entityId },
+          include: {
+            suppliers: true,
+          },
         })
 
         if (!material) {
           return NextResponse.json({ error: 'Material not found' }, { status: 404 })
         }
 
-        // Verify organization access
-        if (material.organizationId !== auth.organizationId) {
+        // Materials with no suppliers are global - allow admin access
+        // Materials with suppliers - check if user's org is a supplier
+        const hasAccess = (material as any).suppliers?.length === 0 ||
+          (material as any).suppliers?.some((s: any) => s.organizationId === auth.organizationId)
+
+        if (!hasAccess) {
           return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
         }
       }

@@ -17,8 +17,7 @@ import { Logo } from './Logo'
 import { signOut } from 'next-auth/react'
 import { IconLogout, IconUser } from '@tabler/icons-react'
 import { LanguageSwitcher } from '@/components/ui/LanguageSwitcher'
-import { usePathname } from 'next/navigation'
-import { useMemo } from 'react'
+import { useRouting } from '@/hooks/useRouting'
 
 interface DashboardLayoutProps {
   children: React.ReactNode
@@ -27,10 +26,7 @@ interface DashboardLayoutProps {
 export function DashboardLayout({ children }: DashboardLayoutProps) {
   const [opened, { toggle }] = useDisclosure()
   const { user } = useAuth()
-  const pathname = usePathname()
-
-  // Memoize locale extraction to avoid recalculation
-  const locale = useMemo(() => pathname?.split('/')[1] || 'he', [pathname])
+  const { locale } = useRouting()
 
   // FIX: Removed isLoading, isAuthenticated checks, and useEffect redirect
   // Server layout already validates auth - no need for duplicate checking

@@ -41,19 +41,9 @@ export async function middleware(request: NextRequest) {
   let token = null
   let hasInvalidToken = false
 
-  // Debug: Check if cookies exist
+  // Check if cookies exist (for invalid token detection)
   const hasDevCookie = request.cookies.has('authjs.session-token')
   const hasProdCookie = request.cookies.has('__Secure-authjs.session-token')
-
-  if (isProtectedRoute) {
-    console.log('[Middleware]', {
-      path: pathname,
-      hasDevCookie,
-      hasProdCookie,
-      cookieName,
-      env: process.env.NODE_ENV,
-    })
-  }
 
   try {
     token = await getToken({
@@ -64,21 +54,17 @@ export async function middleware(request: NextRequest) {
       raw: false,
     })
 
-    if (isProtectedRoute) {
-      console.log('[Middleware] Token result:', token ? { userId: token.id, email: token.email } : 'null')
-    }
   } catch (error) {
-    console.error('[Middleware] Error getting token:', error)
+    // Token validation failed - treat as unauthenticated
     // If token validation fails, treat as unauthenticated and mark for cookie cleanup
     token = null
     hasInvalidToken = true
   }
 
-  // If token is invalid or expired, clear the session cookies
+  // If token is invalid or expired, mark for cookie cleanup
   if (hasInvalidToken || (!token && (hasDevCookie || hasProdCookie))) {
     // We have a cookie but no valid token - means the session is invalid/expired
     hasInvalidToken = true
-    console.log('[Middleware] Invalid token detected, will clear cookies')
   }
 
   // Check authentication for protected routes
@@ -90,7 +76,6 @@ export async function middleware(request: NextRequest) {
     // If we've redirected too many times (>2), allow through to prevent infinite loop
     // This is a safety net but shouldn't normally trigger
     if (redirectCount > 2) {
-      console.warn('Exceeded redirect limit, allowing request through to prevent loop')
       // Clear the counter cookie and apply i18n
       const response = intlMiddleware(request)
       response.cookies.delete('_redirect_count')
