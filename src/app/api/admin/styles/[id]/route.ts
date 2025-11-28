@@ -33,8 +33,47 @@ export const GET = withAdmin(async (req: NextRequest) => {
       include: {
         category: { select: { id: true, name: true, slug: true } },
         subCategory: { select: { id: true, name: true, slug: true } },
-        approach: { select: { id: true, slug: true, name: true, order: true } },
+        approach: {
+          select: {
+            id: true,
+            slug: true,
+            name: true,
+            order: true,
+            metadata: true,
+            detailedContent: true,
+          },
+        },
         color: { select: { id: true, name: true, hex: true, pantone: true, category: true } },
+        // Include StyleImage records (categorized images from Phase 2)
+        images: {
+          orderBy: { displayOrder: 'asc' },
+        },
+        // Include linked textures
+        textureLinks: {
+          include: {
+            texture: {
+              select: {
+                id: true,
+                name: true,
+                imageUrl: true,
+              },
+            },
+          },
+        },
+        // Include linked materials
+        materialLinks: {
+          include: {
+            material: {
+              select: {
+                id: true,
+                name: true,
+                assets: true,
+                category: true,
+                aiDescription: true,
+              },
+            },
+          },
+        },
       },
     })
 

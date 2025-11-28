@@ -3,7 +3,7 @@
  * Fetch Material entities linked to a style via StyleMaterial join table
  */
 
-import { prisma } from '@/lib/prisma'
+import { prisma } from '@/lib/db/prisma'
 import { NextRequest, NextResponse } from 'next/server'
 
 export async function GET(

@@ -16,7 +16,7 @@ import { calculateEstimatedCost } from '@/lib/seed/cost-calculator'
 import { CostBreakdownTable } from '@/components/admin/CostBreakdownTable'
 import { ProgressDisplay } from './ProgressDisplay'
 import { ResultDisplay } from './ResultDisplay'
-import { ROOM_TYPES, ProgressEvent, SeedResult, CompletedStyle } from './shared'
+import { ROOM_TYPES, PRICE_LEVEL_OPTIONS, ProgressEvent, SeedResult, CompletedStyle, PriceLevel } from './shared'
 
 interface ManualGenerationTabProps {
   onComplete?: () => void
@@ -32,6 +32,8 @@ export default function ManualGenerationTab({ onComplete }: ManualGenerationTabP
   const [selectedRooms, setSelectedRooms] = useState<string[]>([])
   const [generateImages, setGenerateImages] = useState(true)
   const [generateRoomProfiles, setGenerateRoomProfiles] = useState(true)
+  // Phase 2: Price level
+  const [priceLevel, setPriceLevel] = useState<PriceLevel>('REGULAR')
 
   // Progress state
   const [isRunning, setIsRunning] = useState(false)
@@ -91,6 +93,7 @@ export default function ManualGenerationTab({ onComplete }: ManualGenerationTabP
           generateImages,
           generateRoomProfiles,
           dryRun: false,
+          priceLevel, // Phase 2: Price level
         }),
         signal: controller.signal,
       })
@@ -227,6 +230,19 @@ export default function ManualGenerationTab({ onComplete }: ManualGenerationTabP
             disabled={isRunning || loadingColors}
           />
 
+          {/* Phase 2: Price Level Selector */}
+          <Select
+            label={t('priceLevel') || 'Price Level'}
+            description={t('priceLevelDesc') || 'Controls material quality and luxury keywords in AI generation'}
+            data={PRICE_LEVEL_OPTIONS.map(opt => ({
+              value: opt.value,
+              label: opt.label,
+            }))}
+            value={priceLevel}
+            onChange={(val) => setPriceLevel(val as PriceLevel)}
+            disabled={isRunning}
+          />
+
           {/* Room Types Multi-Select */}
           <MultiSelect
             label={t('roomTypes')}
@@ -343,6 +359,7 @@ export default function ManualGenerationTab({ onComplete }: ManualGenerationTabP
         currentProgress={currentProgress}
         progress={progress}
         completedStyles={completedStyles}
+        priceLevel={priceLevel}
       />
 
       {/* Result Display */}

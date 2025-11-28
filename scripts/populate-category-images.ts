@@ -13,7 +13,7 @@
  */
 
 import { PrismaClient } from '@prisma/client'
-import { generateAndUploadImages } from '../src/lib/ai/image-generation'
+import { generateAndUploadImages } from '../src/lib/ai'
 
 const prisma = new PrismaClient()
 

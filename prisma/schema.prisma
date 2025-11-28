@@ -881,6 +881,7 @@ model Material {
 
   // Suppliers (many-to-many with Organizations)
   // Optional - materials without suppliers are global/generic
+  // Pricing, availability, and colors are stored per supplier in MaterialSupplier
   suppliers      MaterialSupplier[]
 
   sku      String?         @unique
@@ -892,10 +893,14 @@ model Material {
   categoryId String        @db.ObjectId
   category MaterialCategory @relation(fields: [categoryId], references: [id])
 
+  // Shared properties (same across all suppliers)
   properties   MaterialProperties
-  pricing      Pricing
-  availability Availability
+
+  // Shared assets (same images for all suppliers)
   assets       MaterialAssets
+
+  // NOTE: pricing and availability are now per-supplier in MaterialSupplier
+  // NOTE: colorIds are now per-supplier in MaterialSupplier
 
   // Texture link (optional) - Material can reference a Texture
   textureId    String?   @db.ObjectId
@@ -914,6 +919,7 @@ model Material {
 
 // Join table for Material ↔ Organization (suppliers)
 // Organizations act as suppliers for materials (many-to-many)
+// Each supplier has their own pricing, availability, and color selection
 model MaterialSupplier {
   id             String       @id @default(auto()) @map("_id") @db.ObjectId
   materialId     String       @db.ObjectId
@@ -922,9 +928,19 @@ model MaterialSupplier {
   material       Material     @relation(fields: [materialId], references: [id], onDelete: Cascade)
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
-  // Supplier-specific fields (optional)
+  // Supplier-specific identifiers
   supplierSku    String?      // SKU used by this specific supplier
-  supplierPrice  Float?       // Price from this supplier (can differ from base price)
+
+  // Supplier-specific colors (each supplier may offer different colors from system palette)
+  colorIds       String[]     @db.ObjectId
+
+  // Supplier-specific pricing (each supplier sets their own prices)
+  pricing        SupplierPricing?
+
+  // Supplier-specific availability (each supplier has their own stock)
+  availability   SupplierAvailability?
+
+  // Metadata
   isPreferred    Boolean      @default(false)  // Mark preferred supplier
   notes          String?      // Notes about this supplier relationship
 
@@ -1038,7 +1054,7 @@ type MaterialProperties {
   subType   String   // Free text sub-type (e.g., "Oak", "Marble")
   finish    String[]
   texture   String
-  colorIds  String[]  @db.ObjectId // Array of Color IDs
+  // NOTE: colorIds moved to MaterialSupplier (per-supplier colors)
   dimensions MaterialDimensions?
   technical TechnicalSpecs
 }
@@ -1072,6 +1088,22 @@ type DiscountTier {
 }
 
 type Availability {
+  inStock    Boolean
+  leadTime   Int // days
+  minOrder   Float
+}
+
+// Supplier-specific pricing (used in MaterialSupplier)
+type SupplierPricing {
+  cost          Float
+  retail        Float
+  unit          String // sqm, unit, linear_m
+  currency      String
+  bulkDiscounts DiscountTier[]
+}
+
+// Supplier-specific availability (used in MaterialSupplier)
+type SupplierAvailability {
   inStock    Boolean
   leadTime   Int // days
   minOrder   Float
@@ -1315,6 +1347,12 @@ type SeedConfig {
   manualMode             Boolean?
   approachId             String?
   colorId                String?
+  priceLevel             String?  // REGULAR, LUXURY, or RANDOM
+  // Phase 2: Full image generation options
+  phase2FullGeneration   Boolean?
+  roomImageCount         Int?     // Default: 60
+  materialImageCount     Int?     // Default: 25
+  textureImageCount      Int?     // Default: 15
 }
 
 type SeedResult {

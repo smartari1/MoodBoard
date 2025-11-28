@@ -142,6 +142,57 @@ export function DetailedContentViewer({
               )}
             </Box>
 
+            {/* Poetic Introduction - AI-generated evocative content */}
+            {currentContent.poeticIntro && (
+              <Box
+                style={{
+                  background: 'linear-gradient(135deg, rgba(121, 80, 242, 0.05) 0%, rgba(121, 80, 242, 0.1) 100%)',
+                  borderRadius: 12,
+                  padding: 24,
+                  border: '1px solid rgba(121, 80, 242, 0.2)',
+                }}
+              >
+                <Stack gap="md">
+                  <Box>
+                    <Title order={2} c="brand" mb={4}>
+                      {currentContent.poeticIntro.title}
+                    </Title>
+                    {currentContent.poeticIntro.subtitle && (
+                      <Text size="lg" c="dimmed" fs="italic">
+                        {currentContent.poeticIntro.subtitle}
+                      </Text>
+                    )}
+                  </Box>
+                  <Divider color="rgba(121, 80, 242, 0.2)" />
+                  <Stack gap="sm">
+                    {currentContent.poeticIntro.paragraph1 && (
+                      <Text size="md" style={{ lineHeight: 1.8 }}>
+                        {currentContent.poeticIntro.paragraph1}
+                      </Text>
+                    )}
+                    {currentContent.poeticIntro.paragraph2 && (
+                      <Text size="md" style={{ lineHeight: 1.8 }}>
+                        {currentContent.poeticIntro.paragraph2}
+                      </Text>
+                    )}
+                    {currentContent.poeticIntro.paragraph3 && (
+                      <Text size="md" style={{ lineHeight: 1.8 }}>
+                        {currentContent.poeticIntro.paragraph3}
+                      </Text>
+                    )}
+                    {currentContent.poeticIntro.paragraph4 && (
+                      <Text size="md" style={{ lineHeight: 1.8 }}>
+                        {currentContent.poeticIntro.paragraph4}
+                      </Text>
+                    )}
+                  </Stack>
+                  <Badge leftSection={<IconSparkles size={12} />} color="violet" variant="light" size="sm">
+                    {locale === 'he' ? 'תוכן פואטי מבוסס AI' : 'AI-Generated Poetic Content'}
+                  </Badge>
+                </Stack>
+              </Box>
+            )}
+
             <Divider />
 
             {currentContent.introduction && (

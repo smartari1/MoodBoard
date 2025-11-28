@@ -9,7 +9,7 @@
  */
 
 import { PrismaClient } from '@prisma/client'
-import { generateAndUploadImages } from '@/lib/ai/image-generation'
+import { generateAndUploadImages } from '@/lib/ai'
 import { getMaterialNameHebrew } from './material-generator'
 
 const prisma = new PrismaClient()

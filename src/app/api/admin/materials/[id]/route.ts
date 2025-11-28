@@ -72,6 +72,7 @@ export const GET = withAdmin(async (req: NextRequest, auth) => {
 
 /**
  * PATCH /api/admin/materials/[id] - Update material with suppliers
+ * Updates material shared properties and supplier-specific data (pricing, availability, colors)
  */
 export const PATCH = withAdmin(async (req: NextRequest, auth) => {
   try {
@@ -96,9 +97,7 @@ export const PATCH = withAdmin(async (req: NextRequest, auth) => {
     // Check if material exists
     const existingMaterial = await prisma.material.findUnique({
       where: { id: materialId },
-      include: {
-        suppliers: true,
-      },
+      include: { suppliers: true },
     })
 
     if (!existingMaterial) {
@@ -108,36 +107,36 @@ export const PATCH = withAdmin(async (req: NextRequest, auth) => {
       )
     }
 
-    // Validate colorIds if provided
-    if (body.properties?.colorIds && body.properties.colorIds.length > 0) {
-      const colors = await prisma.color.findMany({
-        where: {
-          id: { in: body.properties.colorIds },
-        },
+    const suppliers = body.suppliers
+
+    // Validate suppliers if provided
+    if (suppliers && suppliers.length > 0) {
+      const orgIds = suppliers.map((s) => s.organizationId)
+      const orgs = await prisma.organization.findMany({
+        where: { id: { in: orgIds } },
       })
 
-      if (colors.length !== body.properties.colorIds.length) {
+      if (orgs.length !== orgIds.length) {
         return NextResponse.json(
-          { error: 'One or more color IDs are invalid' },
+          { error: 'One or more supplier organization IDs are invalid' },
           { status: 400 }
         )
       }
-    }
 
-    // Validate supplierIds if provided
-    const supplierIds = body.supplierIds
-    if (supplierIds && supplierIds.length > 0) {
-      const orgs = await prisma.organization.findMany({
-        where: {
-          id: { in: supplierIds },
-        },
-      })
+      // Validate all colorIds across all suppliers
+      const allColorIds = suppliers.flatMap((s) => s.colorIds || [])
+      if (allColorIds.length > 0) {
+        const uniqueColorIds = [...new Set(allColorIds)]
+        const colors = await prisma.color.findMany({
+          where: { id: { in: uniqueColorIds } },
+        })
 
-      if (orgs.length !== supplierIds.length) {
-        return NextResponse.json(
-          { error: 'One or more supplier IDs are invalid' },
-          { status: 400 }
-        )
+        if (colors.length !== uniqueColorIds.length) {
+          return NextResponse.json(
+            { error: 'One or more color IDs are invalid' },
+            { status: 400 }
+          )
+        }
       }
     }
 
@@ -160,7 +159,7 @@ export const PATCH = withAdmin(async (req: NextRequest, auth) => {
 
     // Update material and suppliers in a transaction
     const material = await prisma.$transaction(async (tx) => {
-      // Update material
+      // Update material (shared properties only)
       await tx.material.update({
         where: { id: materialId },
         data: {
@@ -169,28 +168,34 @@ export const PATCH = withAdmin(async (req: NextRequest, auth) => {
           ...(body.categoryId && { categoryId: body.categoryId }),
           ...(body.textureId !== undefined && { textureId: body.textureId || null }),
           ...(body.properties && { properties: body.properties as any }),
-          ...(body.pricing && { pricing: body.pricing as any }),
-          ...(body.availability && { availability: body.availability as any }),
           ...(body.assets !== undefined && { assets: body.assets as any }),
           updatedAt: new Date(),
         },
       })
 
-      // Update suppliers if provided
-      if (supplierIds !== undefined) {
+      // Update suppliers if provided (replace all)
+      if (suppliers !== undefined) {
         // Delete existing suppliers
         await tx.materialSupplier.deleteMany({
           where: { materialId },
         })
 
-        // Create new suppliers
-        if (supplierIds.length > 0) {
-          await tx.materialSupplier.createMany({
-            data: supplierIds.map((orgId) => ({
-              materialId,
-              organizationId: orgId,
-            })),
-          })
+        // Create new suppliers with their pricing, availability, and colors
+        if (suppliers.length > 0) {
+          for (const supplier of suppliers) {
+            await tx.materialSupplier.create({
+              data: {
+                materialId,
+                organizationId: supplier.organizationId,
+                supplierSku: supplier.supplierSku,
+                colorIds: supplier.colorIds || [],
+                pricing: supplier.pricing as any,
+                availability: supplier.availability as any,
+                isPreferred: supplier.isPreferred || false,
+                notes: supplier.notes,
+              },
+            })
+          }
         }
       }
 

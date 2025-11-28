@@ -14,6 +14,10 @@ export interface CostBreakdown {
   imageGeneration: {
     generalImages: { count: number; costPer: number; total: number }
     roomImages: { count: number; costPer: number; total: number }
+    // Phase 2: Additional image types
+    textureImages: { count: number; costPer: number; total: number }
+    materialImages: { count: number; costPer: number; total: number }
+    specialImages: { count: number; costPer: number; total: number } // Composite + Anchor
     subtotal: number
   }
   grandTotal: number
@@ -37,6 +41,22 @@ const PRICING = {
 
   // Image generation costs
   image: 0.003, // Per image (Gemini Flash Image)
+}
+
+/**
+ * Phase 2 image counts per style:
+ * - General (Golden Scenes): 6 images
+ * - Textures: ~5 images (max textures per style)
+ * - Materials: ~5 images (max material close-ups)
+ * - Special: 2 images (Composite + Anchor)
+ * - Room profiles: 4 views per room
+ */
+const PHASE2_COUNTS = {
+  goldenScenes: 6,      // Was 3, now 6 views
+  texturesPerStyle: 5,  // Max textures generated
+  materialsPerStyle: 5, // Max material close-ups
+  specialImages: 2,     // Composite + Anchor
+  viewsPerRoom: 4,      // 4 camera angles per room
 }
 
 /**
@@ -79,20 +99,38 @@ export function calculateEstimatedCost(
     },
     imageGeneration: {
       generalImages: {
-        count: generateImages ? numStyles * 3 : 0,
+        count: generateImages ? numStyles * PHASE2_COUNTS.goldenScenes : 0,
         costPer: PRICING.image,
-        total: generateImages ? numStyles * 3 * PRICING.image : 0,
+        total: generateImages ? numStyles * PHASE2_COUNTS.goldenScenes * PRICING.image : 0,
       },
       roomImages: {
         count:
           generateImages && generateRoomProfiles
-            ? numStyles * roomTypesCount * 3
+            ? numStyles * roomTypesCount * PHASE2_COUNTS.viewsPerRoom
             : 0,
         costPer: PRICING.image,
         total:
           generateImages && generateRoomProfiles
-            ? numStyles * roomTypesCount * 3 * PRICING.image
+            ? numStyles * roomTypesCount * PHASE2_COUNTS.viewsPerRoom * PRICING.image
             : 0,
+      },
+      // Phase 2: Texture images
+      textureImages: {
+        count: generateImages ? numStyles * PHASE2_COUNTS.texturesPerStyle : 0,
+        costPer: PRICING.image,
+        total: generateImages ? numStyles * PHASE2_COUNTS.texturesPerStyle * PRICING.image : 0,
+      },
+      // Phase 2: Material close-up images
+      materialImages: {
+        count: generateImages ? numStyles * PHASE2_COUNTS.materialsPerStyle : 0,
+        costPer: PRICING.image,
+        total: generateImages ? numStyles * PHASE2_COUNTS.materialsPerStyle * PRICING.image : 0,
+      },
+      // Phase 2: Special images (Composite + Anchor)
+      specialImages: {
+        count: generateImages ? numStyles * PHASE2_COUNTS.specialImages : 0,
+        costPer: PRICING.image,
+        total: generateImages ? numStyles * PHASE2_COUNTS.specialImages * PRICING.image : 0,
       },
       subtotal: 0,
     },
@@ -107,7 +145,10 @@ export function calculateEstimatedCost(
 
   breakdown.imageGeneration.subtotal =
     breakdown.imageGeneration.generalImages.total +
-    breakdown.imageGeneration.roomImages.total
+    breakdown.imageGeneration.roomImages.total +
+    breakdown.imageGeneration.textureImages.total +
+    breakdown.imageGeneration.materialImages.total +
+    breakdown.imageGeneration.specialImages.total
 
   breakdown.grandTotal =
     breakdown.textGeneration.subtotal + breakdown.imageGeneration.subtotal

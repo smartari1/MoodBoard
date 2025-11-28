@@ -1,6 +1,10 @@
 /**
  * Admin Material Create Page
  * Create new material with comprehensive form
+ *
+ * Architecture:
+ * - Material: Shared properties (name, category, properties, assets)
+ * - MaterialSupplier: Per-supplier data (pricing, availability, colors)
  */
 
 'use client'
@@ -10,6 +14,7 @@
 // Direct imports only compile what's needed
 import { FormSection } from '@/components/ui/Form/FormSection'
 import { MoodBCard } from '@/components/ui/Card'
+import { SupplierCard } from '@/components/features/materials/SupplierCard'
 import { useAuth } from '@/hooks/use-auth/useAuth'
 import { useColors } from '@/hooks/useColors'
 import { useImageUpload } from '@/hooks/useImageUpload'
@@ -19,7 +24,7 @@ import { useOrganizations } from '@/hooks/useOrganizations'
 import { useTextures } from '@/hooks/useTextures'
 import { createMaterialSchema, type CreateMaterial } from '@/lib/validations/material'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { ActionIcon, Alert, Button, Container, Group, MultiSelect, NumberInput, Select, SimpleGrid, Skeleton, Stack, Switch, Text, TextInput, Title } from '@mantine/core'
+import { ActionIcon, Alert, Button, Container, Group, NumberInput, Select, SimpleGrid, Skeleton, Stack, Text, TextInput, Title } from '@mantine/core'
 import { IconAlertCircle, IconArrowLeft, IconPlus, IconX } from '@tabler/icons-react'
 import { useTranslations } from 'next-intl'
 import dynamic from 'next/dynamic'
@@ -49,7 +54,7 @@ export default function AdminMaterialNewPage() {
   const [pendingImageFiles, setPendingImageFiles] = useState<File[]>([])
   
   // Fetch all global colors (not organization-specific)
-  const { data: colorsData } = useColors({})
+  const { data: colorsData } = useColors({ page: 1, limit: 200 })
   const colors = colorsData?.data || []
   
   // Fetch material categories
@@ -77,14 +82,12 @@ export default function AdminMaterialNewPage() {
         en: '',
       },
       categoryId: '',
-      supplierIds: [], // Optional array of supplier (organization) IDs
       textureId: null,
       properties: {
         typeId: '',
         subType: '',
         finish: [],
         texture: '',
-        colorIds: [],
         dimensions: {
           unit: 'mm',
         },
@@ -94,24 +97,14 @@ export default function AdminMaterialNewPage() {
           sustainability: 5,
         },
       },
-      pricing: {
-        cost: 0,
-        retail: 0,
-        unit: 'sqm',
-        currency: 'ILS',
-        bulkDiscounts: [],
-      },
-      availability: {
-        inStock: false,
-        leadTime: 0,
-        minOrder: 0,
-      },
       assets: {
         thumbnail: '',
         images: [],
         texture: '',
         technicalSheet: '',
       },
+      // Suppliers with their per-supplier pricing, availability, colors
+      suppliers: [],
     },
   })
 
@@ -163,37 +156,19 @@ export default function AdminMaterialNewPage() {
     }))
   }, [texturesData])
 
-  // Prepare supplier (organization) options
-  const supplierOptions = useMemo(() => {
+  // Prepare organization options for supplier selection
+  const organizationOptions = useMemo(() => {
     return organizations.map((org) => ({
       value: org.id,
       label: org.name,
     }))
   }, [organizations])
 
-  const unitOptions = useMemo(
-    () => [
-      { value: 'sqm', label: t('pricingUnits.sqm') },
-      { value: 'unit', label: t('pricingUnits.unit') },
-      { value: 'linear_m', label: t('pricingUnits.linearM') },
-    ],
-    [t]
-  )
-
   const dimensionUnitOptions = useMemo(
     () => [
       { value: 'mm', label: 'mm' },
       { value: 'cm', label: 'cm' },
       { value: 'm', label: 'm' },
-    ],
-    []
-  )
-
-  const currencyOptions = useMemo(
-    () => [
-      { value: 'ILS', label: 'ILS (₪)' },
-      { value: 'USD', label: 'USD ($)' },
-      { value: 'EUR', label: 'EUR (€)' },
     ],
     []
   )
@@ -258,73 +233,6 @@ export default function AdminMaterialNewPage() {
     [t, dimensionUnitOptions]
   )
 
-  const renderPricingUnitSelect = useCallback(
-    ({ field }: { field: any }) => (
-      <Select
-        label={t('pricingUnit')}
-        data={unitOptions}
-        {...field}
-        error={errors.pricing?.unit?.message}
-        required
-      />
-    ),
-    [t, unitOptions, errors.pricing?.unit?.message]
-  )
-
-  const renderCurrencySelect = useCallback(
-    ({ field }: { field: any }) => (
-      <Select
-        label={t('currency')}
-        data={currencyOptions}
-        {...field}
-        error={errors.pricing?.currency?.message}
-        required
-      />
-    ),
-    [t, currencyOptions, errors.pricing?.currency?.message]
-  )
-
-  const renderSwitch = useCallback(
-    ({ field }: { field: any }) => (
-      <Switch
-        label={t('inStock')}
-        checked={field.value}
-        onChange={(e) => field.onChange(e.currentTarget.checked)}
-      />
-    ),
-    [t]
-  )
-
-  const renderColorMultiSelect = useCallback(
-    ({ field }: { field: any }) => (
-      <MultiSelect
-        label={t('colors')}
-        placeholder={t('selectColors')}
-        data={colorOptions}
-        value={field.value}
-        onChange={field.onChange}
-        error={errors.properties?.colorIds?.message}
-        required
-        searchable
-        renderOption={({ option }) => (
-          <Group gap="xs">
-            <div
-              style={{
-                width: 16,
-                height: 16,
-                backgroundColor: option.hex,
-                border: '1px solid #ddd',
-                borderRadius: 2,
-              }}
-            />
-            <span>{option.label}</span>
-          </Group>
-        )}
-      />
-    ),
-    [t, colorOptions, errors.properties?.colorIds?.message]
-  )
-
   const renderImageUpload = useCallback(
     ({ field }: { field: any }) => (
       <ImageUpload
@@ -342,31 +250,44 @@ export default function AdminMaterialNewPage() {
     [t, errors.assets?.images?.message]
   )
 
-  const renderSuppliersSelect = useCallback(
-    ({ field }: { field: any }) => (
-      <MultiSelect
-        label={t('suppliers')}
-        placeholder={t('suppliersPlaceholder')}
-        data={supplierOptions}
-        value={field.value || []}
-        onChange={field.onChange}
-        error={errors.supplierIds?.message}
-        searchable
-        clearable
-      />
-    ),
-    [t, supplierOptions, errors.supplierIds?.message]
-  )
-
+  // @ts-ignore - useFieldArray typing issue with nested string arrays
   const { fields: finishFields, append: appendFinish, remove: removeFinish } = useFieldArray({
     control,
-    name: 'properties.finish',
+    name: 'properties.finish' as any,
   })
 
-  const { fields: discountFields, append: appendDiscount, remove: removeDiscount } = useFieldArray({
+  // Suppliers field array - each supplier has their own pricing, availability, colors
+  const {
+    fields: supplierFields,
+    append: appendSupplier,
+    remove: removeSupplier,
+  } = useFieldArray({
     control,
-    name: 'pricing.bulkDiscounts',
+    name: 'suppliers',
   })
+
+  // Default values for new supplier
+  const addNewSupplier = useCallback(() => {
+    appendSupplier({
+      organizationId: '',
+      supplierSku: '',
+      colorIds: [],
+      pricing: {
+        cost: 0,
+        retail: 0,
+        unit: 'sqm',
+        currency: 'ILS',
+        bulkDiscounts: [],
+      },
+      availability: {
+        inStock: false,
+        leadTime: 0,
+        minOrder: 0,
+      },
+      isPreferred: false,
+      notes: '',
+    })
+  }, [appendSupplier])
 
   const onSubmit = useCallback(async (data: CreateMaterial) => {
     console.log('Form submitted with data:', data)
@@ -453,18 +374,13 @@ export default function AdminMaterialNewPage() {
               </Text>
               <ul style={{ margin: 0, paddingInlineStart: '1.5rem' }}>
                 {errors.sku && <li>SKU: {errors.sku.message}</li>}
-                {errors.supplierIds && <li>Suppliers: {errors.supplierIds.message}</li>}
                 {errors.categoryId && <li>Category: {errors.categoryId.message}</li>}
                 {errors.name?.he && <li>Name (Hebrew): {errors.name.he.message}</li>}
                 {errors.name?.en && <li>Name (English): {errors.name.en.message}</li>}
                 {errors.properties?.typeId && <li>Type: {errors.properties.typeId.message}</li>}
                 {errors.properties?.subType && <li>Sub-type: {errors.properties.subType.message}</li>}
                 {errors.textureId && <li>Texture: {errors.textureId.message}</li>}
-                {errors.properties?.colorIds && <li>Colors: {errors.properties.colorIds.message}</li>}
-                {errors.pricing?.cost && <li>Cost: {errors.pricing.cost.message}</li>}
-                {errors.pricing?.retail && <li>Retail: {errors.pricing.retail.message}</li>}
-                {errors.availability?.leadTime && <li>Lead Time: {errors.availability.leadTime.message}</li>}
-                {errors.availability?.minOrder && <li>Min Order: {errors.availability.minOrder.message}</li>}
+                {errors.suppliers && <li>Suppliers: Check supplier details</li>}
               </ul>
             </Alert>
           )}
@@ -513,15 +429,6 @@ export default function AdminMaterialNewPage() {
                   required
                 />
               </SimpleGrid>
-
-              {/* Suppliers - Optional MultiSelect */}
-              <div style={{ marginTop: '1rem' }}>
-                <Controller
-                  name="supplierIds"
-                  control={control}
-                  render={renderSuppliersSelect}
-                />
-              </div>
             </FormSection>
           </MoodBCard>
 
@@ -547,15 +454,6 @@ export default function AdminMaterialNewPage() {
                   render={renderTextureSelect}
                 />
               </SimpleGrid>
-
-              {/* Colors - MultiSelect */}
-              <div style={{ marginTop: '1rem' }}>
-                <Controller
-                  name="properties.colorIds"
-                  control={control}
-                  render={renderColorMultiSelect}
-                />
-              </div>
 
               {/* Finish */}
               <div style={{ marginTop: '1rem' }}>
@@ -648,108 +546,44 @@ export default function AdminMaterialNewPage() {
             </FormSection>
           </MoodBCard>
 
-          {/* Pricing */}
+          {/* Suppliers Section - Per-supplier pricing, availability, colors */}
           <MoodBCard>
-            <FormSection title={t('pricing')}>
-              <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
-                <NumberInput
-                  label={t('cost')}
-                  placeholder={t('costPlaceholder')}
-                  min={0}
-                  {...register('pricing.cost', { valueAsNumber: true })}
-                  error={errors.pricing?.cost?.message}
-                  required
-                />
-                <NumberInput
-                  label={t('retail')}
-                  placeholder={t('retailPlaceholder')}
-                  min={0}
-                  {...register('pricing.retail', { valueAsNumber: true })}
-                  error={errors.pricing?.retail?.message}
-                  required
-                />
-                <Controller
-                  name="pricing.unit"
-                  control={control}
-                  render={renderPricingUnitSelect}
-                />
-                <Controller
-                  name="pricing.currency"
-                  control={control}
-                  render={renderCurrencySelect}
-                />
-              </SimpleGrid>
+            <FormSection title={t('suppliers')}>
+              <Group justify="space-between" mb="md">
+                <Text size="sm" c="dimmed">
+                  {t('suppliersDescription')}
+                </Text>
+                <Button
+                  size="sm"
+                  variant="light"
+                  leftSection={<IconPlus size={16} />}
+                  onClick={addNewSupplier}
+                >
+                  {t('addSupplier')}
+                </Button>
+              </Group>
 
-              {/* Bulk Discounts */}
-              <div style={{ marginTop: '1rem' }}>
-                <Group justify="space-between" mb="xs">
-                  <Text size="sm" fw={500}>{t('bulkDiscounts')}</Text>
-                  <Button
-                    size="xs"
-                    variant="light"
-                    leftSection={<IconPlus size={14} />}
-                    onClick={() => appendDiscount({ minQuantity: 1, discount: 0 })}
-                  >
-                    {t('addDiscount')}
-                  </Button>
-                </Group>
-                {discountFields.map((field, index) => (
-                  <Group key={field.id} mb="xs">
-                    <NumberInput
-                      label={t('minQuantity')}
-                      placeholder={t('minQuantityPlaceholder')}
-                      min={1}
-                      {...register(`pricing.bulkDiscounts.${index}.minQuantity`, { valueAsNumber: true })}
-                      style={{ flex: 1 }}
+              {supplierFields.length === 0 ? (
+                <Text size="sm" c="dimmed" ta="center" py="lg">
+                  {t('noSuppliers')}
+                </Text>
+              ) : (
+                <Stack gap="md">
+                  {supplierFields.map((field, index) => (
+                    <SupplierCard
+                      key={field.id}
+                      index={index}
+                      control={control}
+                      register={register}
+                      watch={watch}
+                      onRemove={() => removeSupplier(index)}
+                      colorOptions={colorOptions}
+                      organizationOptions={organizationOptions}
+                      errors={errors}
                     />
-                    <NumberInput
-                      label={t('discount')}
-                      placeholder="%"
-                      min={0}
-                      max={100}
-                      {...register(`pricing.bulkDiscounts.${index}.discount`, { valueAsNumber: true })}
-                      style={{ flex: 1 }}
-                    />
-                    <ActionIcon
-                      color="red"
-                      variant="subtle"
-                      onClick={() => removeDiscount(index)}
-                      style={{ marginTop: '1.5rem' }}
-                    >
-                      <IconX size={16} />
-                    </ActionIcon>
-                  </Group>
-                ))}
-              </div>
-            </FormSection>
-          </MoodBCard>
-
-          {/* Availability */}
-          <MoodBCard>
-            <FormSection title={t('availability')}>
-              <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
-                <Controller
-                  name="availability.inStock"
-                  control={control}
-                  render={renderSwitch}
-                />
-                <NumberInput
-                  label={t('leadTime')}
-                  placeholder={t('leadTimePlaceholder')}
-                  min={0}
-                  {...register('availability.leadTime', { valueAsNumber: true })}
-                  error={errors.availability?.leadTime?.message}
-                  required
-                />
-                <NumberInput
-                  label={t('minOrder')}
-                  placeholder={t('minOrderPlaceholder')}
-                  min={0}
-                  {...register('availability.minOrder', { valueAsNumber: true })}
-                  error={errors.availability?.minOrder?.message}
-                  required
-                />
-              </SimpleGrid>
+                  ))}
+                </Stack>
+              )}
             </FormSection>
           </MoodBCard>
 

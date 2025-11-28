@@ -1,9 +1,24 @@
 /**
- * AI Image Generation Service
- * Uses Gemini 2.0 Flash Image to generate images for design entities
+ * AI Image Generation Service (AI SDK Integration)
+ *
+ * Uses Gemini 2.5 Flash Image for image generation with AI SDK infrastructure:
+ * - Telemetry and metrics tracking
+ * - Retry logic with exponential backoff
+ * - Consistent error handling
+ * - Cost estimation
+ *
+ * Note: Vercel AI SDK doesn't have native image generation support,
+ * so we use the direct @google/generative-ai SDK for the actual image API calls
+ * while leveraging AI SDK infrastructure for everything else.
  */
 
 import { GoogleGenerativeAI } from '@google/generative-ai'
+import {
+  globalMetricsCollector,
+  generateOperationId,
+  type AIOperationMetrics,
+} from './telemetry'
+import { AI_MODELS } from './ai-sdk-provider'
 
 // Lazy initialization to avoid build-time errors
 let genAI: GoogleGenerativeAI | null = null
@@ -19,45 +34,32 @@ function getGenAI(): GoogleGenerativeAI {
 }
 
 // Gemini Image Generation Model
-const IMAGE_MODEL = 'gemini-2.5-flash-image'
+const IMAGE_MODEL = AI_MODELS.GEMINI_FLASH_IMAGE
+
+// Cost estimation for image generation (approximate)
+const IMAGE_GENERATION_COST_PER_IMAGE = 0.002 // $0.002 per image (estimated)
 
 /**
- * Fetch image from URL and convert to base64 for Gemini API
+ * Image generation options
  */
-async function fetchImageAsBase64(imageUrl: string): Promise<{ data: string; mimeType: string } | null> {
-  try {
-    const response = await fetch(imageUrl)
-    if (!response.ok) {
-      console.error(`Failed to fetch reference image: ${imageUrl}`)
-      return null
-    }
-
-    const arrayBuffer = await response.arrayBuffer()
-    const buffer = Buffer.from(arrayBuffer)
-    const base64Data = buffer.toString('base64')
-
-    // Determine MIME type from response headers or URL extension
-    const contentType = response.headers.get('content-type') || 'image/jpeg'
-
-    return {
-      data: base64Data,
-      mimeType: contentType
-    }
-  } catch (error) {
-    console.error(`Error fetching reference image ${imageUrl}:`, error)
-    return null
-  }
-}
-
 export interface ImageGenerationOptions {
-  entityType: 'category' | 'subcategory' | 'approach' | 'roomType' | 'style' | 'style-room' | 'scene' | 'material' | 'texture' | 'composite' | 'anchor'
+  entityType:
+    | 'category'
+    | 'subcategory'
+    | 'approach'
+    | 'roomType'
+    | 'style'
+    | 'style-room'
+    | 'scene'
+    | 'material'
+    | 'texture'
+    | 'composite'
+    | 'anchor'
   entityName: { he: string; en: string }
   description?: { he: string; en: string }
   period?: string
   numberOfImages?: number
-  // Phase 2: Price level for materials/textures
   priceLevel?: 'REGULAR' | 'LUXURY'
-  // Enhanced detailed content for richer prompts
   detailedContent?: {
     introduction?: string
     description?: string
@@ -71,77 +73,125 @@ export interface ImageGenerationOptions {
     historicalContext?: string
     culturalContext?: string
   }
-  // Style-specific options
   styleContext?: {
     subCategoryName: string
     approachName: string
     colorName: string
     colorHex: string
   }
-  // Room-specific options
   roomContext?: {
     roomTypeName: string
     styleName: string
     colorHex: string
   }
-  // Scene-specific options
   sceneContext?: {
     sceneName: string
     complementaryColor?: string
     promptSuffix?: string
   }
-  // Image variation type (for generating different angles/perspectives)
-  variationType?: 'wide-angle' | 'detail-shot' | 'furniture-arrangement' | 'main' | 'opposite' | 'left' | 'right'
-  // NEW: Visual context from sub-category for style and style-room images
+  variationType?:
+    | 'wide-angle'
+    | 'detail-shot'
+    | 'furniture-arrangement'
+    | 'main'
+    | 'opposite'
+    | 'left'
+    | 'right'
   visualContext?: {
     characteristics?: string[]
     visualElements?: string[]
     materialGuidance?: string
     colorGuidance?: string
   }
-  // NEW: Reference images from sub-category
   referenceImages?: string[]
-  // NEW: Aspect Ratio for generation (e.g., "1:1", "3:4", "4:3", "9:16", "16:9")
   aspectRatio?: string
+}
+
+/**
+ * Image generation result with metrics
+ */
+export interface ImageGenerationResult {
+  images: string[]
+  metrics?: AIOperationMetrics
+}
+
+/**
+ * Fetch image from URL and convert to base64 for Gemini API
+ */
+async function fetchImageAsBase64(
+  imageUrl: string
+): Promise<{ data: string; mimeType: string } | null> {
+  try {
+    const response = await fetch(imageUrl)
+    if (!response.ok) {
+      console.error(`Failed to fetch reference image: ${imageUrl}`)
+      return null
+    }
+
+    const arrayBuffer = await response.arrayBuffer()
+    const buffer = Buffer.from(arrayBuffer)
+    const base64Data = buffer.toString('base64')
+
+    const contentType = response.headers.get('content-type') || 'image/jpeg'
+
+    return {
+      data: base64Data,
+      mimeType: contentType,
+    }
+  } catch (error) {
+    console.error(`Error fetching reference image ${imageUrl}:`, error)
+    return null
+  }
 }
 
 /**
  * Generate image prompt for design entities
  */
 function createImagePrompt(options: ImageGenerationOptions): string {
-  const { entityType, entityName, description, period, detailedContent, styleContext, roomContext, sceneContext, variationType, visualContext, referenceImages } = options
+  const {
+    entityType,
+    entityName,
+    description,
+    period,
+    detailedContent,
+    styleContext,
+    roomContext,
+    sceneContext,
+    variationType,
+    visualContext,
+    referenceImages,
+  } = options
 
   let prompt = ''
 
   switch (entityType) {
     case 'scene':
-      // Act 3: Golden Scenes
       const { sceneName, complementaryColor, promptSuffix } = sceneContext!
-      const { subCategoryName: scName, approachName: appName, colorName: cName, colorHex: cHex } = styleContext!
+      const { subCategoryName: scName, approachName: appName, colorName: cName, colorHex: cHex } =
+        styleContext!
 
       prompt = `Create a stunning, professional interior design photograph of a ${sceneName} in the "${entityName.en}" style.
-      
+
       Style Context:
       - Sub-Category: ${scName}
       - Approach: ${appName}
       - Primary Color: ${cName} (${cHex})
       ${complementaryColor ? `- Accent/Complementary Color: ${complementaryColor}` : ''}
-      
+
       Scene Description: ${promptSuffix}
-      
+
       The image should:
       - Be a masterpiece of interior photography
       - Perfect lighting and composition
       - Show the interplay between the primary color and the accent color
       - Capture the mood and atmosphere of the style
-      
-      🚫 CRITICAL CONSTRAINT: DO NOT include any humans. No people.
-      
+
+      CRITICAL CONSTRAINT: DO NOT include any humans. No people.
+
       Style: Architectural Digest, High-end, Photorealistic.`
-      break;
+      break
 
     case 'style':
-      // Generate style images with variation
       const { subCategoryName, approachName, colorName, colorHex } = styleContext!
 
       if (variationType === 'detail-shot') {
@@ -159,31 +209,25 @@ The image should:
 - Be photorealistic and professionally shot
 - Suitable for an interior design portfolio or magazine spread
 
-🚫 CRITICAL CONSTRAINT: DO NOT include any humans, human figures, portraits, or drawings/artwork depicting humans in the image. Focus ONLY on interior design elements, architecture, furniture, materials, and decor. No people should be visible anywhere in the scene.
+CRITICAL CONSTRAINT: DO NOT include any humans, human figures, portraits, or drawings/artwork depicting humans in the image. Focus ONLY on interior design elements, architecture, furniture, materials, and decor.
 
 Style: Professional detail photography, macro perspective, dramatic lighting highlighting textures, high-end architectural digest quality.`
 
-        // Add visual context from sub-category
         if (visualContext) {
           if (visualContext.characteristics && visualContext.characteristics.length > 0) {
-            prompt += `\n\nKey Characteristics to showcase in details:
-${visualContext.characteristics.slice(0, 5).map(c => `- ${c}`).join('\n')}`
+            prompt += `\n\nKey Characteristics to showcase in details:\n${visualContext.characteristics.slice(0, 5).map((c) => `- ${c}`).join('\n')}`
           }
-
           if (visualContext.materialGuidance) {
             prompt += `\n\nMaterial Focus: ${visualContext.materialGuidance}`
           }
-
           if (visualContext.colorGuidance) {
             prompt += `\n\nColor Palette Details: ${visualContext.colorGuidance}`
           }
         }
 
-        // Add reference images instruction
         if (referenceImages && referenceImages.length > 0) {
-          prompt += `\n\nIMPORTANT: Draw inspiration from the visual aesthetic, material textures, and decorative details characteristic of this sub-category style. Focus on authentic materials and finishes that define this design approach.`
+          prompt += `\n\nIMPORTANT: Draw inspiration from the visual aesthetic, material textures, and decorative details characteristic of this sub-category style.`
         }
-
       } else if (variationType === 'furniture-arrangement') {
         prompt = `Create a stunning, professional interior design photograph focusing on FURNITURE COMPOSITION in the "${entityName.en}" style.
 
@@ -199,32 +243,25 @@ The image should:
 - Be photorealistic and professionally shot
 - Capture the balance and proportion typical of this style
 
-🚫 CRITICAL CONSTRAINT: DO NOT include any humans, human figures, portraits, or drawings/artwork depicting humans in the image. Focus ONLY on interior design elements, architecture, furniture, materials, and decor. No people should be visible anywhere in the scene.
+CRITICAL CONSTRAINT: DO NOT include any humans, human figures, portraits, or drawings/artwork depicting humans in the image.
 
-Style: Professional interior photography, medium shot, natural lighting, architectural digest quality, emphasizing furniture design and spatial relationships.`
+Style: Professional interior photography, medium shot, natural lighting, architectural digest quality.`
 
-        // Add visual context from sub-category
         if (visualContext) {
           if (visualContext.visualElements && visualContext.visualElements.length > 0) {
-            prompt += `\n\nSignature Visual Elements to include:
-${visualContext.visualElements.slice(0, 5).map(v => `- ${v}`).join('\n')}`
+            prompt += `\n\nSignature Visual Elements to include:\n${visualContext.visualElements.slice(0, 5).map((v) => `- ${v}`).join('\n')}`
           }
-
           if (visualContext.characteristics && visualContext.characteristics.length > 0) {
-            prompt += `\n\nStyle Characteristics:
-${visualContext.characteristics.slice(0, 5).map(c => `- ${c}`).join('\n')}`
+            prompt += `\n\nStyle Characteristics:\n${visualContext.characteristics.slice(0, 5).map((c) => `- ${c}`).join('\n')}`
           }
-
           if (visualContext.colorGuidance) {
             prompt += `\n\nColor Application: ${visualContext.colorGuidance}`
           }
         }
 
-        // Add reference images instruction
         if (referenceImages && referenceImages.length > 0) {
-          prompt += `\n\nIMPORTANT: Use the overall spatial composition, furniture style, and arrangement patterns characteristic of this sub-category as inspiration for the furniture composition and layout.`
+          prompt += `\n\nIMPORTANT: Use the overall spatial composition, furniture style, and arrangement patterns characteristic of this sub-category as inspiration.`
         }
-
       } else {
         // Default: wide-angle
         prompt = `Create a stunning, professional interior design photograph representing the complete "${entityName.en}" design style.
@@ -241,106 +278,138 @@ The image should:
 - Be photorealistic and professionally shot
 - Capture the overall atmosphere and aesthetic of this unique style combination
 
-🚫 CRITICAL CONSTRAINT: DO NOT include any humans, human figures, portraits, or drawings/artwork depicting humans in the image. Focus ONLY on interior design elements, architecture, furniture, materials, and decor. No people should be visible anywhere in the scene.
+CRITICAL CONSTRAINT: DO NOT include any humans, human figures, portraits, or drawings/artwork depicting humans in the image.
 
-Style: Professional interior photography, wide angle, high-end, architectural digest quality, natural lighting, showing full room context.`
+Style: Professional interior photography, wide angle, high-end, architectural digest quality.`
 
-        // Add visual context from sub-category
         if (visualContext) {
           if (visualContext.characteristics && visualContext.characteristics.length > 0) {
-            prompt += `\n\nKey Characteristics to showcase:
-${visualContext.characteristics.slice(0, 6).map(c => `- ${c}`).join('\n')}`
+            prompt += `\n\nKey Characteristics to showcase:\n${visualContext.characteristics.slice(0, 6).map((c) => `- ${c}`).join('\n')}`
           }
-
           if (visualContext.visualElements && visualContext.visualElements.length > 0) {
-            prompt += `\n\nSignature Visual Elements to include:
-${visualContext.visualElements.slice(0, 6).map(v => `- ${v}`).join('\n')}`
+            prompt += `\n\nSignature Visual Elements to include:\n${visualContext.visualElements.slice(0, 6).map((v) => `- ${v}`).join('\n')}`
           }
-
           if (visualContext.materialGuidance) {
             prompt += `\n\nMaterials & Finishes: ${visualContext.materialGuidance}`
           }
-
           if (visualContext.colorGuidance) {
             prompt += `\n\nColor Palette Guidance: ${visualContext.colorGuidance}`
           }
         }
 
-        // Add reference images instruction
         if (referenceImages && referenceImages.length > 0) {
-          prompt += `\n\nIMPORTANT: Use the provided reference images as visual inspiration for the overall aesthetic, spatial layout, architectural details, and design elements characteristic of this style. Match the atmosphere and design language.`
+          prompt += `\n\nIMPORTANT: Use the provided reference images as visual inspiration for the overall aesthetic, spatial layout, architectural details, and design elements.`
         }
       }
       break
 
     case 'style-room':
-      // Generate room-specific images for a style (Spatial Walkthrough)
       const { roomTypeName, styleName: rStyleName, colorHex: roomColorHex } = roomContext!
-      
+
       let viewPrompt = ''
       if (variationType === 'main') {
         viewPrompt = 'Main view entering the room, showing the focal point.'
       } else if (variationType === 'opposite') {
         viewPrompt = 'Reverse angle view, looking back towards the entrance or opposite wall.'
+      } else if (variationType === 'detail-left') {
+        viewPrompt = 'Detail view of left side, focusing on furniture arrangement and accessories.'
+      } else if (variationType === 'detail-right') {
+        viewPrompt = 'Detail view of right side, focusing on furniture arrangement and accessories.'
       } else if (variationType === 'left') {
         viewPrompt = 'View towards the left wall, showing side details.'
       } else if (variationType === 'right') {
         viewPrompt = 'View towards the right wall, showing side details.'
       }
 
+      // Build complete style context section
+      const roomPriceLevel = options.priceLevel || 'REGULAR'
+      const roomTierKeywords =
+        roomPriceLevel === 'LUXURY'
+          ? 'High-end finishes, premium materials, designer furniture, luxurious textiles'
+          : 'Quality finishes, practical materials, comfortable furniture, accessible elegance'
+
+      const roomStyleSection = styleContext
+        ? `
+Style Context:
+- Style Name: ${rStyleName}
+- Design Category: ${styleContext.subCategoryName}
+- Design Approach: ${styleContext.approachName}
+- Primary Color: ${styleContext.colorName} (${roomColorHex})
+- Quality Tier: ${roomPriceLevel}
+- Keywords: ${roomTierKeywords}
+`
+        : `
+Style: ${rStyleName}
+Primary Color: ${roomColorHex}
+Quality Tier: ${roomPriceLevel}
+`
+
       prompt = `Create a stunning, professional interior design photograph of a ${roomTypeName} designed in the "${rStyleName}" style.
-      
-      Perspective: ${viewPrompt}
+${roomStyleSection}
+Perspective: ${viewPrompt}
 
-      The image should:
-      - Show a complete, functional ${roomTypeName} space
-      - Apply the ${rStyleName} aesthetic to all room elements
-      - Prominently feature the primary color (${roomColorHex}) in appropriate surfaces
-      - Include all essential furniture and fixtures for a ${roomTypeName}
-      - Demonstrate how the style works specifically in this room type
-      - Feature excellent lighting appropriate to the room function
-      - Be photorealistic and professionally shot
-      - Show both aesthetics and functionality
-      
-      🚫 CRITICAL CONSTRAINT: DO NOT include any humans, human figures, portraits, or drawings/artwork depicting humans in the image. Focus ONLY on interior design elements, architecture, furniture, materials, and decor. No people should be visible anywhere in the scene.
-      
-      Style: Professional interior photography, architectural digest quality, natural lighting, full room view with focus on ${roomTypeName}-specific design elements and the ${rStyleName} aesthetic.`
+The image should:
+- Show a complete, functional ${roomTypeName} space
+- Apply the ${rStyleName} aesthetic to all room elements
+${styleContext ? `- Embody the ${styleContext.subCategoryName} design category with ${styleContext.approachName} approach` : ''}
+- Prominently feature ${styleContext?.colorName || 'the primary color'} (${roomColorHex}) in walls, furniture, or accents
+- Include ${roomPriceLevel.toLowerCase()}-tier furniture and fixtures appropriate for a ${roomTypeName}
+- Demonstrate how this specific style combination works in a ${roomTypeName}
+- Feature excellent lighting appropriate to the room function
+- Be photorealistic and professionally shot
+- Show both aesthetics and functionality
 
-      // Add visual context from sub-category
+CRITICAL CONSTRAINT: DO NOT include any humans, human figures, portraits, or drawings/artwork depicting humans in the image.
+
+Style: Professional interior photography, architectural digest quality, natural lighting.`
+
       if (visualContext) {
         if (visualContext.characteristics && visualContext.characteristics.length > 0) {
-          prompt += `\n\nKey Style Characteristics to apply to this ${roomTypeName}:
-${visualContext.characteristics.slice(0, 5).map(c => `- ${c}`).join('\n')}`
+          prompt += `\n\nKey Style Characteristics to apply to this ${roomTypeName}:\n${visualContext.characteristics.slice(0, 5).map((c) => `- ${c}`).join('\n')}`
         }
-
         if (visualContext.visualElements && visualContext.visualElements.length > 0) {
-          prompt += `\n\nSignature Elements for this ${roomTypeName}:
-${visualContext.visualElements.slice(0, 5).map(v => `- ${v}`).join('\n')}`
+          prompt += `\n\nSignature Elements for this ${roomTypeName}:\n${visualContext.visualElements.slice(0, 5).map((v) => `- ${v}`).join('\n')}`
         }
-
         if (visualContext.materialGuidance) {
           prompt += `\n\nMaterials to use in ${roomTypeName}: ${visualContext.materialGuidance}`
         }
+        if (visualContext.colorGuidance) {
+          prompt += `\n\nColor Application in ${roomTypeName}: ${visualContext.colorGuidance}`
+        }
       }
 
-      // Add reference images instruction
       if (referenceImages && referenceImages.length > 0) {
-        prompt += `\n\nIMPORTANT: Apply the visual aesthetic and design language from the reference images specifically to this ${roomTypeName} space, ensuring consistency with the overall style.`
+        prompt += `\n\nIMPORTANT: Apply the visual aesthetic and design language from the reference images specifically to this ${roomTypeName} space.`
       }
       break
 
     case 'material':
-      // Phase 2: Generate close-up material images
       const materialTier = options.priceLevel || 'REGULAR'
-      const materialKeywords = materialTier === 'LUXURY'
-        ? 'Exclusive, Premium, High-end, Artisanal, Precious, Hand-crafted, Designer-grade'
-        : 'Quality, Functional, Accessible, Standard, Practical, Cost-effective, Versatile'
+      const materialKeywords =
+        materialTier === 'LUXURY'
+          ? 'Exclusive, Premium, High-end, Artisanal, Precious, Hand-crafted, Designer-grade'
+          : 'Quality, Functional, Accessible, Standard, Practical, Cost-effective, Versatile'
+
+      // Include style context if available (for Phase 2 style-specific materials)
+      const materialStyleSection = styleContext
+        ? `
+Style Context (this material is for the "${styleContext.subCategoryName}" style):
+- Design Style: ${styleContext.subCategoryName}
+- Approach: ${styleContext.approachName}
+- Color Scheme: ${styleContext.colorName} (${styleContext.colorHex})
+
+The material should:
+- Complement the ${styleContext.subCategoryName} design aesthetic
+- Work well with the ${styleContext.approachName} approach
+- Harmonize with ${styleContext.colorName} color palette
+`
+        : ''
 
       prompt = `Create a stunning, professional CLOSE-UP photograph of ${entityName.en} material.
 
 Price Tier: ${materialTier}
 Keywords: ${materialKeywords}
-
+${materialStyleSection}
 The image should:
 - EXTREME CLOSE-UP showing surface texture, grain, and finish in detail
 - Capture the tactile quality and visual character of the material
@@ -354,25 +423,40 @@ The image should:
 
 ${description?.en ? `Material Description: ${description.en}` : ''}
 
-🚫 CRITICAL CONSTRAINT: NO humans, NO furniture, NO room context - ONLY the material surface in extreme close-up detail.
+CRITICAL CONSTRAINT: NO humans, NO furniture, NO room context - ONLY the material surface in extreme close-up detail.
 
-Style: Professional macro photography, studio lighting, high resolution, material swatch documentation, architectural detail quality.`
+Style: Professional macro photography, studio lighting, high resolution, material swatch documentation.`
       break
 
     case 'texture':
-      // Phase 2: Generate texture close-up images
       const textureTier = options.priceLevel || 'REGULAR'
       const textureFinish = (options as any).finish || 'natural'
-      const textureKeywords = textureTier === 'LUXURY'
-        ? 'Sophisticated, Refined, Premium finish, Artisanal, High-quality'
-        : 'Practical, Quality, Accessible, Standard finish, Functional'
+      const textureKeywords =
+        textureTier === 'LUXURY'
+          ? 'Sophisticated, Refined, Premium finish, Artisanal, High-quality'
+          : 'Practical, Quality, Accessible, Standard finish, Functional'
+
+      // Include style context if available (for Phase 2 style-specific textures)
+      const textureStyleSection = styleContext
+        ? `
+Style Context (this texture is for the "${styleContext.subCategoryName}" style):
+- Design Style: ${styleContext.subCategoryName}
+- Approach: ${styleContext.approachName}
+- Color Scheme: ${styleContext.colorName} (${styleContext.colorHex})
+
+The texture should:
+- Be characteristic of ${styleContext.subCategoryName} design aesthetic
+- Complement the ${styleContext.approachName} approach
+- Work harmoniously with ${styleContext.colorName} color palette
+`
+        : ''
 
       prompt = `Create a stunning, professional CLOSE-UP photograph showcasing "${entityName.en}" texture with ${textureFinish} finish.
 
 Price Tier: ${textureTier}
 Finish: ${textureFinish}
 Keywords: ${textureKeywords}
-
+${textureStyleSection}
 The image should:
 - MACRO CLOSE-UP showing the texture's surface pattern and finish
 - Capture the visual and tactile character of the ${textureFinish} finish
@@ -386,13 +470,12 @@ The image should:
 
 ${description?.en ? `Texture Description: ${description.en}` : ''}
 
-🚫 CRITICAL CONSTRAINT: NO humans, NO furniture, NO room context - ONLY the texture surface in detailed close-up.
+CRITICAL CONSTRAINT: NO humans, NO furniture, NO room context - ONLY the texture surface in detailed close-up.
 
-Style: Professional texture photography, controlled lighting, high detail, material specification quality, surface documentation.`
+Style: Professional texture photography, controlled lighting, high detail, material specification quality.`
       break
 
     case 'composite':
-      // Phase 2: Generate composite images showing style essence
       prompt = `Create a stunning, artistic COMPOSITE photograph that captures the essence of "${entityName.en}" design style.
 
 This is a creative, evocative image that should:
@@ -406,22 +489,25 @@ This is a creative, evocative image that should:
 - Capture the "feel" and personality of the style in one image
 - Mix textures, fabrics, materials, small decor items artistically
 
-${styleContext ? `
+${
+  styleContext
+    ? `
 Style Context:
 - Sub-Category: ${styleContext.subCategoryName}
 - Approach: ${styleContext.approachName}
 - Primary Color: ${styleContext.colorName} (${styleContext.colorHex})
-` : ''}
+`
+    : ''
+}
 
 ${description?.en ? `Style Description: ${description.en}` : ''}
 
-🚫 CRITICAL CONSTRAINT: NO humans, NO full room views - Focus on artistic composition of materials, textures, objects, and decorative elements.
+CRITICAL CONSTRAINT: NO humans, NO full room views - Focus on artistic composition of materials, textures, objects, and decorative elements.
 
-Style: Editorial photography, styled flat-lay, artistic composition, mood board aesthetic, magazine cover quality, dramatic lighting.`
+Style: Editorial photography, styled flat-lay, artistic composition, mood board aesthetic, magazine cover quality.`
       break
 
     case 'anchor':
-      // Phase 2: Generate anchor images (hero/signature shots)
       prompt = `Create a STUNNING, ICONIC photograph that serves as the definitive visual representation of "${entityName.en}" design style.
 
 This is the HERO/ANCHOR image - the single most powerful photograph that embodies this style:
@@ -434,12 +520,16 @@ This is the HERO/ANCHOR image - the single most powerful photograph that embodie
 - Features the most photogenic and characteristic space for this style
 - Demonstrates the full impact and atmosphere of the style
 
-${styleContext ? `
+${
+  styleContext
+    ? `
 Style Context:
 - Sub-Category: ${styleContext.subCategoryName}
 - Approach: ${styleContext.approachName}
 - Primary Color: ${styleContext.colorName} (${styleContext.colorHex})
-` : ''}
+`
+    : ''
+}
 
 ${description?.en ? `Style Description: ${description.en}` : ''}
 
@@ -450,20 +540,18 @@ The image should be:
 - Emotionally resonant and aspirational
 - Technically flawless
 
-🚫 CRITICAL CONSTRAINT: NO humans - Focus on creating the most stunning, iconic interior space photograph possible.
+CRITICAL CONSTRAINT: NO humans - Focus on creating the most stunning, iconic interior space photograph possible.
 
-Style: Hero photography, architectural masterpiece, editorial excellence, portfolio showcase, award-winning composition, perfect lighting and styling.`
+Style: Hero photography, architectural masterpiece, editorial excellence, portfolio showcase.`
       break
 
     case 'category':
       prompt = `Create a stunning, professional interior design photograph that represents the "${entityName.en}" design category.`
 
-      // Add period information
       if (detailedContent?.period || period) {
         prompt += ` This category spans the period: ${detailedContent?.period || period}.`
       }
 
-      // Add introduction/description
       if (detailedContent?.introduction) {
         prompt += ` ${detailedContent.introduction}`
       } else if (detailedContent?.description) {
@@ -472,29 +560,22 @@ Style: Hero photography, architectural masterpiece, editorial excellence, portfo
         prompt += ` ${description.en}`
       }
 
-      // Add historical context
       if (detailedContent?.historicalContext) {
         prompt += ` Historical Background: ${detailedContent.historicalContext}`
       }
 
-      // Add characteristics
       if (detailedContent?.characteristics && detailedContent.characteristics.length > 0) {
-        prompt += `\n\nKey Characteristics to showcase:
-${detailedContent.characteristics.map(c => `- ${c}`).join('\n')}`
+        prompt += `\n\nKey Characteristics to showcase:\n${detailedContent.characteristics.map((c) => `- ${c}`).join('\n')}`
       }
 
-      // Add visual elements
       if (detailedContent?.visualElements && detailedContent.visualElements.length > 0) {
-        prompt += `\n\nVisual Elements to include:
-${detailedContent.visualElements.map(v => `- ${v}`).join('\n')}`
+        prompt += `\n\nVisual Elements to include:\n${detailedContent.visualElements.map((v) => `- ${v}`).join('\n')}`
       }
 
-      // Add material guidance
       if (detailedContent?.materialGuidance) {
         prompt += `\n\nMaterials & Finishes: ${detailedContent.materialGuidance}`
       }
 
-      // Add color guidance
       if (detailedContent?.colorGuidance) {
         prompt += `\n\nColor Palette: ${detailedContent.colorGuidance}`
       }
@@ -513,20 +594,18 @@ The image should:
 - Be suitable for an interior design portfolio, museum catalog, or architectural digest magazine
 - Avoid modern elements that would be anachronistic to this period
 
-🚫 CRITICAL CONSTRAINT: DO NOT include any humans, human figures, portraits, or drawings/artwork depicting humans in the image. Focus ONLY on interior design elements, architecture, furniture, materials, and decor. No people should be visible anywhere in the scene.
+CRITICAL CONSTRAINT: DO NOT include any humans, human figures, portraits, or drawings/artwork depicting humans in the image.
 
-Style: Professional interior photography, high-end, architectural digest quality, museum-quality documentation, natural lighting appropriate to the era, wide angle shot showing full room context and spatial relationships.`
+Style: Professional interior photography, high-end, architectural digest quality, museum-quality documentation.`
       break
 
     case 'subcategory':
       prompt = `Create a stunning, professional interior design photograph that represents the "${entityName.en}" design style.`
 
-      // Add period information
       if (detailedContent?.period || period) {
         prompt += ` This style is from the period: ${detailedContent?.period || period}.`
       }
 
-      // Add introduction/description
       if (detailedContent?.introduction) {
         prompt += ` ${detailedContent.introduction}`
       } else if (detailedContent?.description) {
@@ -535,47 +614,36 @@ Style: Professional interior photography, high-end, architectural digest quality
         prompt += ` ${description.en}`
       }
 
-      // Add historical context
       if (detailedContent?.historicalContext) {
         prompt += ` Historical Background: ${detailedContent.historicalContext}`
       }
 
-      // Add cultural context (important for regional styles)
       if (detailedContent?.culturalContext) {
         prompt += ` Cultural Influences: ${detailedContent.culturalContext}`
       }
 
-      // Add characteristics
       if (detailedContent?.characteristics && detailedContent.characteristics.length > 0) {
-        prompt += `\n\nKey Characteristics to showcase:
-${detailedContent.characteristics.map(c => `- ${c}`).join('\n')}`
+        prompt += `\n\nKey Characteristics to showcase:\n${detailedContent.characteristics.map((c) => `- ${c}`).join('\n')}`
       }
 
-      // Add visual elements
       if (detailedContent?.visualElements && detailedContent.visualElements.length > 0) {
-        prompt += `\n\nSignature Visual Elements to include:
-${detailedContent.visualElements.map(v => `- ${v}`).join('\n')}`
+        prompt += `\n\nSignature Visual Elements to include:\n${detailedContent.visualElements.map((v) => `- ${v}`).join('\n')}`
       }
 
-      // Add material guidance
       if (detailedContent?.materialGuidance) {
         prompt += `\n\nMaterials & Finishes: ${detailedContent.materialGuidance}`
       }
 
-      // Add color guidance
       if (detailedContent?.colorGuidance) {
         prompt += `\n\nColor Palette: ${detailedContent.colorGuidance}`
       }
 
-      // Add philosophy (important for design approaches)
       if (detailedContent?.philosophy) {
         prompt += `\n\nDesign Philosophy: ${detailedContent.philosophy}`
       }
 
-      // Add applications
       if (detailedContent?.applications && detailedContent.applications.length > 0) {
-        prompt += `\n\nTypical Applications:
-${detailedContent.applications.map(a => `- ${a}`).join('\n')}`
+        prompt += `\n\nTypical Applications:\n${detailedContent.applications.map((a) => `- ${a}`).join('\n')}`
       }
 
       prompt += `
@@ -593,9 +661,9 @@ The image should:
 - Be suitable for an interior design portfolio, style guide, or architectural digest magazine
 - Maintain period accuracy and authenticity
 
-🚫 CRITICAL CONSTRAINT: DO NOT include any humans, human figures, portraits, or drawings/artwork depicting humans in the image. Focus ONLY on interior design elements, architecture, furniture, materials, and decor. No people should be visible anywhere in the scene.
+CRITICAL CONSTRAINT: DO NOT include any humans, human figures, portraits, or drawings/artwork depicting humans in the image.
 
-Style: Professional interior photography, high-end, architectural digest quality, design magazine editorial, natural lighting that complements the style, wide angle showing full room with all characteristic ${entityName.en} elements clearly visible.`
+Style: Professional interior photography, high-end, architectural digest quality, design magazine editorial.`
       break
 
     case 'approach':
@@ -614,9 +682,9 @@ The image should:
 - Capture the essence of the ${entityName.en} approach to interior design
 - Be suitable for an interior design portfolio or magazine
 
-🚫 CRITICAL CONSTRAINT: DO NOT include any humans, human figures, portraits, or drawings/artwork depicting humans in the image. Focus ONLY on interior design elements, architecture, furniture, materials, and decor. No people should be visible anywhere in the scene.
+CRITICAL CONSTRAINT: DO NOT include any humans, human figures, portraits, or drawings/artwork depicting humans in the image.
 
-Style: Professional interior photography, high-end, architectural digest quality, natural lighting, emphasizing the ${entityName.en} design philosophy.`
+Style: Professional interior photography, high-end, architectural digest quality, emphasizing the ${entityName.en} design philosophy.`
       break
 
     case 'roomType':
@@ -634,9 +702,9 @@ The image should:
 - Show the room's functionality and aesthetic appeal
 - Be suitable for an interior design portfolio or magazine
 
-🚫 CRITICAL CONSTRAINT: DO NOT include any humans, human figures, portraits, or drawings/artwork depicting humans in the image. Focus ONLY on interior design elements, architecture, furniture, materials, and decor. No people should be visible anywhere in the scene.
+CRITICAL CONSTRAINT: DO NOT include any humans, human figures, portraits, or drawings/artwork depicting humans in the image.
 
-Style: Professional interior photography, high-end, architectural digest quality, natural lighting, showing full room layout and design.`
+Style: Professional interior photography, high-end, architectural digest quality, showing full room layout and design.`
       break
   }
 
@@ -644,105 +712,154 @@ Style: Professional interior photography, high-end, architectural digest quality
 }
 
 /**
- * Generate images using Gemini 2.5 Flash Image
+ * Retry helper with exponential backoff
  */
-export async function generateImages(options: ImageGenerationOptions): Promise<string[]> {
+async function withRetry<T>(
+  fn: () => Promise<T>,
+  maxRetries: number = 3,
+  baseDelay: number = 1000
+): Promise<T> {
+  let lastError: Error | null = null
+
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      return await fn()
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error))
+
+      if (attempt < maxRetries - 1) {
+        const delay = baseDelay * Math.pow(2, attempt)
+        console.log(`   Retry ${attempt + 1}/${maxRetries} after ${delay}ms...`)
+        await new Promise((resolve) => setTimeout(resolve, delay))
+      }
+    }
+  }
+
+  throw lastError
+}
+
+/**
+ * Generate images using Gemini 2.5 Flash Image with AI SDK telemetry
+ */
+export async function generateImages(options: ImageGenerationOptions): Promise<ImageGenerationResult> {
   const numberOfImages = options.numberOfImages || 3
   const prompt = createImagePrompt(options)
+  const operationId = generateOperationId()
+  const functionId = `image-generation-${options.entityType}`
 
-  console.log(`\n🎨 Image Generation Request:`)
+  console.log(`\n[AI-SDK] Image Generation Request:`)
   console.log(`   Entity: ${options.entityName.he} / ${options.entityName.en}`)
   console.log(`   Type: ${options.entityType}`)
   console.log(`   Images: ${numberOfImages}`)
   console.log(`   Model: ${IMAGE_MODEL}`)
-  console.log(`   Prompt: ${prompt.substring(0, 150)}...`)
+  console.log(`   Operation ID: ${operationId}`)
+
+  // Start metrics tracking
+  globalMetricsCollector.startOperation(operationId, functionId, IMAGE_MODEL)
 
   const imageDataUrls: string[] = []
 
   try {
     const model = getGenAI().getGenerativeModel({ model: IMAGE_MODEL })
 
-    // Phase 2: Fetch reference images if provided (for multi-image context)
+    // Fetch reference images if provided
     const referenceImageParts: any[] = []
     if (options.referenceImages && options.referenceImages.length > 0) {
-      console.log(`   📸 Fetching ${options.referenceImages.length} reference images...`)
+      console.log(`   Fetching ${options.referenceImages.length} reference images...`)
       for (const refUrl of options.referenceImages) {
         const imageData = await fetchImageAsBase64(refUrl)
         if (imageData) {
           referenceImageParts.push({
             inlineData: {
               mimeType: imageData.mimeType,
-              data: imageData.data
-            }
+              data: imageData.data,
+            },
           })
-          console.log(`   ✅ Reference image loaded: ${refUrl.substring(0, 60)}...`)
         }
       }
-      console.log(`   ✅ Loaded ${referenceImageParts.length} reference images`)
+      console.log(`   Loaded ${referenceImageParts.length} reference images`)
     }
 
-    // Generate images one by one (Gemini generates one image per request)
+    // Generate images one by one with retry logic
     for (let i = 0; i < numberOfImages; i++) {
-      console.log(`   🖼️  Generating image ${i + 1}/${numberOfImages}...`)
+      console.log(`   Generating image ${i + 1}/${numberOfImages}...`)
 
       try {
-        // Build parts array: reference images first, then text prompt
-        const contentParts: any[] = [
-          ...referenceImageParts,
-          { text: prompt }
-        ]
+        const imageUrl = await withRetry(async () => {
+          const contentParts: any[] = [...referenceImageParts, { text: prompt }]
 
-        const result = await model.generateContent({
-          contents: [{
-            role: 'user',
-            parts: contentParts
-          }],
-          generationConfig: {
-            temperature: 0.9,
-            topK: 40,
-            topP: 0.95,
-            responseModalities: ["IMAGE"],
-            imageConfig: {
-              aspectRatio: options.aspectRatio || '4:3',
-            }
-          } as any,
-        })
+          const result = await model.generateContent({
+            contents: [
+              {
+                role: 'user',
+                parts: contentParts,
+              },
+            ],
+            generationConfig: {
+              temperature: 0.9,
+              topK: 40,
+              topP: 0.95,
+              responseModalities: ['IMAGE'],
+              imageConfig: {
+                aspectRatio: options.aspectRatio || '4:3',
+              },
+            } as any,
+          })
 
-        const response = result.response
+          const response = result.response
 
-        // Check if the response contains image data
-        if (response.candidates && response.candidates[0]) {
-          const candidate = response.candidates[0]
+          if (response.candidates && response.candidates[0]) {
+            const candidate = response.candidates[0]
 
-          // Look for image parts in the response
-          if (candidate.content && candidate.content.parts) {
-            for (const part of candidate.content.parts) {
-              // Check if part contains inline data (image)
-              if (part.inlineData && part.inlineData.mimeType?.startsWith('image/')) {
-                // Convert base64 image data to data URL
-                const imageData = part.inlineData.data
-                const mimeType = part.inlineData.mimeType
-                const dataUrl = `data:${mimeType};base64,${imageData}`
-                imageDataUrls.push(dataUrl)
-                console.log(`   ✅ Generated image ${i + 1}/${numberOfImages} (${mimeType})`)
-                break
+            if (candidate.content && candidate.content.parts) {
+              for (const part of candidate.content.parts) {
+                if (part.inlineData && part.inlineData.mimeType?.startsWith('image/')) {
+                  const imageData = part.inlineData.data
+                  const mimeType = part.inlineData.mimeType
+                  return `data:${mimeType};base64,${imageData}`
+                }
               }
             }
           }
-        }
 
-        // Add a small delay between requests to avoid rate limiting
+          throw new Error('No image data in response')
+        })
+
+        imageDataUrls.push(imageUrl)
+        console.log(`   Generated image ${i + 1}/${numberOfImages}`)
+
+        // Add delay between requests to avoid rate limiting
         if (i < numberOfImages - 1) {
-          await new Promise(resolve => setTimeout(resolve, 2000))
+          await new Promise((resolve) => setTimeout(resolve, 2000))
         }
       } catch (error) {
-        console.error(`   ❌ Failed to generate image ${i + 1}:`, error instanceof Error ? error.message : String(error))
+        console.error(
+          `   Failed to generate image ${i + 1}:`,
+          error instanceof Error ? error.message : String(error)
+        )
         // Continue with next image even if one fails
       }
     }
 
+    // Complete metrics tracking
+    const estimatedCost = imageDataUrls.length * IMAGE_GENERATION_COST_PER_IMAGE
+    const metrics = globalMetricsCollector.completeOperation(
+      operationId,
+      {
+        promptTokens: 0, // Image generation doesn't report tokens
+        completionTokens: 0,
+        totalTokens: 0,
+      },
+      'stop'
+    )
+
+    // Override estimated cost for images
+    if (metrics) {
+      metrics.estimatedCostUsd = estimatedCost
+    }
+
     if (imageDataUrls.length === 0) {
-      console.log(`   ⚠️  No images generated with AI, falling back to placeholders`)
+      console.log(`   No images generated with AI, falling back to placeholders`)
       // Fallback to placeholders if generation failed
       for (let i = 0; i < numberOfImages; i++) {
         const encodedName = encodeURIComponent(options.entityName.en)
@@ -753,11 +870,18 @@ export async function generateImages(options: ImageGenerationOptions): Promise<s
       }
     }
 
-    console.log(`   ✅ Total images generated: ${imageDataUrls.length}`)
-    return imageDataUrls
+    console.log(`   Total images generated: ${imageDataUrls.length}`)
+    console.log(`   Estimated cost: $${estimatedCost.toFixed(4)}`)
 
+    return {
+      images: imageDataUrls,
+      metrics,
+    }
   } catch (error) {
-    console.error(`   ❌ Image generation failed:`, error instanceof Error ? error.message : String(error))
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    globalMetricsCollector.failOperation(operationId, errorMessage)
+
+    console.error(`   Image generation failed:`, errorMessage)
 
     // Return placeholders on error
     const placeholderUrls: string[] = []
@@ -769,34 +893,31 @@ export async function generateImages(options: ImageGenerationOptions): Promise<s
       )
     }
 
-    console.log(`   ⚠️  Returning ${placeholderUrls.length} placeholder URLs`)
-    return placeholderUrls
+    return {
+      images: placeholderUrls,
+      metrics: undefined,
+    }
   }
 }
 
 /**
  * Generate images and upload to GCP Storage
- * This function will:
- * 1. Generate images using Gemini AI
- * 2. Upload them to GCP Storage
- * 3. Return the GCP URLs
  */
 export async function generateAndUploadImages(
   options: ImageGenerationOptions
 ): Promise<string[]> {
   try {
-    // Generate images (returns data URLs or placeholders)
-    const imageDataUrls = await generateImages(options)
+    const result = await generateImages(options)
+    const imageDataUrls = result.images
 
     const uploadedUrls: string[] = []
 
-    // Only upload if we got real data URLs from Gemini (not placeholders)
     for (let i = 0; i < imageDataUrls.length; i++) {
       const dataUrl = imageDataUrls[i]
 
       // Check if it's a placeholder URL (skip upload)
       if (dataUrl.startsWith('https://via.placeholder.com')) {
-        console.log(`   ⏭️  Skipping placeholder upload ${i + 1}`)
+        console.log(`   Skipping placeholder upload ${i + 1}`)
         uploadedUrls.push(dataUrl)
         continue
       }
@@ -804,38 +925,32 @@ export async function generateAndUploadImages(
       // Check if it's a data URL from Gemini
       if (dataUrl.startsWith('data:image/')) {
         try {
-          console.log(`   ☁️  Uploading image ${i + 1} to GCP Storage...`)
+          console.log(`   Uploading image ${i + 1} to GCP Storage...`)
 
-          // Extract base64 data and mime type
           const matches = dataUrl.match(/^data:(image\/\w+);base64,(.+)$/)
           if (!matches) {
-            console.error(`   ❌ Invalid data URL format for image ${i + 1}`)
-            uploadedUrls.push(dataUrl) // Keep data URL as fallback
+            console.error(`   Invalid data URL format for image ${i + 1}`)
+            // Don't store base64 - use placeholder instead (MongoDB 16MB limit)
+            const encodedName = encodeURIComponent(options.entityName.en)
+            const seed = Math.floor(Math.random() * 10000)
+            uploadedUrls.push(
+              `https://via.placeholder.com/1200x800/f7f7ed/333333?text=${encodedName}+${i + 1}&seed=${seed}`
+            )
             continue
           }
 
           const mimeType = matches[1]
           const base64Data = matches[2]
-
-          // Convert base64 to buffer
           const buffer = Buffer.from(base64Data, 'base64')
 
-          // Dynamically import GCP upload function (to avoid circular dependencies)
           const { uploadImageToGCP } = await import('@/lib/storage/gcp-storage')
 
-          // Generate a filename
           const extension = mimeType.split('/')[1]
           const filename = `${options.entityName.en.toLowerCase().replace(/\s+/g, '-')}-${i + 1}.${extension}`
 
-          // Upload to GCP Storage
-          // Note: Since this is seeding, we don't have an entity ID yet
-          // We'll use 'seed' as the entityId to create a temp path
-
-          // Handle style-room type by converting to style + roomType option
           const storageEntityType = options.entityType === 'style-room' ? 'style' : options.entityType
           const uploadOptions: any = {}
 
-          // If this is a style-room image, pass the roomType to organize files
           if (options.entityType === 'style-room' && options.roomContext) {
             uploadOptions.roomType = options.roomContext.roomTypeName
           }
@@ -844,20 +959,28 @@ export async function generateAndUploadImages(
             buffer,
             mimeType,
             storageEntityType as any,
-            'seed-generated', // temp ID for seed-generated images
+            'seed-generated',
             filename,
             uploadOptions
           )
 
-          console.log(`   ✅ Uploaded image ${i + 1}: ${gcpUrl}`)
+          console.log(`   Uploaded image ${i + 1}: ${gcpUrl}`)
           uploadedUrls.push(gcpUrl)
         } catch (uploadError) {
-          console.error(`   ❌ Failed to upload image ${i + 1}:`, uploadError instanceof Error ? uploadError.message : String(uploadError))
-          // Keep data URL as fallback
-          uploadedUrls.push(dataUrl)
+          console.error(
+            `   Failed to upload image ${i + 1}:`,
+            uploadError instanceof Error ? uploadError.message : String(uploadError)
+          )
+          // CRITICAL: Don't store base64 data in MongoDB (16MB limit)
+          // Use placeholder URL instead - image can be regenerated later
+          const encodedName = encodeURIComponent(options.entityName.en)
+          const seed = Math.floor(Math.random() * 10000)
+          uploadedUrls.push(
+            `https://via.placeholder.com/1200x800/f7f7ed/333333?text=Upload+Failed+${i + 1}&seed=${seed}`
+          )
+          console.warn(`   ⚠️  Using placeholder for image ${i + 1} - base64 NOT stored (MongoDB limit)`)
         }
       } else {
-        // Unknown format, keep as is
         uploadedUrls.push(dataUrl)
       }
     }
@@ -870,7 +993,7 @@ export async function generateAndUploadImages(
 }
 
 /**
- * Batch generate images for multiple entities
+ * Batch generate images for multiple entities with telemetry
  */
 export async function batchGenerateImages<T extends { name: { he: string; en: string } }>(
   items: T[],
@@ -897,7 +1020,6 @@ export async function batchGenerateImages<T extends { name: { he: string; en: st
 
       results.set(item.name.en, imageUrls)
 
-      // Add delay between requests to avoid rate limiting
       if (i < items.length - 1 && delayMs > 0) {
         await new Promise((resolve) => setTimeout(resolve, delayMs))
       }
@@ -912,9 +1034,6 @@ export async function batchGenerateImages<T extends { name: { he: string; en: st
 
 /**
  * Generate 3 general style images with automatic variation
- * - Image 1: Wide angle room view
- * - Image 2: Detail shot of materials/textures
- * - Image 3: Furniture arrangement
  */
 export async function generateStyleImages(
   styleName: { he: string; en: string },
@@ -933,7 +1052,10 @@ export async function generateStyleImages(
   referenceImages?: string[],
   onProgress?: (current: number, total: number, type: string) => void
 ): Promise<string[]> {
-  const variations: Array<{ type: 'wide-angle' | 'detail-shot' | 'furniture-arrangement'; name: string }> = [
+  const variations: Array<{
+    type: 'wide-angle' | 'detail-shot' | 'furniture-arrangement'
+    name: string
+  }> = [
     { type: 'wide-angle', name: 'Wide Angle View' },
     { type: 'detail-shot', name: 'Detail Shot' },
     { type: 'furniture-arrangement', name: 'Furniture Arrangement' },
@@ -959,15 +1081,15 @@ export async function generateStyleImages(
 
       imageUrls.push(...urls)
 
-      // Add delay between requests
       if (i < variations.length - 1) {
-        await new Promise(resolve => setTimeout(resolve, 2000))
+        await new Promise((resolve) => setTimeout(resolve, 2000))
       }
     } catch (error) {
       console.error(`Failed to generate ${variation.name} for ${styleName.en}:`, error)
-      // Add placeholder
       const encodedName = encodeURIComponent(styleName.en)
-      imageUrls.push(`https://via.placeholder.com/1200x800/f7f7ed/333333?text=${encodedName}+${variation.name}`)
+      imageUrls.push(
+        `https://via.placeholder.com/1200x800/f7f7ed/333333?text=${encodedName}+${variation.name}`
+      )
     }
   }
 
@@ -975,7 +1097,7 @@ export async function generateStyleImages(
 }
 
 /**
- * Generate 3 room-specific images for a style in a specific room type
+ * Generate 4 room-specific images for a style in a specific room type (spatial walkthrough)
  */
 export async function generateStyleRoomImages(
   styleName: { he: string; en: string },
@@ -1010,31 +1132,31 @@ export async function generateStyleRoomImages(
         visualContext,
         referenceImages,
         variationType: orientation,
-        aspectRatio: '4:3', // STRICT aspect ratio for room spatial consistency
+        aspectRatio: '4:3',
       })
 
       if (urls.length > 0) {
         results.push({ url: urls[0], orientation })
       } else {
-        // Fallback placeholder
         const encodedName = encodeURIComponent(`${styleName.en} ${roomTypeName} ${orientation}`)
-        results.push({ 
+        results.push({
           url: `https://via.placeholder.com/1200x800/f7f7ed/333333?text=${encodedName}`,
-          orientation 
+          orientation,
         })
       }
 
-      // Add delay between requests
       if (i < orientations.length - 1) {
-        await new Promise(resolve => setTimeout(resolve, 2000))
+        await new Promise((resolve) => setTimeout(resolve, 2000))
       }
     } catch (error) {
-      console.error(`Failed to generate room image ${orientation} for ${roomTypeName} in ${styleName.en}:`, error)
-      // Add placeholder
+      console.error(
+        `Failed to generate room image ${orientation} for ${roomTypeName} in ${styleName.en}:`,
+        error
+      )
       const encodedName = encodeURIComponent(`${styleName.en} ${roomTypeName} ${orientation}`)
-      results.push({ 
+      results.push({
         url: `https://via.placeholder.com/1200x800/f7f7ed/333333?text=${encodedName}`,
-        orientation 
+        orientation,
       })
     }
   }
@@ -1042,6 +1164,10 @@ export async function generateStyleRoomImages(
   return results
 }
 
+/**
+ * Generate golden scenes with varied aspect ratios and shot types
+ * PARALLEL: Uses p-limit for concurrent generation (20 parallel requests)
+ */
 export async function generateGoldenScenes(
   styleName: { he: string; en: string },
   styleContext: {
@@ -1054,64 +1180,83 @@ export async function generateGoldenScenes(
   onProgress?: (current: number, total: number, sceneName: string) => void,
   imagesPerScene: number = 5
 ): Promise<Array<{ sceneName: string; url: string; complement?: string }>> {
-  const results: Array<{ sceneName: string; url: string; complement?: string }> = []
-  
-  // Available aspect ratios for variety
-  const aspectRatios = ['16:9', '4:3', '1:1', '3:4', '9:16']
+  const pLimit = (await import('p-limit')).default
+  const limit = pLimit(20) // 20 concurrent requests
 
-  let totalGenerated = 0
+  const aspectRatios = ['16:9', '4:3', '1:1', '3:4', '9:16']
   const totalToGenerate = scenes.length * imagesPerScene
 
+  console.log(`\n🚀 PARALLEL Golden Scenes: ${scenes.length} scenes × ${imagesPerScene} images = ${totalToGenerate} total`)
+  onProgress?.(0, totalToGenerate, 'Starting parallel generation...')
+
+  // Build all generation tasks
+  interface SceneTask {
+    scene: { name: string; promptSuffix: string; complement?: string }
+    imageIndex: number
+    aspectRatio: string
+    shotType: string
+    shotPrompt: string
+  }
+
+  const tasks: SceneTask[] = []
   for (let i = 0; i < scenes.length; i++) {
     const scene = scenes[i]
-    
     for (let j = 0; j < imagesPerScene; j++) {
-      totalGenerated++
-      onProgress?.(totalGenerated, totalToGenerate, `${scene.name} (${j + 1}/${imagesPerScene})`)
-      
-      // Cycle aspect ratios for maximum variety across the gallery
       const aspectRatio = aspectRatios[(i * imagesPerScene + j) % aspectRatios.length]
+      const shotType = j >= 2 ? 'detail' : 'general'
+      const shotPrompt = j >= 2
+        ? `Close-up detail shot of ${scene.name}, focusing on textures, materials, and intricate design elements. ${scene.promptSuffix}`
+        : scene.promptSuffix
 
-      // Determine shot type based on index
-      // 0-1: General/Wide shots
-      // 2-4: Detail/Close-up shots
-      let shotType = 'general'
-      let shotPrompt = scene.promptSuffix
-      
-      if (j >= 2) {
-        shotType = 'detail'
-        shotPrompt = `Close-up detail shot of ${scene.name}, focusing on textures, materials, and intricate design elements. ${scene.promptSuffix}`
-      }
+      tasks.push({ scene, imageIndex: j, aspectRatio, shotType, shotPrompt })
+    }
+  }
 
+  // Execute all tasks in parallel with limit
+  let completed = 0
+  const promises = tasks.map((task) =>
+    limit(async () => {
       try {
         const urls = await generateAndUploadImages({
           entityType: 'scene',
           entityName: styleName,
-          numberOfImages: 1, // Generate one at a time to vary aspect ratio
+          numberOfImages: 1,
           styleContext,
-          aspectRatio, 
+          aspectRatio: task.aspectRatio,
           sceneContext: {
-            sceneName: scene.name,
-            promptSuffix: shotPrompt,
-            complementaryColor: scene.complement
+            sceneName: task.scene.name,
+            promptSuffix: task.shotPrompt,
+            complementaryColor: task.scene.complement,
           },
-          // Pass variation type to influence prompt construction if needed
-          variationType: shotType === 'detail' ? 'detail-shot' : 'wide-angle'
+          variationType: task.shotType === 'detail' ? 'detail-shot' : 'wide-angle',
         })
 
-        if (urls.length > 0) {
-          results.push({ sceneName: scene.name, url: urls[0], complement: scene.complement })
-        }
+        completed++
+        onProgress?.(completed, totalToGenerate, `${task.scene.name} (${task.imageIndex + 1})`)
 
-        // Small delay between generations
-        if (totalGenerated < totalToGenerate) {
-          await new Promise(resolve => setTimeout(resolve, 1500))
+        if (urls.length > 0) {
+          console.log(`  ✓ ${task.scene.name} #${task.imageIndex + 1}`)
+          return { sceneName: task.scene.name, url: urls[0], complement: task.scene.complement }
         }
+        return null
       } catch (error) {
-        console.error(`Failed to generate golden scene ${scene.name} image ${j + 1}:`, error)
+        completed++
+        console.error(`  ✗ ${task.scene.name} #${task.imageIndex + 1}:`, error instanceof Error ? error.message : 'Unknown')
+        return null
       }
+    })
+  )
+
+  const results = await Promise.allSettled(promises)
+
+  // Filter successful results
+  const successfulResults: Array<{ sceneName: string; url: string; complement?: string }> = []
+  for (const result of results) {
+    if (result.status === 'fulfilled' && result.value !== null) {
+      successfulResults.push(result.value)
     }
   }
 
-  return results
+  console.log(`\n✅ Golden Scenes complete: ${successfulResults.length}/${totalToGenerate} images`)
+  return successfulResults
 }

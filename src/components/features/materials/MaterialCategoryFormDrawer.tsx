@@ -4,7 +4,12 @@
 // Barrel imports force compilation of ALL components (including heavy RichTextEditor, ImageUpload)
 // Direct imports only compile what's needed
 import { FormSection } from '@/components/ui/Form/FormSection'
-import { IconSelector } from '@/components/ui/IconSelector'
+// FIX: Lazy load IconSelector - it imports ALL Tabler icons which is very heavy
+import dynamic from 'next/dynamic'
+const IconSelector = dynamic(
+  () => import('@/components/ui/IconSelector').then((m) => m.IconSelector),
+  { ssr: false, loading: () => <div style={{ height: 40 }} /> }
+)
 import {
   useCreateMaterialCategory,
   useMaterialCategory,
@@ -115,16 +120,18 @@ export function MaterialCategoryFormDrawer({
 
   // Reset form when editData changes
   useEffect(() => {
-    if (categoryData && opened) {
-      // Use fetched data if available, otherwise use editData
+    if (opened && (categoryData || editData)) {
+      // Use fetched data if available, otherwise use editData immediately
       const data = categoryData || editData
-      reset({
-        name: data.name,
-        description: data.description || { he: '', en: '' },
-        slug: data.slug,
-        order: data.order,
-        icon: data.icon || '',
-      })
+      if (data) {
+        reset({
+          name: data.name,
+          description: data.description || { he: '', en: '' },
+          slug: data.slug,
+          order: data.order,
+          icon: data.icon || '',
+        })
+      }
     } else if (!editData && opened) {
       // Reset to empty form for create
       reset({

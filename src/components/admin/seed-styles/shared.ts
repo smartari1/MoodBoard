@@ -41,6 +41,28 @@ export const CATEGORY_OPTIONS = [
   { value: 'design-approaches', label: 'Design Approaches' },
 ]
 
+// Phase 2: Price level options
+export const PRICE_LEVEL_OPTIONS = [
+  { value: 'REGULAR', label: 'Regular', description: 'Accessible, budget-friendly materials and finishes' },
+  { value: 'LUXURY', label: 'Luxury', description: 'Premium materials, high-end finishes, exclusive brands' },
+  { value: 'RANDOM', label: 'Random', description: 'AI randomly assigns Regular or Luxury per style' },
+]
+
+export type PriceLevel = 'REGULAR' | 'LUXURY' | 'RANDOM'
+
+// Phase 2: Generation phase types for progress tracking
+export type GenerationPhase =
+  | 'ai-selection'      // AI selecting approach & color
+  | 'text-content'      // Generating hybrid content
+  | 'asset-prep'        // Pre-creating materials
+  | 'golden-scenes'     // 6 general style images
+  | 'textures'          // Texture entity generation
+  | 'materials'         // Material entity creation
+  | 'material-images'   // Material close-up photos
+  | 'special-images'    // Composite & Anchor
+  | 'room-profiles'     // Room profile content
+  | 'room-images'       // Room walkthrough images
+
 // Progress event from SSE stream
 export interface ProgressEvent {
   message: string

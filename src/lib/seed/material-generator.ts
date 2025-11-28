@@ -11,10 +11,128 @@
  */
 
 import { PrismaClient, ImageCategory } from '@prisma/client'
-import { generateAndUploadImages } from '@/lib/ai/image-generation'
+import {
+  generateAndUploadImages,
+  smartMatchMaterial,
+  MATERIAL_MATCH_CONFIG,
+  type AvailableMaterial,
+  type AvailableCategory,
+  type AvailableType,
+  type AvailableTexture,
+} from '@/lib/ai'
 import crypto from 'crypto'
 
 const prisma = new PrismaClient()
+
+// =============================================================================
+// AI Matching Context Cache
+// =============================================================================
+
+/**
+ * Cached context for AI material matching
+ * Loaded once per session to avoid repeated DB queries
+ */
+let materialMatchContext: {
+  materials: AvailableMaterial[]
+  categories: AvailableCategory[]
+  types: AvailableType[]
+  textures: AvailableTexture[]
+  loadedAt: number
+} | null = null
+
+const CONTEXT_CACHE_TTL = 5 * 60 * 1000 // 5 minutes
+
+/**
+ * Load or get cached context for AI material matching
+ */
+async function getMaterialMatchContext(): Promise<{
+  availableMaterials: AvailableMaterial[]
+  availableCategories: AvailableCategory[]
+  availableTypes: AvailableType[]
+  availableTextures: AvailableTexture[]
+}> {
+  // Check if cache is still valid
+  if (materialMatchContext && Date.now() - materialMatchContext.loadedAt < CONTEXT_CACHE_TTL) {
+    return {
+      availableMaterials: materialMatchContext.materials,
+      availableCategories: materialMatchContext.categories,
+      availableTypes: materialMatchContext.types,
+      availableTextures: materialMatchContext.textures,
+    }
+  }
+
+  console.log('   [Material Matcher] Loading context from database...')
+
+  // Load all materials
+  const materials = await prisma.material.findMany({
+    include: {
+      category: true,
+    },
+    take: 200, // Limit for prompt size
+  })
+
+  const availableMaterials: AvailableMaterial[] = materials.map(m => ({
+    id: m.id,
+    name: m.name as { he: string; en: string },
+    categoryId: m.categoryId,
+    categorySlug: m.category?.slug || '',
+    categoryName: (m.category?.name as { he: string; en: string }) || { he: '', en: '' },
+    typeId: (m.properties as any)?.typeId,
+  }))
+
+  // Load all categories
+  const categories = await prisma.materialCategory.findMany()
+  const availableCategories: AvailableCategory[] = categories.map(c => ({
+    id: c.id,
+    name: c.name as { he: string; en: string },
+    slug: c.slug,
+  }))
+
+  // Load all types
+  const types = await prisma.materialType.findMany()
+  const availableTypes: AvailableType[] = types.map(t => ({
+    id: t.id,
+    categoryId: t.categoryId,
+    name: t.name as { he: string; en: string },
+    slug: t.slug,
+  }))
+
+  // Load all textures
+  const textures = await prisma.texture.findMany({
+    take: 100, // Limit for prompt size
+  })
+  const availableTextures: AvailableTexture[] = textures.map(t => ({
+    id: t.id,
+    name: t.name as { he: string; en: string },
+  }))
+
+  // Cache the context
+  materialMatchContext = {
+    materials: availableMaterials,
+    categories: availableCategories,
+    types: availableTypes,
+    textures: availableTextures,
+    loadedAt: Date.now(),
+  }
+
+  console.log(`   [Material Matcher] Loaded: ${availableMaterials.length} materials, ${availableCategories.length} categories, ${availableTypes.length} types, ${availableTextures.length} textures`)
+
+  return {
+    availableMaterials,
+    availableCategories,
+    availableTypes,
+    availableTextures,
+  }
+}
+
+/**
+ * Clear the material match context cache
+ * Call this after bulk material operations
+ */
+export function clearMaterialMatchContextCache(): void {
+  materialMatchContext = null
+  console.log('   [Material Matcher] Context cache cleared')
+}
 
 /**
  * English to Hebrew material name translations
@@ -199,65 +317,130 @@ export interface MaterialSpec {
   nameHe?: string
   categorySlug?: string
   priceLevel?: 'REGULAR' | 'LUXURY'
+  styleContext?: string // Optional context for AI matching
+}
+
+export interface FindOrCreateMaterialOptions {
+  generateImage?: boolean
+  styleId?: string // If provided, will also create StyleMaterial link
+  useAIMatching?: boolean // Use AI for semantic matching (default: true)
 }
 
 /**
  * Find or create a Material entity
- * Deduplication: By NAME only (localized - checks both he and en)
+ * Uses AI-powered semantic matching when exact match fails
+ * Deduplication: By NAME (localized) with AI fallback for semantic matching
  */
 export async function findOrCreateMaterial(
   spec: MaterialSpec,
-  options: {
-    organizationId?: string
-    generateImage?: boolean
-    styleId?: string // If provided, will also create StyleMaterial link
-  } = {}
+  options: FindOrCreateMaterialOptions = {}
 ): Promise<string> {
-  const { name, nameHe, priceLevel = 'REGULAR' } = spec
-  const categorySlug = spec.categorySlug || inferMaterialCategory(name)
+  const { name, nameHe, priceLevel = 'REGULAR', styleContext } = spec
+  const { useAIMatching = true } = options
 
   try {
-    // Try to find existing material by NAME ONLY (deduplication by localized name)
+    // =========================================================================
+    // Step 1: Try exact match (fast, no AI)
+    // =========================================================================
     const existing = await prisma.material.findFirst({
       where: {
         OR: [
           { name: { is: { en: name } } },
           { name: { is: { he: nameHe || name } } },
-          // Also check case-insensitive contains for partial matches
-          { name: { is: { en: { contains: name, mode: 'insensitive' } } } },
+          // Case-insensitive exact match
+          { name: { is: { en: { equals: name, mode: 'insensitive' } } } },
         ]
       }
     })
 
     if (existing) {
-      console.log(`   ♻️  Reusing existing material: ${name} (ID: ${existing.id})`)
-
-      // Create StyleMaterial link if styleId provided and not already linked
-      if (options.styleId) {
-        const existingLink = await prisma.styleMaterial.findUnique({
-          where: {
-            styleId_materialId: {
-              styleId: options.styleId,
-              materialId: existing.id
-            }
-          }
-        })
-
-        if (!existingLink) {
-          await prisma.styleMaterial.create({
-            data: {
-              styleId: options.styleId,
-              materialId: existing.id,
-            }
-          })
-          console.log(`   🔗 Linked existing material to style`)
-        }
-      }
-
+      console.log(`   ♻️  Exact match: ${name} (ID: ${existing.id})`)
+      await linkMaterialToStyle(existing.id, options.styleId)
       return existing.id
     }
 
-    // Find material category
+    // =========================================================================
+    // Step 2: Use AI-powered semantic matching
+    // =========================================================================
+    if (useAIMatching) {
+      const context = await getMaterialMatchContext()
+
+      // Use the smart matcher (heuristic first, then AI)
+      const match = await smartMatchMaterial(name, context, {
+        // Add style context for better matching
+      })
+
+      // Handle LINK action
+      if (match.action === 'link' && match.matchedMaterialId) {
+        const linkedMaterial = await prisma.material.findUnique({
+          where: { id: match.matchedMaterialId }
+        })
+
+        if (linkedMaterial) {
+          console.log(`   🤖 AI matched: "${name}" → "${(linkedMaterial.name as any).en}" (${(match.confidence * 100).toFixed(0)}%)`)
+          console.log(`      Reason: ${match.reasoning}`)
+          await linkMaterialToStyle(linkedMaterial.id, options.styleId)
+          return linkedMaterial.id
+        }
+      }
+
+      // Handle CREATE action - use AI-inferred properties
+      if (match.action === 'create' && match.newMaterial) {
+        console.log(`   🤖 AI suggests creating: "${name}"`)
+        console.log(`      Reason: ${match.reasoning}`)
+
+        // Generate image if requested
+        let imageUrl: string | undefined
+        if (options.generateImage) {
+          imageUrl = await generateMaterialImage(
+            match.newMaterial.name,
+            priceLevel
+          )
+        }
+
+        // Create with AI-inferred properties
+        const material = await prisma.material.create({
+          data: {
+            sku: `AI-${crypto.randomUUID().slice(0, 8).toUpperCase()}`,
+            name: match.newMaterial.name,
+            categoryId: match.newMaterial.categoryId,
+            textureId: match.newMaterial.textureId || null,
+            isAbstract: true,
+            generationStatus: 'COMPLETED',
+            aiDescription: `AI-generated material: ${name}. ${match.reasoning}`,
+            properties: {
+              typeId: match.newMaterial.typeId, // Properly set by AI!
+              subType: match.newMaterial.subType,
+              finish: match.newMaterial.finish,
+              texture: 'AI-generated',
+              technical: { durability: 5, maintenance: 5, sustainability: 5 }
+            },
+            assets: {
+              thumbnail: imageUrl || '',
+              images: imageUrl ? [imageUrl] : []
+            }
+            // No suppliers - materials created with 0 organizations
+          }
+        })
+
+        console.log(`   ✅ Created material: ${material.id}`)
+        console.log(`      Category: ${match.newMaterial.categoryId}, Type: ${match.newMaterial.typeId}`)
+
+        await linkMaterialToStyle(material.id, options.styleId)
+
+        // Clear cache since we added a new material
+        clearMaterialMatchContextCache()
+
+        return material.id
+      }
+    }
+
+    // =========================================================================
+    // Step 3: Fallback - create with keyword-based inference (legacy)
+    // =========================================================================
+    console.log(`   ⚠️  Fallback creation for: ${name}`)
+
+    const categorySlug = spec.categorySlug || inferMaterialCategory(name)
     const materialCategory = await prisma.materialCategory.findFirst({
       where: { slug: categorySlug }
     })
@@ -268,7 +451,12 @@ export async function findOrCreateMaterial(
       throw new Error(`No material categories exist in database`)
     }
 
-    // Try to find a matching texture by name (for textureId link)
+    // Find a type in this category
+    const defaultType = await prisma.materialType.findFirst({
+      where: { categoryId: defaultCategory.id }
+    })
+
+    // Try to find a matching texture by name
     const matchingTexture = await prisma.texture.findFirst({
       where: {
         OR: [
@@ -278,56 +466,32 @@ export async function findOrCreateMaterial(
       }
     })
 
-    if (matchingTexture) {
-      console.log(`   🔗 Found matching texture: ${matchingTexture.id}`)
-    }
-
     // Generate image if requested
     let imageUrl: string | undefined
     if (options.generateImage) {
-      try {
-        console.log(`   🎨 Generating material image...`)
-        const images = await generateAndUploadImages({
-          entityType: 'material',
-          entityName: { he: nameHe || name, en: name },
-          priceLevel,
-          numberOfImages: 1,
-          aspectRatio: '1:1',
-        })
-
-        if (images.length > 0) {
-          imageUrl = images[0]
-          console.log(`   ✅ Material image generated: ${imageUrl}`)
-        }
-      } catch (error) {
-        console.error(`   ⚠️  Failed to generate material image:`, error)
-        // Continue without image
-      }
+      imageUrl = await generateMaterialImage(
+        { he: nameHe || name, en: name },
+        priceLevel
+      )
     }
 
-    // Create new Material entity (AI-generated = isAbstract: true)
-    console.log(`   ✨ Creating new material: ${name}`)
-
+    // Create new Material entity
     const material = await prisma.material.create({
       data: {
-        organizationId: options.organizationId || null,
         sku: `AI-${crypto.randomUUID().slice(0, 8).toUpperCase()}`,
-        name: { he: nameHe || name, en: name },
+        name: { he: nameHe || getMaterialNameHebrew(name), en: name },
         categoryId: defaultCategory.id,
-        textureId: matchingTexture?.id || null, // Link to matching texture
-        isAbstract: true, // Mark as AI-generated
+        textureId: matchingTexture?.id || null,
+        isAbstract: true,
         generationStatus: 'COMPLETED',
-        aiDescription: `AI-generated material: ${name}`,
+        aiDescription: `AI-generated material (fallback): ${name}`,
         properties: {
-          typeId: '',
+          typeId: defaultType?.id || '', // May still be empty if no types exist
           subType: name,
           finish: [],
           texture: 'Generated',
-          colorIds: [],
           technical: { durability: 5, maintenance: 5, sustainability: 5 }
         },
-        pricing: { cost: 0, retail: 0, unit: 'm2', currency: 'ILS', bulkDiscounts: [] },
-        availability: { inStock: false, leadTime: 0, minOrder: 0 },
         assets: {
           thumbnail: imageUrl || '',
           images: imageUrl ? [imageUrl] : []
@@ -335,66 +499,121 @@ export async function findOrCreateMaterial(
       }
     })
 
-    console.log(`   ✅ Created material: ${material.id} (category: ${defaultCategory.slug || defaultCategory.id})`)
+    console.log(`   ✅ Created material (fallback): ${material.id}`)
 
-    // Create StyleMaterial link if styleId provided
-    if (options.styleId) {
-      await prisma.styleMaterial.create({
-        data: {
-          styleId: options.styleId,
-          materialId: material.id,
-        }
-      })
-      console.log(`   🔗 Linked material to style`)
-    }
+    await linkMaterialToStyle(material.id, options.styleId)
+
+    // Clear cache
+    clearMaterialMatchContextCache()
 
     return material.id
 
   } catch (error) {
-    console.error(`❌ Error creating material:`, error)
+    console.error(`❌ Error creating material "${name}":`, error)
     throw error
   }
 }
 
 /**
+ * Helper: Link material to style if styleId provided
+ */
+async function linkMaterialToStyle(materialId: string, styleId?: string): Promise<void> {
+  if (!styleId) return
+
+  const existingLink = await prisma.styleMaterial.findUnique({
+    where: {
+      styleId_materialId: {
+        styleId,
+        materialId
+      }
+    }
+  })
+
+  if (!existingLink) {
+    await prisma.styleMaterial.create({
+      data: {
+        styleId,
+        materialId,
+      }
+    })
+    console.log(`   🔗 Linked material to style`)
+  }
+}
+
+/**
+ * Helper: Generate material image
+ */
+async function generateMaterialImage(
+  name: { he: string; en: string },
+  priceLevel: 'REGULAR' | 'LUXURY'
+): Promise<string | undefined> {
+  try {
+    console.log(`   🎨 Generating material image...`)
+    const images = await generateAndUploadImages({
+      entityType: 'material',
+      entityName: name,
+      priceLevel,
+      numberOfImages: 1,
+      aspectRatio: '1:1',
+    })
+
+    if (images.length > 0) {
+      console.log(`   ✅ Material image generated: ${images[0]}`)
+      return images[0]
+    }
+  } catch (error) {
+    console.error(`   ⚠️  Failed to generate material image:`, error)
+  }
+  return undefined
+}
+
+/**
  * Find or create multiple materials for a style
+ * Uses AI-powered semantic matching for accurate material linking
  */
 export async function findOrCreateMaterialsForStyle(
   styleId: string,
   materialNames: string[],
   options: {
-    organizationId?: string
     generateImages?: boolean
     priceLevel?: 'REGULAR' | 'LUXURY'
     maxMaterials?: number
+    useAIMatching?: boolean // Use AI for semantic matching (default: true)
+    styleContext?: string   // Optional context like "Mediterranean Rustic style"
   } = {}
 ): Promise<string[]> {
-  const { maxMaterials = 10, priceLevel = 'REGULAR' } = options
+  const { maxMaterials = 10, priceLevel = 'REGULAR', useAIMatching = true, styleContext } = options
   const materialIds: string[] = []
 
   console.log(`\n🧱 Creating materials for style ${styleId}...`)
   console.log(`   Materials to process: ${materialNames.length}`)
+  console.log(`   AI Matching: ${useAIMatching ? 'enabled' : 'disabled'}`)
+
+  // Pre-load AI matching context once for efficiency
+  if (useAIMatching) {
+    await getMaterialMatchContext()
+  }
 
   // Limit to maxMaterials
   const materialsToCreate = materialNames.slice(0, maxMaterials)
 
   for (const materialName of materialsToCreate) {
     try {
-      // Get Hebrew translation for material name
+      // Get Hebrew translation for material name (fallback only)
       const nameHe = getMaterialNameHebrew(materialName)
 
       const materialId = await findOrCreateMaterial(
-        { name: materialName, nameHe, priceLevel },
+        { name: materialName, nameHe, priceLevel, styleContext },
         {
-          organizationId: options.organizationId,
           generateImage: options.generateImages,
-          styleId, // This will create StyleMaterial link
+          styleId,
+          useAIMatching,
         }
       )
       materialIds.push(materialId)
 
-      // Add delay to avoid rate limiting
-      await new Promise(resolve => setTimeout(resolve, 1000))
+      // Add delay to avoid rate limiting (less delay with heuristic matching)
+      await new Promise(resolve => setTimeout(resolve, 500))
     } catch (error) {
       console.error(`   ⚠️  Failed to create/link material "${materialName}":`, error)
       // Continue with next material

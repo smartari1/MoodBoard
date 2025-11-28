@@ -12,24 +12,52 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 
+// Supplier pricing interface (per-supplier)
+export interface SupplierPricing {
+  cost: number
+  retail: number
+  unit: 'sqm' | 'unit' | 'linear_m'
+  currency: string
+  bulkDiscounts: Array<{
+    minQuantity: number
+    discount: number
+  }>
+}
+
+// Supplier availability interface (per-supplier)
+export interface SupplierAvailability {
+  inStock: boolean
+  leadTime: number
+  minOrder: number
+}
+
 // Supplier interface for Material ↔ Organization relationship
+// Each supplier has their own pricing, availability, and color selection
 export interface MaterialSupplier {
   id: string
   materialId: string
   organizationId: string
-  supplierSku?: string | null
-  supplierPrice?: number | null
-  isPreferred: boolean
-  notes?: string | null
   organization?: {
     id: string
     name: string
     slug: string
   }
+  supplierSku?: string | null
+  // Colors available from this supplier (from system color palette)
+  colorIds: string[]
+  // Supplier-specific pricing
+  pricing?: SupplierPricing | null
+  // Supplier-specific availability
+  availability?: SupplierAvailability | null
+  // Metadata
+  isPreferred: boolean
+  notes?: string | null
   createdAt: Date | string
   updatedAt: Date | string
 }
 
+// Material interface - base entity with shared properties
+// NOTE: pricing, availability, and colors are now per-supplier in MaterialSupplier
 export interface Material {
   id: string
   sku: string | null
@@ -39,14 +67,15 @@ export interface Material {
   }
   categoryId: string
   textureId?: string | null
-  // Suppliers (organizations) - many-to-many relationship
+  // Suppliers with their specific pricing, availability, and colors
   suppliers?: MaterialSupplier[]
+  // Shared properties (same across all suppliers)
   properties: {
     typeId: string
     subType: string
     finish: string[]
     texture: string
-    colorIds: string[]
+    // NOTE: colorIds moved to MaterialSupplier (per-supplier colors)
     dimensions?: {
       width?: number
       height?: number
@@ -61,27 +90,14 @@ export interface Material {
       waterResistance?: boolean | null
     }
   }
-  pricing: {
-    cost: number
-    retail: number
-    unit: 'sqm' | 'unit' | 'linear_m'
-    currency: string
-    bulkDiscounts: Array<{
-      minQuantity: number
-      discount: number
-    }>
-  }
-  availability: {
-    inStock: boolean
-    leadTime: number
-    minOrder: number
-  }
+  // Shared assets (same images for all suppliers)
   assets: {
     thumbnail: string
     images: string[]
     texture?: string | null
     technicalSheet?: string | null
   }
+  // NOTE: pricing and availability are now per-supplier in MaterialSupplier
   createdAt: Date | string
   updatedAt: Date | string
 }

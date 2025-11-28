@@ -3,7 +3,7 @@
  * Fetch Texture entities linked to a style via StyleTexture join table
  */
 
-import { prisma } from '@/lib/prisma'
+import { prisma } from '@/lib/db/prisma'
 import { NextRequest, NextResponse } from 'next/server'
 
 export async function GET(

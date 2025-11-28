@@ -11,7 +11,7 @@
 
 import { PrismaClient } from '@prisma/client'
 import { generateTexturesForStyle } from '../src/lib/seed/texture-generator'
-import { generateAndUploadImages } from '../src/lib/ai/image-generation'
+import { generateAndUploadImages } from '../src/lib/ai'
 
 const prisma = new PrismaClient()
 

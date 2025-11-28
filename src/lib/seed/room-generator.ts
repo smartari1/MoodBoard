@@ -9,7 +9,7 @@
  */
 
 import { PrismaClient, ImageCategory } from '@prisma/client'
-import { generateAndUploadImages } from '@/lib/ai/image-generation'
+import { generateAndUploadImages } from '@/lib/ai'
 
 const prisma = new PrismaClient()
 

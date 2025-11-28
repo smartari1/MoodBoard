@@ -4,7 +4,7 @@
  */
 
 import { PrismaClient } from '@prisma/client'
-import { generateColorDescription } from '../ai/gemini'
+import { generateColorDescription } from '../ai'
 import { COLORS_DATA, type ColorData } from './colors-data'
 
 const prisma = new PrismaClient()

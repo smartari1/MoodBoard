@@ -3,7 +3,7 @@
  * Fetch StyleImage entities for a style, optionally filtered by category
  */
 
-import { prisma } from '@/lib/prisma'
+import { prisma } from '@/lib/db/prisma'
 import { NextRequest, NextResponse } from 'next/server'
 
 export async function GET(

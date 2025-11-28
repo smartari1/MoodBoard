@@ -24,7 +24,7 @@ const storage = new Storage({
 
 const bucket = storage.bucket(GCP_BUCKET_NAME)
 
-export type EntityType = 'category' | 'subcategory' | 'style' | 'approach' | 'room' | 'material' | 'texture'
+export type EntityType = 'category' | 'subcategory' | 'style' | 'approach' | 'room' | 'material' | 'texture' | 'scene' | 'composite' | 'anchor'
 
 /**
  * Generate GCP Storage key path based on entity type and ID
@@ -104,6 +104,27 @@ export function generateStorageKey(
         return `textures/${tempId}/${uniqueFilename}`
       }
       return `textures/${entityId}/${uniqueFilename}`
+    case 'scene':
+      // Scene images are golden scene shots for a style
+      if (!entityId || entityId === '') {
+        const tempId = `temp-${timestamp}-${uuidv4().substring(0, 8)}`
+        return `styles/${tempId}/scenes/${uniqueFilename}`
+      }
+      return `styles/${entityId}/scenes/${uniqueFilename}`
+    case 'composite':
+      // Composite mood board images for a style
+      if (!entityId || entityId === '') {
+        const tempId = `temp-${timestamp}-${uuidv4().substring(0, 8)}`
+        return `styles/${tempId}/composite/${uniqueFilename}`
+      }
+      return `styles/${entityId}/composite/${uniqueFilename}`
+    case 'anchor':
+      // Anchor/hero images for a style
+      if (!entityId || entityId === '') {
+        const tempId = `temp-${timestamp}-${uuidv4().substring(0, 8)}`
+        return `styles/${tempId}/anchor/${uniqueFilename}`
+      }
+      return `styles/${entityId}/anchor/${uniqueFilename}`
     default:
       throw new Error(`Unknown entity type: ${entityType}`)
   }

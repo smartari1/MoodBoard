@@ -5,7 +5,9 @@
 
 'use client'
 
-import { MaterialList } from '@/components/features/materials'
+// FIX: Direct import instead of barrel to avoid compiling all 6 components
+// Barrel imports force compilation of heavy components like IconSelector
+import { MaterialList } from '@/components/features/materials/MaterialList'
 import { Alert, Button, Container, Stack, Text, Title } from '@mantine/core'
 import { IconInfoCircle, IconPlus } from '@tabler/icons-react'
 import { useTranslations } from 'next-intl'

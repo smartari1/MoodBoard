@@ -95,7 +95,7 @@ export function CostBreakdownTable({ breakdown }: CostBreakdownTableProps) {
               </Table.Tr>
               {breakdown.imageGeneration.generalImages.count > 0 && (
                 <Table.Tr>
-                  <Table.Td pl="xl">General Images (3 per style)</Table.Td>
+                  <Table.Td pl="xl">Golden Scenes (6 per style)</Table.Td>
                   <Table.Td style={{ textAlign: 'right' }}>
                     {breakdown.imageGeneration.generalImages.count}
                   </Table.Td>
@@ -107,9 +107,54 @@ export function CostBreakdownTable({ breakdown }: CostBreakdownTableProps) {
                   </Table.Td>
                 </Table.Tr>
               )}
+              {/* Phase 2: Texture Images */}
+              {breakdown.imageGeneration.textureImages?.count > 0 && (
+                <Table.Tr>
+                  <Table.Td pl="xl">Texture Close-ups (5 per style)</Table.Td>
+                  <Table.Td style={{ textAlign: 'right' }}>
+                    {breakdown.imageGeneration.textureImages.count}
+                  </Table.Td>
+                  <Table.Td style={{ textAlign: 'right' }}>
+                    {formatCost(breakdown.imageGeneration.textureImages.costPer)}
+                  </Table.Td>
+                  <Table.Td style={{ textAlign: 'right' }}>
+                    {formatCost(breakdown.imageGeneration.textureImages.total)}
+                  </Table.Td>
+                </Table.Tr>
+              )}
+              {/* Phase 2: Material Images */}
+              {breakdown.imageGeneration.materialImages?.count > 0 && (
+                <Table.Tr>
+                  <Table.Td pl="xl">Material Close-ups (5 per style)</Table.Td>
+                  <Table.Td style={{ textAlign: 'right' }}>
+                    {breakdown.imageGeneration.materialImages.count}
+                  </Table.Td>
+                  <Table.Td style={{ textAlign: 'right' }}>
+                    {formatCost(breakdown.imageGeneration.materialImages.costPer)}
+                  </Table.Td>
+                  <Table.Td style={{ textAlign: 'right' }}>
+                    {formatCost(breakdown.imageGeneration.materialImages.total)}
+                  </Table.Td>
+                </Table.Tr>
+              )}
+              {/* Phase 2: Special Images (Composite + Anchor) */}
+              {breakdown.imageGeneration.specialImages?.count > 0 && (
+                <Table.Tr>
+                  <Table.Td pl="xl">Special Images (Composite + Anchor)</Table.Td>
+                  <Table.Td style={{ textAlign: 'right' }}>
+                    {breakdown.imageGeneration.specialImages.count}
+                  </Table.Td>
+                  <Table.Td style={{ textAlign: 'right' }}>
+                    {formatCost(breakdown.imageGeneration.specialImages.costPer)}
+                  </Table.Td>
+                  <Table.Td style={{ textAlign: 'right' }}>
+                    {formatCost(breakdown.imageGeneration.specialImages.total)}
+                  </Table.Td>
+                </Table.Tr>
+              )}
               {breakdown.imageGeneration.roomImages.count > 0 && (
                 <Table.Tr>
-                  <Table.Td pl="xl">Room Images (24 rooms × 3 per style)</Table.Td>
+                  <Table.Td pl="xl">Room Walkthrough (24 rooms × 4 views)</Table.Td>
                   <Table.Td style={{ textAlign: 'right' }}>
                     {breakdown.imageGeneration.roomImages.count}
                   </Table.Td>

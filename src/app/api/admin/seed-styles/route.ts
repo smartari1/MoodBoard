@@ -26,6 +26,13 @@ interface SeedConfig {
   manualMode?: boolean
   approachId?: string
   colorId?: string
+  // Phase 2: Price level
+  priceLevel?: 'REGULAR' | 'LUXURY' | 'RANDOM'
+  // Phase 2: Full image generation (60 rooms + 25 materials + 15 textures)
+  phase2FullGeneration?: boolean
+  roomImageCount?: number
+  materialImageCount?: number
+  textureImageCount?: number
 }
 
 export async function POST(request: NextRequest) {
@@ -97,29 +104,36 @@ export async function POST(request: NextRequest) {
                 executedAt: new Date(),
                 executedBy: null, // TODO: Get from session when auth is ready
                 config: {
-                  limit: config.limit,
-                  categoryFilter: config.categoryFilter,
-                  subCategoryFilter: config.subCategoryFilter,
-                  generateImages: config.generateImages ?? true,
-                  generateRoomProfiles: config.generateRoomProfiles ?? true,
-                  roomTypeFilter: config.roomTypeFilter || [],
-                  dryRun: config.dryRun ?? false,
-                  manualMode: config.manualMode,
-                  approachId: config.approachId,
-                  colorId: config.colorId,
+                  set: {
+                    limit: config.limit,
+                    categoryFilter: config.categoryFilter,
+                    subCategoryFilter: config.subCategoryFilter,
+                    generateImages: config.generateImages ?? true,
+                    generateRoomProfiles: config.generateRoomProfiles ?? true,
+                    roomTypeFilter: config.roomTypeFilter || [],
+                    dryRun: config.dryRun ?? false,
+                    manualMode: config.manualMode,
+                    approachId: config.approachId,
+                    colorId: config.colorId,
+                    priceLevel: config.priceLevel || 'RANDOM', // Phase 2
+                  },
                 },
                 result: {
-                  success: false,
-                  message: 'In progress...',
+                  set: {
+                    success: false,
+                    message: 'In progress...',
+                  },
                 },
                 stats: {
-                  totalSubCategories: 0,
-                  alreadyGenerated: 0,
-                  pendingBeforeSeed: 0,
-                  created: 0,
-                  updated: 0,
-                  skipped: 0,
-                  errorsCount: 0,
+                  set: {
+                    totalSubCategories: 0,
+                    alreadyGenerated: 0,
+                    pendingBeforeSeed: 0,
+                    created: 0,
+                    updated: 0,
+                    skipped: 0,
+                    errorsCount: 0,
+                  },
                 },
                 errors: [],
                 generatedStyles: [],
@@ -146,6 +160,12 @@ export async function POST(request: NextRequest) {
                 manualMode: execution.config.manualMode,
                 approachId: execution.config.approachId,
                 colorId: execution.config.colorId,
+                priceLevel: execution.config.priceLevel || 'RANDOM', // Phase 2
+                // Phase 2: Full generation options
+                phase2FullGeneration: execution.config.phase2FullGeneration || false,
+                roomImageCount: execution.config.roomImageCount || 60,
+                materialImageCount: execution.config.materialImageCount || 25,
+                textureImageCount: execution.config.textureImageCount || 15,
               }
             : config
 
@@ -161,6 +181,7 @@ export async function POST(request: NextRequest) {
               generateRoomProfiles: effectiveConfig.generateRoomProfiles,
               roomTypeFilter: effectiveConfig.roomTypeFilter,
               dryRun: effectiveConfig.dryRun,
+              priceLevel: effectiveConfig.priceLevel || 'RANDOM', // Phase 2
             },
             executionId: String(execution.id),
             estimatedCost: Number(costBreakdown.grandTotal),
@@ -182,6 +203,12 @@ export async function POST(request: NextRequest) {
             manualMode: effectiveConfig.manualMode,
             approachId: effectiveConfig.approachId,
             colorId: effectiveConfig.colorId,
+            priceLevel: effectiveConfig.priceLevel, // Phase 2
+            // Phase 2: Full image generation options
+            phase2FullGeneration: effectiveConfig.phase2FullGeneration ?? false,
+            roomImageCount: effectiveConfig.roomImageCount ?? 60,
+            materialImageCount: effectiveConfig.materialImageCount ?? 25,
+            textureImageCount: effectiveConfig.textureImageCount ?? 15,
             onProgress: (message: string, current?: number, total?: number) => {
               sendEvent('progress', {
                 message,
