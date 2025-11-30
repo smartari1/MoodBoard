@@ -1,5 +1,24 @@
 /**
- * Phase 2: Material Generator Module
+ * @deprecated This module is deprecated. Use the E2E Material Sub-Agent instead.
+ *
+ * Import from:
+ *   import { processStyleMaterials } from '@/lib/ai'
+ *
+ * The new sub-agent consolidates all material operations:
+ * - Context loading with caching
+ * - Heuristic + AI semantic matching
+ * - Material entity creation
+ * - Image generation
+ * - StyleMaterial linking
+ * - Progress reporting and error tracking
+ *
+ * See: src/lib/ai/sub-agents/material-sub-agent.ts
+ *
+ * ============================================================================
+ * LEGACY CODE BELOW - Kept for reference only
+ * ============================================================================
+ *
+ * Phase 2: Material Generator Module (DEPRECATED)
  *
  * Generates Material database entities AND images for styles:
  * 1. Parse required materials from AI content

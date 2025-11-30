@@ -89,58 +89,6 @@ function filterGalleryItemsForStorage(items: any[], logPrefix: string = ''): any
   return validItems
 }
 
-/**
- * Pre-create material entities (deduplication by name)
- * Note: This is called BEFORE style creation, so no StyleMaterial links are created here.
- * StyleMaterial links are created later in the "Material Entity Creation" step.
- */
-async function ensureAssetsExist(
-  materialNames: string[],
-  colorNames: string[],
-  styleContext: string,
-  priceLevel: 'REGULAR' | 'LUXURY' = 'REGULAR'
-): Promise<{ materialIds: string[], colorIds: string[] }> {
-  // Import the new material generator
-  const { findOrCreateMaterial } = await import('./material-generator')
-
-  const materialIds: string[] = []
-  const colorIds: string[] = []
-
-  console.log(`\n🧱 Pre-creating material entities for: ${styleContext}`)
-
-  for (const name of materialNames) {
-    try {
-      // Use the new findOrCreateMaterial function (without styleId - no linking yet)
-      const materialId = await findOrCreateMaterial(
-        { name, priceLevel },
-        { generateImage: false } // Don't generate images here, will be done later
-      )
-      materialIds.push(materialId)
-    } catch (e) {
-      console.warn(`Failed to create/find material ${name}:`, e)
-    }
-  }
-
-  // Colors - just find existing, don't create
-  for (const colorName of colorNames) {
-    const existingColor = await prisma.color.findFirst({
-      where: {
-        OR: [
-          { name: { is: { en: { contains: colorName, mode: 'insensitive' } } } },
-          { name: { is: { he: { contains: colorName, mode: 'insensitive' } } } },
-        ]
-      }
-    })
-    if (existingColor) {
-      colorIds.push(existingColor.id)
-    }
-  }
-
-  console.log(`   ✅ Pre-created ${materialIds.length} materials, found ${colorIds.length} colors`)
-  return { materialIds, colorIds }
-}
-
-
 export interface SeedOptions {
   /**
    * Whether to skip existing entities (don't overwrite)
@@ -861,10 +809,10 @@ export async function seedStyles(
     colorId?: string
     // Phase 2: Price level control
     priceLevel?: 'REGULAR' | 'LUXURY' | 'RANDOM'
-    // Phase 2: Full image generation (60 rooms + 25 materials + 15 textures + composite + anchor)
+    // Phase 2: Full image generation (materials + textures + composite + anchor)
+    // Note: Room images are generated via roomProfiles[].views[]
     phase2FullGeneration?: boolean
     // Phase 2: Image generation counts (when phase2FullGeneration is true)
-    roomImageCount?: number // Default: 60
     materialImageCount?: number // Default: 25
     textureImageCount?: number // Default: 15
   } = {}
@@ -882,7 +830,6 @@ export async function seedStyles(
     approachId,
     colorId,
     phase2FullGeneration = false,
-    roomImageCount = 60,
     materialImageCount = 25,
     textureImageCount = 15,
   } = options
@@ -1184,16 +1131,6 @@ export async function seedStyles(
           priceLevel: stylePriceLevel // Phase 2: Pass price level
         })
 
-        // Act 2: Asset Stubbing
-        onProgress?.(
-            `   🧱 Act 2: The Asset Prep - Ensuring assets exist (Materials/Colors)...`,
-            i + 1,
-            subCatsToProcess.length
-        )
-        const matNames = (detailedContent.he as any).requiredMaterials || []
-        const colNames = (detailedContent.he as any).requiredColors || []
-        await ensureAssetsExist(matNames, colNames, styleName.en, stylePriceLevel)
-
         // Clean up AI-generated content to match Prisma schema
         // Remove any extra fields that Gemini might have added (like imagePrompt, quote, paragraph5 in poeticIntro)
         // Note: keywords is valid and optional in the schema
@@ -1378,13 +1315,13 @@ export async function seedStyles(
           subCatsToProcess.length
         )
 
-        // Phase 2: Generate textures, materials, and special images
+        // Phase 2: Generate materials, textures, and special images
+        // Note: Room images are generated via roomProfiles[].views[] (not here)
         if (options.generateImages) {
           // Check if Phase 2 Full Generation is enabled
           if (phase2FullGeneration) {
-            // Use the comprehensive Phase 2 generator
             onProgress?.(
-              `   🚀 Phase 2 Full Generation - Generating ${roomImageCount} rooms + ${materialImageCount} materials + ${textureImageCount} textures...`,
+              `   🚀 Phase 2 Full Generation - Generating ${materialImageCount} materials + ${textureImageCount} textures...`,
               i + 1,
               subCatsToProcess.length
             )
@@ -1403,23 +1340,15 @@ export async function seedStyles(
                   colorHex: selectedColor.hex,
                 },
                 visualContext,
-                roomImageCount,
                 materialImageCount,
                 textureImageCount,
                 onProgress: (msg, current, total) => {
                   onProgress?.(`   ${msg}`, i + 1, subCatsToProcess.length)
                 },
-                onRoomComplete: (roomSlug, imageCount) => {
-                  onProgress?.(
-                    `   ✅ Room ${roomSlug}: ${imageCount} images`,
-                    i + 1,
-                    subCatsToProcess.length
-                  )
-                },
               })
 
               onProgress?.(
-                `   ✅ Phase 2 Complete: ${phase2Result.totalImages} images (${phase2Result.roomImages} rooms, ${phase2Result.materialImages} materials, ${phase2Result.textureImages} textures)`,
+                `   ✅ Phase 2 Complete: ${phase2Result.totalImages} images (${phase2Result.materialImages} materials, ${phase2Result.textureImages} textures)`,
                 i + 1,
                 subCatsToProcess.length
               )
@@ -1431,121 +1360,6 @@ export async function seedStyles(
                   subCatsToProcess.length
                 )
               }
-
-              // Phase 2: Generate room profiles with embedded views
-              if (generateRoomProfiles) {
-                onProgress?.(
-                  `   🏠 Generating room profiles with embedded views...`,
-                  i + 1,
-                  subCatsToProcess.length
-                )
-
-                try {
-                  const { generatePhase2RoomViews, PHASE2_ROOM_TYPES } = await import('./phase2-image-generator')
-                  const { generateRoomProfileContent } = await import('../ai')
-
-                  // Generate room views (returns RoomViewsResult[] with roomTypeId and views)
-                  const roomViewResults = await generatePhase2RoomViews({
-                    styleName,
-                    priceLevel: stylePriceLevel,
-                    styleContext: {
-                      subCategoryName: subCategory.name.en,
-                      approachName: selectedApproach.name.en,
-                      colorName: selectedColor.name.en,
-                      colorHex: selectedColor.hex,
-                    },
-                    visualContext,
-                    referenceImages: subCategory.images || [],
-                    onProgress: (msg, current, total) => {
-                      onProgress?.(`      ${msg}`, i + 1, subCatsToProcess.length)
-                    },
-                    onRoomComplete: (roomSlug, imageCount) => {
-                      onProgress?.(
-                        `      ✅ Room ${roomSlug}: ${imageCount} views`,
-                        i + 1,
-                        subCatsToProcess.length
-                      )
-                    },
-                  })
-
-                  // Prepare AI content context
-                  const availableMaterials = await prisma.material.findMany({
-                    select: { name: true, sku: true },
-                  })
-
-                  const aiStyleContext = {
-                    name: styleName,
-                    description: {
-                      he: detailedContent.he.description,
-                      en: detailedContent.en.description,
-                    },
-                    characteristics: detailedContent.he.characteristics || [],
-                    visualElements: detailedContent.he.visualElements || [],
-                    materialGuidance: {
-                      he: detailedContent.he.materialGuidance,
-                      en: detailedContent.en.materialGuidance,
-                    },
-                    primaryColor: {
-                      name: selectedColor.name,
-                      hex: selectedColor.hex,
-                    },
-                  }
-
-                  // Generate room profiles with AI content + embedded views
-                  let roomProfilesGenerated = 0
-                  for (const roomViewResult of roomViewResults) {
-                    // Find matching room type from database
-                    const matchingDbRoomType = roomTypes.find(rt => rt.slug === roomViewResult.roomSlug)
-                    const matchingPhase2Room = PHASE2_ROOM_TYPES.find(r => r.slug === roomViewResult.roomSlug)
-
-                    if (!matchingDbRoomType || !matchingPhase2Room) {
-                      console.warn(`Room type not found: ${roomViewResult.roomSlug}`)
-                      continue
-                    }
-
-                    try {
-                      // Generate AI content for room profile
-                      const roomProfile = await generateRoomProfileContent(
-                        matchingDbRoomType,
-                        aiStyleContext,
-                        availableMaterials
-                      )
-
-                      // Convert and add views
-                      const convertedProfile = await convertRoomProfileToIds({
-                        ...roomProfile,
-                        views: roomViewResult.views,
-                      })
-
-                      // Push to style's roomProfiles
-                      style = await prisma.style.update({
-                        where: { id: style.id },
-                        data: { roomProfiles: { push: convertedProfile } },
-                      })
-
-                      roomProfilesGenerated++
-                    } catch (roomError) {
-                      console.error(`Room profile generation failed for ${roomViewResult.roomSlug}:`, roomError)
-                      result.errors.push({
-                        entity: `style:${styleSlug}:room:${roomViewResult.roomSlug}`,
-                        error: roomError instanceof Error ? roomError.message : String(roomError),
-                      })
-                    }
-                  }
-
-                  onProgress?.(
-                    `   ✅ Room profiles: ${roomProfilesGenerated}/${roomViewResults.length}`,
-                    i + 1,
-                    subCatsToProcess.length
-                  )
-                } catch (roomViewError) {
-                  onProgress?.(
-                    `   ❌ Room view generation failed: ${roomViewError instanceof Error ? roomViewError.message : String(roomViewError)}`,
-                    i + 1,
-                    subCatsToProcess.length
-                  )
-                }
-              }
             } catch (error) {
               onProgress?.(
                 `   ❌ Phase 2 generation failed: ${error instanceof Error ? error.message : String(error)}`,
@@ -1554,94 +1368,83 @@ export async function seedStyles(
               )
             }
           } else {
-            // Original Phase 2 partial generation (texture entities + material images + special images)
-            // Import Phase 2 generators
-            const { generateTexturesForStyle } = await import('./texture-generator')
-            const { generateMaterialImages } = await import('./material-generator')
+            // Original Phase 2 partial generation (sub-agents + special images)
+            // Import sub-agents and special image generator
+            const { processStyleMaterials, processStyleTextures } = await import('@/lib/ai')
             const { generateSpecialImages } = await import('./special-image-generator')
 
-            // Act 3.5: Texture Generation
+            // =========================================================================
+            // Sub-Agent: Materials E2E
+            // =========================================================================
+            onProgress?.(
+              `   🧱 Processing materials with AI sub-agent...`,
+              i + 1,
+              subCatsToProcess.length
+            )
+
+            try {
+              const materialResult = await processStyleMaterials({
+                styleId: style.id,
+                styleName,
+                detailedContent,
+                priceLevel: stylePriceLevel,
+                generateImages: true,
+                maxMaterials: 10,
+                onProgress: (msg) => onProgress?.(`      ${msg}`, i + 1, subCatsToProcess.length),
+              })
+
+              onProgress?.(
+                `   ✅ Materials: ${materialResult.stats.matched} matched, ${materialResult.stats.created} created, ${materialResult.stats.images} images`,
+                i + 1,
+                subCatsToProcess.length
+              )
+            } catch (error) {
+              onProgress?.(
+                `   ⚠️  Warning: Material sub-agent failed`,
+                i + 1,
+                subCatsToProcess.length
+              )
+            }
+
+            // =========================================================================
+            // Sub-Agent: Textures E2E
+            // =========================================================================
             if (detailedContent.en.materialGuidance) {
               onProgress?.(
-                `   🧱 Act 3.5: Texture Generation - Creating reusable texture entities...`,
+                `   🧱 Processing textures with AI sub-agent...`,
                 i + 1,
                 subCatsToProcess.length
               )
 
               try {
-                await generateTexturesForStyle(
-                  style.id,
-                  detailedContent.en.materialGuidance,
-                  stylePriceLevel,
-                  {
-                    maxTextures: 5,
-                    generateImages: true, // Generate texture close-up images
-                  }
-                )
-              } catch (error) {
-                onProgress?.(
-                  `   ⚠️  Warning: Texture generation failed`,
-                  i + 1,
-                  subCatsToProcess.length
-                )
-              }
-            }
-
-            // Act 3.55: Material Entity Creation & Style Links
-            if (detailedContent.en.requiredMaterials && detailedContent.en.requiredMaterials.length > 0) {
-              onProgress?.(
-                `   🧱 Act 3.55: Material Entities - Creating materials & linking to style...`,
-                i + 1,
-                subCatsToProcess.length
-              )
-
-              try {
-                const { findOrCreateMaterialsForStyle } = await import('./material-generator')
-                await findOrCreateMaterialsForStyle(
-                  style.id,
-                  detailedContent.en.requiredMaterials,
-                  {
-                    priceLevel: stylePriceLevel,
-                    generateImages: true, // Generate material images
-                    maxMaterials: 10,
-                  }
-                )
-              } catch (error) {
-                onProgress?.(
-                  `   ⚠️  Warning: Material entity creation failed`,
-                  i + 1,
-                  subCatsToProcess.length
-                )
-              }
-            }
-
-            // Act 3.6: Material Close-Up Images (StyleImage records)
-            if (detailedContent.en.requiredMaterials && detailedContent.en.requiredMaterials.length > 0) {
-              onProgress?.(
-                `   🔬 Act 3.6: Material Images - Generating close-up material photos...`,
-                i + 1,
-                subCatsToProcess.length
-              )
-
-              try {
-                await generateMaterialImages({
+                const textureResult = await processStyleTextures({
                   styleId: style.id,
                   styleName,
-                  requiredMaterials: detailedContent.en.requiredMaterials,
+                  materialGuidance: detailedContent.en.materialGuidance,
                   priceLevel: stylePriceLevel,
-                  maxImages: 5,
-                  tags: [styleSlug],
+                  generateImages: true,
+                  maxTextures: 5,
+                  styleContext: styleName.en,
+                  onProgress: (msg) => onProgress?.(`      ${msg}`, i + 1, subCatsToProcess.length),
                 })
+
+                onProgress?.(
+                  `   ✅ Textures: ${textureResult.stats.matched} matched, ${textureResult.stats.created} created, ${textureResult.stats.images} images`,
+                  i + 1,
+                  subCatsToProcess.length
+                )
               } catch (error) {
                 onProgress?.(
-                  `   ⚠️  Warning: Material image generation failed`,
+                  `   ⚠️  Warning: Texture sub-agent failed`,
                   i + 1,
                   subCatsToProcess.length
                 )
               }
             }
 
-            // Act 3.7: Special Images (Composite & Anchor)
+            // =========================================================================
+            // Special Images (Composite & Anchor)
+            // =========================================================================
             onProgress?.(
               `   ✨ Act 3.7: Special Images - Creating composite and anchor shots...`,
               i + 1,
@@ -1667,6 +1470,124 @@ export async function seedStyles(
             } catch (error) {
               onProgress?.(
                 `   ⚠️  Warning: Special image generation failed`,
+                i + 1,
+                subCatsToProcess.length
+              )
+            }
+          }
+
+          // =========================================================================
+          // Room Profiles Generation (independent of phase2FullGeneration)
+          // This runs when generateRoomProfiles = true, regardless of Phase 2 mode
+          // =========================================================================
+          if (generateRoomProfiles) {
+            onProgress?.(
+              `   🏠 Generating room profiles with embedded views...`,
+              i + 1,
+              subCatsToProcess.length
+            )
+
+            try {
+              const { generatePhase2RoomViews, PHASE2_ROOM_TYPES } = await import('./phase2-image-generator')
+              const { generateRoomProfileContent } = await import('../ai')
+
+              // Generate room views (returns RoomViewsResult[] with roomTypeId and views)
+              const roomViewResults = await generatePhase2RoomViews({
+                styleName,
+                priceLevel: stylePriceLevel,
+                styleContext: {
+                  subCategoryName: subCategory.name.en,
+                  approachName: selectedApproach.name.en,
+                  colorName: selectedColor.name.en,
+                  colorHex: selectedColor.hex,
+                },
+                visualContext,
+                referenceImages: subCategory.images || [],
+                onProgress: (msg, current, total) => {
+                  onProgress?.(`      ${msg}`, i + 1, subCatsToProcess.length)
+                },
+                onRoomComplete: (roomSlug, imageCount) => {
+                  onProgress?.(
+                    `      ✅ Room ${roomSlug}: ${imageCount} views`,
+                    i + 1,
+                    subCatsToProcess.length
+                  )
+                },
+              })
+
+              // Prepare AI content context
+              const availableMaterials = await prisma.material.findMany({
+                select: { name: true, sku: true },
+              })
+
+              const aiStyleContext = {
+                name: styleName,
+                description: {
+                  he: detailedContent.he.description,
+                  en: detailedContent.en.description,
+                },
+                characteristics: detailedContent.he.characteristics || [],
+                visualElements: detailedContent.he.visualElements || [],
+                materialGuidance: {
+                  he: detailedContent.he.materialGuidance,
+                  en: detailedContent.en.materialGuidance,
+                },
+                primaryColor: {
+                  name: selectedColor.name,
+                  hex: selectedColor.hex,
+                },
+              }
+
+              // Generate room profiles with AI content + embedded views
+              let roomProfilesGenerated = 0
+              for (const roomViewResult of roomViewResults) {
+                // Find matching room type from database
+                const matchingDbRoomType = roomTypes.find(rt => rt.slug === roomViewResult.roomSlug)
+                const matchingPhase2Room = PHASE2_ROOM_TYPES.find(r => r.slug === roomViewResult.roomSlug)
+
+                if (!matchingDbRoomType || !matchingPhase2Room) {
+                  console.warn(`Room type not found: ${roomViewResult.roomSlug}`)
+                  continue
+                }
+
+                try {
+                  // Generate AI content for room profile
+                  const roomProfile = await generateRoomProfileContent(
+                    matchingDbRoomType,
+                    aiStyleContext,
+                    availableMaterials
+                  )
+
+                  // Convert and add views
+                  const convertedProfile = await convertRoomProfileToIds({
+                    ...roomProfile,
+                    views: roomViewResult.views,
+                  })
+
+                  // Push to style's roomProfiles
+                  style = await prisma.style.update({
+                    where: { id: style.id },
+                    data: { roomProfiles: { push: convertedProfile } },
+                  })
+
+                  roomProfilesGenerated++
+                } catch (roomError) {
+                  console.error(`Room profile generation failed for ${roomViewResult.roomSlug}:`, roomError)
+                  result.errors.push({
+                    entity: `style:${styleSlug}:room:${roomViewResult.roomSlug}`,
+                    error: roomError instanceof Error ? roomError.message : String(roomError),
+                  })
+                }
+              }
+
+              onProgress?.(
+                `   ✅ Room profiles: ${roomProfilesGenerated}/${roomViewResults.length}`,
+                i + 1,
+                subCatsToProcess.length
+              )
+            } catch (roomViewError) {
+              onProgress?.(
+                `   ❌ Room view generation failed: ${roomViewError instanceof Error ? roomViewError.message : String(roomViewError)}`,
                 i + 1,
                 subCatsToProcess.length
               )

@@ -146,18 +146,25 @@ export function ProgressDisplay({
           </Paper>
         )}
 
-        <ScrollArea h={300} type="auto">
-          <Timeline active={progress.length} bulletSize={20}>
-            {progress.slice(-20).map((p, idx) => (
-              <Timeline.Item key={idx} title={p.message}>
-                <Text size="xs" c="dimmed">
-                  {new Date(p.timestamp).toLocaleTimeString()}
-                  {p.percentage !== undefined && ` • ${p.percentage}%`}
-                </Text>
-              </Timeline.Item>
-            ))}
-          </Timeline>
-        </ScrollArea>
+        {/* Progress Log - Full scrollable history */}
+        <Paper withBorder p="sm">
+          <Group justify="space-between" mb="xs">
+            <Text fw={600} size="sm">Progress Log</Text>
+            <Badge size="xs" variant="light">{progress.length} messages</Badge>
+          </Group>
+          <ScrollArea h={400} type="always" scrollbarSize={10} offsetScrollbars>
+            <Timeline active={progress.length} bulletSize={20}>
+              {progress.map((p, idx) => (
+                <Timeline.Item key={idx} title={p.message}>
+                  <Text size="xs" c="dimmed">
+                    {new Date(p.timestamp).toLocaleTimeString()}
+                    {p.percentage !== undefined && ` • ${p.percentage}%`}
+                  </Text>
+                </Timeline.Item>
+              ))}
+            </Timeline>
+          </ScrollArea>
+        </Paper>
       </Stack>
     </Paper>
   )

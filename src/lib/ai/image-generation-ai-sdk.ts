@@ -306,19 +306,45 @@ Style: Professional interior photography, wide angle, high-end, architectural di
     case 'style-room':
       const { roomTypeName, styleName: rStyleName, colorHex: roomColorHex } = roomContext!
 
+      // Enhanced view prompts with specific camera positions and composition guidance
+      // to ensure visually distinct images for each of the 4 room directions
       let viewPrompt = ''
       if (variationType === 'main') {
-        viewPrompt = 'Main view entering the room, showing the focal point.'
+        viewPrompt = `CAMERA POSITION: Standing at room entrance doorway, eye-level perspective (5-6ft high), facing into the room.
+COMPOSITION: Full room depth visible, centered on the primary focal point (main seating area, bed, dining table, or key fixture).
+MUST INCLUDE: The room's main functional zone, feature wall if present, primary lighting fixture, and how natural light enters.
+PERSPECTIVE: 35mm lens equivalent, natural human viewing angle as if just entering the room.
+DISTINCTIVE ELEMENT: This is the "hero shot" - show the room's most impressive design statement.`
       } else if (variationType === 'opposite') {
-        viewPrompt = 'Reverse angle view, looking back towards the entrance or opposite wall.'
+        viewPrompt = `CAMERA POSITION: Standing at the far wall of the room, looking back toward the entrance door.
+COMPOSITION: The entrance door/doorway MUST be visible in frame, showing the reverse view of the room layout.
+MUST INCLUDE: Entry area details, any console/entry furniture, how the room flows from entrance, windows on side walls.
+PERSPECTIVE: Show what someone sees when standing at the far end looking back - the "departure view".
+DISTINCTIVE ELEMENT: Entrance door visible, reverse perspective of the main view, showcasing the back-of-room design.`
       } else if (variationType === 'detail-left') {
-        viewPrompt = 'Detail view of left side, focusing on furniture arrangement and accessories.'
+        viewPrompt = `CAMERA POSITION: Close-up detail shot focusing on the left portion of the room.
+COMPOSITION: Intimate detail view, not the full room. Focus on a furniture vignette or design moment.
+MUST INCLUDE: Specific furniture arrangement, decorative accessories, material textures up close.
+PERSPECTIVE: Closer lens (50-85mm equivalent), showing craftsmanship and material quality.
+DISTINCTIVE ELEMENT: Detail-oriented, showcasing the design finesse on the left side.`
       } else if (variationType === 'detail-right') {
-        viewPrompt = 'Detail view of right side, focusing on furniture arrangement and accessories.'
+        viewPrompt = `CAMERA POSITION: Close-up detail shot focusing on the right portion of the room.
+COMPOSITION: Intimate detail view, not the full room. Focus on a furniture vignette or design moment.
+MUST INCLUDE: Specific furniture arrangement, decorative accessories, material textures up close.
+PERSPECTIVE: Closer lens (50-85mm equivalent), showing craftsmanship and material quality.
+DISTINCTIVE ELEMENT: Detail-oriented, showcasing the design finesse on the right side.`
       } else if (variationType === 'left') {
-        viewPrompt = 'View towards the left wall, showing side details.'
+        viewPrompt = `CAMERA POSITION: Standing at room center, camera rotated 90 degrees LEFT from the main entrance view.
+COMPOSITION: The LEFT WALL is the primary subject, showing that entire wall and its adjacent corners.
+MUST INCLUDE: Left wall design, any windows on the left, side furniture grouping, wall art/shelving, corner transitions.
+PERSPECTIVE: 35-50mm lens, capturing the left third of the room as if turning left from center.
+DISTINCTIVE ELEMENT: This wall should look DIFFERENT from main view - show a completely different section of the room.`
       } else if (variationType === 'right') {
-        viewPrompt = 'View towards the right wall, showing side details.'
+        viewPrompt = `CAMERA POSITION: Standing at room center, camera rotated 90 degrees RIGHT from the main entrance view.
+COMPOSITION: The RIGHT WALL is the primary subject, showing that entire wall and its adjacent corners.
+MUST INCLUDE: Right wall design, any windows on the right, secondary seating/storage, accent pieces, corner transitions.
+PERSPECTIVE: 35-50mm lens, capturing the right third of the room as if turning right from center.
+DISTINCTIVE ELEMENT: This wall should look DIFFERENT from main view - show a completely different section of the room.`
       }
 
       // Build complete style context section

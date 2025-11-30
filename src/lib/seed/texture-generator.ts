@@ -1,5 +1,25 @@
 /**
- * Phase 2: Texture Generator Module
+ * @deprecated This module is deprecated. Use the E2E Texture Sub-Agent instead.
+ *
+ * Import from:
+ *   import { processStyleTextures } from '@/lib/ai'
+ *
+ * The new sub-agent consolidates all texture operations:
+ * - Material guidance parsing
+ * - Context loading with caching
+ * - Heuristic + AI semantic matching
+ * - Texture entity creation
+ * - Image generation
+ * - StyleTexture linking
+ * - Progress reporting and error tracking
+ *
+ * See: src/lib/ai/sub-agents/texture-sub-agent.ts
+ *
+ * ============================================================================
+ * LEGACY CODE BELOW - Kept for reference only
+ * ============================================================================
+ *
+ * Phase 2: Texture Generator Module (DEPRECATED)
  *
  * Generates and manages texture entities during style generation:
  * 1. Parse material guidance from AI content

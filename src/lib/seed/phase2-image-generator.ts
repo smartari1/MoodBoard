@@ -173,12 +173,11 @@ export interface Phase2GenerationOptions {
     colorGuidance?: string
   }
   // Generation limits (default to full Phase 2 counts)
-  roomImageCount?: number // Default: 60 (15 rooms × 4 views)
+  // Note: Room images are generated via generatePhase2RoomViews() → roomProfiles[].views[]
   materialImageCount?: number // Default: 25
   textureImageCount?: number // Default: 15
   // Callbacks
   onProgress?: (message: string, current?: number, total?: number) => void
-  onRoomComplete?: (roomSlug: string, imageCount: number) => void
 }
 
 export interface Phase2GenerationResult {
@@ -230,15 +229,13 @@ export async function generatePhase2Images(
     priceLevel,
     styleContext,
     visualContext,
-    roomImageCount = 60,
     materialImageCount = 25,
     textureImageCount = 15,
     onProgress,
-    onRoomComplete,
   } = options
 
   const result: Phase2GenerationResult = {
-    roomImages: 0,
+    roomImages: 0, // Always 0 - rooms handled by generatePhase2RoomViews()
     materialImages: 0,
     textureImages: 0,
     compositeImage: false,
@@ -250,38 +247,14 @@ export async function generatePhase2Images(
   console.log(`\n${'='.repeat(60)}`)
   console.log(`Phase 2 Image Generation: ${styleName.en}`)
   console.log(`Price Level: ${priceLevel}`)
-  console.log(`Target: ${roomImageCount} rooms + ${materialImageCount} materials + ${textureImageCount} textures`)
+  console.log(`Target: ${materialImageCount} materials + ${textureImageCount} textures + composite + anchor`)
+  console.log(`Note: Room images generated separately via roomProfiles[].views[]`)
   console.log(`${'='.repeat(60)}\n`)
 
   // ========================================
-  // Step 1: Generate Room Overview Images
+  // Step 1: Generate Material Images
   // ========================================
-  onProgress?.(`Step 1/5: Generating ${roomImageCount} room images...`, 0, roomImageCount)
-
-  try {
-    const roomResult = await generateRoomOverviewImages({
-      styleId,
-      styleName,
-      priceLevel,
-      styleContext,
-      visualContext,
-      targetCount: roomImageCount,
-      onProgress: (msg, current, total) => {
-        onProgress?.(`[Rooms] ${msg}`, current, total)
-      },
-      onRoomComplete,
-    })
-    result.roomImages = roomResult.count
-  } catch (error) {
-    const errorMsg = `Room generation failed: ${error instanceof Error ? error.message : String(error)}`
-    result.errors.push(errorMsg)
-    console.error(errorMsg)
-  }
-
-  // ========================================
-  // Step 2: Generate Material Images
-  // ========================================
-  onProgress?.(`Step 2/5: Generating ${materialImageCount} material images...`, 0, materialImageCount)
+  onProgress?.(`Step 1/4: Generating ${materialImageCount} material images...`, 0, materialImageCount)
 
   try {
     const materialResult = await generateMaterialStyleImages({
@@ -302,9 +275,9 @@ export async function generatePhase2Images(
   }
 
   // ========================================
-  // Step 3: Generate Texture Images
+  // Step 2: Generate Texture Images
   // ========================================
-  onProgress?.(`Step 3/5: Generating ${textureImageCount} texture images...`, 0, textureImageCount)
+  onProgress?.(`Step 2/4: Generating ${textureImageCount} texture images...`, 0, textureImageCount)
 
   try {
     const textureResult = await generateTextureStyleImages({
@@ -325,9 +298,9 @@ export async function generatePhase2Images(
   }
 
   // ========================================
-  // Steps 4-5: Generate Composite + Anchor in Parallel
+  // Steps 3-4: Generate Composite + Anchor in Parallel
   // ========================================
-  onProgress?.(`Steps 4-5: Generating composite + anchor in parallel...`)
+  onProgress?.(`Steps 3-4: Generating composite + anchor in parallel...`)
   console.log(`\n🚀 PARALLEL Special Images: Composite + Anchor`)
 
   const specialImageOptions = { styleId, styleName, priceLevel, styleContext }
@@ -365,7 +338,7 @@ export async function generatePhase2Images(
 
   console.log(`\n${'='.repeat(60)}`)
   console.log(`Phase 2 Generation Complete: ${styleName.en}`)
-  console.log(`Room Images: ${result.roomImages}/${roomImageCount}`)
+  console.log(`Room Images: (via generatePhase2RoomViews → roomProfiles[].views[])`)
   console.log(`Material Images: ${result.materialImages}/${materialImageCount}`)
   console.log(`Texture Images: ${result.textureImages}/${textureImageCount}`)
   console.log(`Composite: ${result.compositeImage ? 'Yes' : 'No'}`)
@@ -407,7 +380,12 @@ export interface RoomViewsGenerationOptions {
 
 /**
  * Generate room views for roomProfiles[].views[]
- * This is the new unified approach that replaces both Act 4 and Phase 2 room StyleImage generation
+ * This is the unified approach using PARALLEL WAVE-BASED generation
+ *
+ * Wave 1: All main views (15 rooms in parallel)
+ * Wave 2: All opposite views (15 rooms in parallel, with main as reference)
+ * Wave 3: All left views (15 rooms in parallel, with main as reference)
+ * Wave 4: All right views (15 rooms in parallel, with main as reference)
  *
  * @returns Array of RoomViewsResult, one per room type, containing 4 views each
  */
@@ -425,185 +403,39 @@ export async function generatePhase2RoomViews(
     onRoomComplete,
   } = options
 
-  const results: RoomViewsResult[] = []
   const totalImages = roomTypes.length * ROOM_VIEW_TYPES.length
 
   console.log(`\n${'='.repeat(60)}`)
-  console.log(`Room Views Generation: ${styleName.en}`)
+  console.log(`🚀 PARALLEL Room Views Generation: ${styleName.en}`)
   console.log(`Rooms: ${roomTypes.length} × Views: ${ROOM_VIEW_TYPES.length} = ${totalImages} images`)
+  console.log(`Concurrency: ${CONCURRENCY_LIMIT} parallel requests per wave`)
   console.log(`${'='.repeat(60)}\n`)
 
   // Get room type IDs from database
   const roomTypeMap = await ensureRoomTypesExist(roomTypes)
 
-  // Store reference images for each room (first view becomes reference for subsequent views)
+  // Store reference images for each room (main view becomes reference for subsequent views)
   const roomReferenceImages: Record<string, string> = {}
+
+  // Store all views organized by room slug
+  const roomViewsMap: Record<string, RoomView[]> = {}
+  roomTypes.forEach(room => {
+    roomViewsMap[room.slug] = []
+  })
+
   let generatedCount = 0
 
-  // Process each room type
-  for (let roomIndex = 0; roomIndex < roomTypes.length; roomIndex++) {
-    const room = roomTypes[roomIndex]
-    const roomTypeId = roomTypeMap.get(room.slug) || ''
-    const roomViews: RoomView[] = []
-
-    console.log(`\n🏠 Room ${roomIndex + 1}/${roomTypes.length}: ${room.name.en}`)
-
-    // Generate 4 views for this room
-    for (let viewIndex = 0; viewIndex < ROOM_VIEW_TYPES.length; viewIndex++) {
-      const view = ROOM_VIEW_TYPES[viewIndex]
-
-      // Use first view of this room as reference for subsequent views
-      const roomRef = roomReferenceImages[room.slug]
-      // Also include sub-category reference images if provided
-      const allReferenceImages = [
-        ...(roomRef ? [roomRef] : []),
-        ...(viewIndex === 0 ? referenceImages : []), // Only use sub-category refs for first view
-      ].filter(Boolean)
-
-      try {
-        onProgress?.(`${room.name.en} - ${view.name}`, generatedCount, totalImages)
-
-        const imageUrls = await generateAndUploadImages({
-          entityType: 'style-room',
-          entityName: styleName,
-          numberOfImages: 1,
-          roomContext: {
-            roomTypeName: room.name.en,
-            styleName: styleName.en,
-            colorHex: styleContext.colorHex,
-          },
-          styleContext,
-          visualContext,
-          variationType: view.type as any,
-          aspectRatio: view.aspectRatio,
-          priceLevel,
-          referenceImages: allReferenceImages.length > 0 ? allReferenceImages : undefined,
-        })
-
-        if (imageUrls.length > 0) {
-          const url = imageUrls[0]
-
-          // Store first view as reference for this room
-          if (viewIndex === 0) {
-            roomReferenceImages[room.slug] = url
-          }
-
-          // Create RoomView object
-          const roomView: RoomView = {
-            id: crypto.randomUUID(),
-            url,
-            orientation: view.orientation,
-            status: 'COMPLETED',
-            createdAt: new Date(),
-          }
-
-          roomViews.push(roomView)
-          generatedCount++
-          console.log(`   ✓ ${view.name}${allReferenceImages.length > 0 ? ' [ref]' : ''}`)
-        } else {
-          console.log(`   ✗ ${view.name} - no URL returned`)
-        }
-      } catch (error) {
-        console.error(`   ✗ ${view.name}: ${error instanceof Error ? error.message : 'Unknown'}`)
-      }
-
-      // Small delay between views (if not last view)
-      if (viewIndex < ROOM_VIEW_TYPES.length - 1) {
-        await delay(1000)
-      }
-    }
-
-    // Add result for this room
-    results.push({
-      roomTypeId,
-      roomSlug: room.slug,
-      views: roomViews,
-    })
-
-    onRoomComplete?.(room.slug, roomViews.length)
-    console.log(`   ✅ ${roomViews.length}/${ROOM_VIEW_TYPES.length} views generated`)
-
-    // Delay between rooms
-    if (roomIndex < roomTypes.length - 1) {
-      await delay(2000)
-    }
-  }
-
-  const totalGenerated = results.reduce((sum, r) => sum + r.views.length, 0)
-  console.log(`\n${'='.repeat(60)}`)
-  console.log(`Room Views Generation Complete: ${totalGenerated}/${totalImages} images`)
-  console.log(`${'='.repeat(60)}\n`)
-
-  return results
-}
-
-// ============================================
-// Room Overview Generation (Legacy - for StyleImage)
-// ============================================
-
-interface RoomGenerationOptions {
-  styleId: string
-  styleName: { he: string; en: string }
-  priceLevel: PriceLevel
-  styleContext: {
-    subCategoryName: string
-    approachName: string
-    colorName: string
-    colorHex: string
-  }
-  visualContext?: {
-    characteristics?: string[]
-    visualElements?: string[]
-    materialGuidance?: string
-    colorGuidance?: string
-  }
-  targetCount: number
-  onProgress?: (message: string, current: number, total: number) => void
-  onRoomComplete?: (roomSlug: string, imageCount: number) => void
-}
-
-async function generateRoomOverviewImages(
-  options: RoomGenerationOptions
-): Promise<{ count: number; byRoom: Map<string, number> }> {
-  const {
-    styleId,
-    styleName,
-    priceLevel,
-    styleContext,
-    visualContext,
-    targetCount,
-    onProgress,
-    onRoomComplete,
-  } = options
-
-  const byRoom = new Map<string, number>()
-  let totalGenerated = 0
-
-  // Calculate how many rooms and views we need
-  // Default: 15 rooms × 4 views = 60 images
-  const roomsNeeded = Math.ceil(targetCount / ROOM_VIEW_TYPES.length)
-  const roomsToGenerate = PHASE2_ROOM_TYPES.slice(0, roomsNeeded)
-  const totalImages = roomsToGenerate.length * ROOM_VIEW_TYPES.length
-
-  console.log(`\n🚀 PARALLEL Room Generation: ${roomsToGenerate.length} rooms × ${ROOM_VIEW_TYPES.length} views = ${totalImages} target images`)
-  console.log(`   Concurrency: ${CONCURRENCY_LIMIT} parallel requests`)
-
-  // First, get or create RoomType records
-  const roomTypeMap = await ensureRoomTypesExist(roomsToGenerate)
-
-  // Store reference images for each room (first view becomes reference for subsequent views)
-  const roomReferenceImages: Record<string, string> = {}
-
   // ========================================
-  // WAVE 1: Generate first view of all rooms in parallel
+  // WAVE 1: Generate MAIN views for all rooms in parallel
   // ========================================
   const firstView = ROOM_VIEW_TYPES[0]
-  console.log(`\n📸 Wave 1/${ROOM_VIEW_TYPES.length}: Generating "${firstView.name}" for all ${roomsToGenerate.length} rooms in parallel...`)
-  onProgress?.(`Wave 1: ${firstView.name} (all rooms)`, 0, totalImages)
+  console.log(`\n📸 Wave 1/${ROOM_VIEW_TYPES.length}: Generating "${firstView.name}" for all ${roomTypes.length} rooms in parallel...`)
+  onProgress?.(`Wave 1/4: ${firstView.name} (all rooms)`, 0, totalImages)
 
-  const wave1Promises = roomsToGenerate.map((room, roomIndex) =>
+  const wave1Promises = roomTypes.map((room) =>
     limit(async () => {
       try {
+        // For first view, use sub-category reference images if provided
         const imageUrls = await generateAndUploadImages({
           entityType: 'style-room',
           entityName: styleName,
@@ -618,27 +450,15 @@ async function generateRoomOverviewImages(
           variationType: firstView.type as any,
           aspectRatio: firstView.aspectRatio,
           priceLevel,
+          referenceImages: referenceImages.length > 0 ? referenceImages : undefined,
         })
 
         if (imageUrls.length > 0) {
           const url = imageUrls[0]
-
-          // Save StyleImage record
-          await prisma.styleImage.create({
-            data: {
-              styleId,
-              url,
-              imageCategory: 'ROOM_OVERVIEW',
-              displayOrder: roomIndex * ROOM_VIEW_TYPES.length + 1,
-              description: `${room.name.en} - ${firstView.name}`,
-              tags: [room.slug, firstView.type, priceLevel.toLowerCase(), styleContext.subCategoryName.toLowerCase()],
-              roomType: room.slug,
-            },
-          })
-
           console.log(`    ✓ ${room.name.en} (${firstView.name})`)
           return { roomSlug: room.slug, url, success: true }
         }
+        console.log(`    ✗ ${room.name.en} (${firstView.name}) - no URL`)
         return { roomSlug: room.slug, url: null, success: false }
       } catch (error) {
         console.error(`    ✗ ${room.name.en} (${firstView.name}): ${error instanceof Error ? error.message : 'Unknown'}`)
@@ -649,29 +469,38 @@ async function generateRoomOverviewImages(
 
   const wave1Results = await Promise.allSettled(wave1Promises)
 
-  // Store successful first views as reference images
+  // Store main views as references and add to roomViewsMap
   wave1Results.forEach((result) => {
     if (result.status === 'fulfilled' && result.value.success && result.value.url) {
-      roomReferenceImages[result.value.roomSlug] = result.value.url
-      totalGenerated++
-      const currentCount = byRoom.get(result.value.roomSlug) || 0
-      byRoom.set(result.value.roomSlug, currentCount + 1)
+      const { roomSlug, url } = result.value
+      roomReferenceImages[roomSlug] = url
+
+      const roomView: RoomView = {
+        id: crypto.randomUUID(),
+        url,
+        orientation: firstView.orientation,
+        status: 'COMPLETED',
+        createdAt: new Date(),
+      }
+      roomViewsMap[roomSlug].push(roomView)
+      generatedCount++
     }
   })
 
-  console.log(`   Wave 1 complete: ${Object.keys(roomReferenceImages).length}/${roomsToGenerate.length} rooms generated`)
+  const wave1Successes = wave1Results.filter(r => r.status === 'fulfilled' && r.value.success).length
+  console.log(`   Wave 1 complete: ${wave1Successes}/${roomTypes.length} main views generated`)
 
   // ========================================
-  // WAVES 2-4: Generate remaining views using first image as reference
+  // WAVES 2-4: Generate remaining views using main image as reference
   // ========================================
   for (let viewIndex = 1; viewIndex < ROOM_VIEW_TYPES.length; viewIndex++) {
     const view = ROOM_VIEW_TYPES[viewIndex]
     const waveNum = viewIndex + 1
 
     console.log(`\n📸 Wave ${waveNum}/${ROOM_VIEW_TYPES.length}: Generating "${view.name}" for all rooms (with reference images)...`)
-    onProgress?.(`Wave ${waveNum}: ${view.name} (all rooms)`, totalGenerated, totalImages)
+    onProgress?.(`Wave ${waveNum}/4: ${view.name} (all rooms)`, generatedCount, totalImages)
 
-    const wavePromises = roomsToGenerate.map((room, roomIndex) =>
+    const wavePromises = roomTypes.map((room) =>
       limit(async () => {
         const referenceUrl = roomReferenceImages[room.slug]
 
@@ -690,57 +519,68 @@ async function generateRoomOverviewImages(
             variationType: view.type as any,
             aspectRatio: view.aspectRatio,
             priceLevel,
-            // CRITICAL: Pass first view as reference for room consistency
+            // CRITICAL: Pass main view as reference for room consistency
             referenceImages: referenceUrl ? [referenceUrl] : undefined,
           })
 
           if (imageUrls.length > 0) {
-            await prisma.styleImage.create({
-              data: {
-                styleId,
-                url: imageUrls[0],
-                imageCategory: view.type.startsWith('detail') ? 'ROOM_DETAIL' : 'ROOM_OVERVIEW',
-                displayOrder: roomIndex * ROOM_VIEW_TYPES.length + viewIndex + 1,
-                description: `${room.name.en} - ${view.name}`,
-                tags: [room.slug, view.type, priceLevel.toLowerCase(), styleContext.subCategoryName.toLowerCase()],
-                roomType: room.slug,
-              },
-            })
-
             console.log(`    ✓ ${room.name.en} (${view.name})${referenceUrl ? ' [ref]' : ''}`)
-            return { roomSlug: room.slug, success: true }
+            return { roomSlug: room.slug, url: imageUrls[0], success: true }
           }
-          return { roomSlug: room.slug, success: false }
+          console.log(`    ✗ ${room.name.en} (${view.name}) - no URL`)
+          return { roomSlug: room.slug, url: null, success: false }
         } catch (error) {
           console.error(`    ✗ ${room.name.en} (${view.name}): ${error instanceof Error ? error.message : 'Unknown'}`)
-          return { roomSlug: room.slug, success: false }
+          return { roomSlug: room.slug, url: null, success: false }
         }
       })
     )
 
     const waveResults = await Promise.allSettled(wavePromises)
 
-    // Count successes
+    // Add successful views to roomViewsMap
     waveResults.forEach((result) => {
-      if (result.status === 'fulfilled' && result.value.success) {
-        totalGenerated++
-        const currentCount = byRoom.get(result.value.roomSlug) || 0
-        byRoom.set(result.value.roomSlug, currentCount + 1)
+      if (result.status === 'fulfilled' && result.value.success && result.value.url) {
+        const { roomSlug, url } = result.value
+
+        const roomView: RoomView = {
+          id: crypto.randomUUID(),
+          url,
+          orientation: view.orientation,
+          status: 'COMPLETED',
+          createdAt: new Date(),
+        }
+        roomViewsMap[roomSlug].push(roomView)
+        generatedCount++
       }
     })
 
     const waveSuccesses = waveResults.filter(r => r.status === 'fulfilled' && r.value.success).length
-    console.log(`   Wave ${waveNum} complete: ${waveSuccesses}/${roomsToGenerate.length} rooms generated`)
+    console.log(`   Wave ${waveNum} complete: ${waveSuccesses}/${roomTypes.length} ${view.name} views generated`)
   }
 
-  // Report room completion for each room
-  for (const room of roomsToGenerate) {
-    const count = byRoom.get(room.slug) || 0
-    onRoomComplete?.(room.slug, count)
-  }
+  // ========================================
+  // Assemble results into RoomViewsResult[] format
+  // ========================================
+  const results: RoomViewsResult[] = roomTypes.map((room) => {
+    const roomTypeId = roomTypeMap.get(room.slug) || ''
+    const views = roomViewsMap[room.slug]
 
-  console.log(`\n✅ Room generation complete: ${totalGenerated}/${totalImages} images`)
-  return { count: totalGenerated, byRoom }
+    onRoomComplete?.(room.slug, views.length)
+
+    return {
+      roomTypeId,
+      roomSlug: room.slug,
+      views,
+    }
+  })
+
+  const totalGenerated = results.reduce((sum, r) => sum + r.views.length, 0)
+  console.log(`\n${'='.repeat(60)}`)
+  console.log(`Room Views Generation Complete: ${totalGenerated}/${totalImages} images`)
+  console.log(`${'='.repeat(60)}\n`)
+
+  return results
 }
 
 // ============================================

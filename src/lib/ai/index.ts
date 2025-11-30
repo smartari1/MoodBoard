@@ -173,6 +173,23 @@ export type {
   EntityType,
 } from './schemas/content-schemas'
 
+// =============================================================================
+// E2E Sub-Agents (orchestration layer)
+// =============================================================================
+export {
+  processStyleMaterials,
+  clearMaterialSubAgentCache,
+  type MaterialSubAgentOptions,
+  type MaterialSubAgentResult,
+} from './sub-agents/material-sub-agent'
+
+export {
+  processStyleTextures,
+  clearTextureSubAgentCache,
+  type TextureSubAgentOptions,
+  type TextureSubAgentResult,
+} from './sub-agents/texture-sub-agent'
+
 // Legacy model constants (for reference only - use AI_MODELS instead)
 export const GEMINI_MODELS = {
   FLASH: 'gemini-2.0-flash',
