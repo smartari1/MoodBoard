@@ -29,6 +29,13 @@ export const GET = withAdmin(async (
       include: {
         subCategories: {
           orderBy: { order: 'asc' },
+          include: {
+            _count: {
+              select: {
+                styles: true,
+              },
+            },
+          },
         },
         _count: {
           select: {

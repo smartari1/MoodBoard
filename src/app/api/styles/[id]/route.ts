@@ -16,6 +16,7 @@ export const dynamic = 'force-dynamic'
 
 /**
  * GET /api/styles/[id] - Get style details
+ * Supports lookup by ID or slug
  */
 export const GET = withAuth(async (req: NextRequest, auth) => {
   try {
@@ -23,14 +24,19 @@ export const GET = withAuth(async (req: NextRequest, auth) => {
     requirePermission(auth, 'style:read')
 
     const url = new URL(req.url)
-    const styleId = url.pathname.split('/').pop()
+    const idOrSlug = url.pathname.split('/').pop()
 
-    if (!styleId) {
-      return NextResponse.json({ error: 'Style ID is required' }, { status: 400 })
+    if (!idOrSlug) {
+      return NextResponse.json({ error: 'Style ID or slug is required' }, { status: 400 })
     }
 
-    const style = await prisma.style.findUnique({
-      where: { id: styleId },
+    // Check if it's a valid MongoDB ObjectId (24 hex characters)
+    const isObjectId = /^[a-f\d]{24}$/i.test(idOrSlug)
+
+    const style = await prisma.style.findFirst({
+      where: isObjectId
+        ? { id: idOrSlug }
+        : { slug: idOrSlug },
       include: {
         category: {
           select: {
@@ -101,6 +107,7 @@ export const GET = withAuth(async (req: NextRequest, auth) => {
 
 /**
  * PATCH /api/styles/[id] - Update style (if owner)
+ * Supports lookup by ID or slug
  */
 export const PATCH = withAuth(async (req: NextRequest, auth) => {
   try {
@@ -108,18 +115,23 @@ export const PATCH = withAuth(async (req: NextRequest, auth) => {
     requirePermission(auth, 'style:write')
 
     const url = new URL(req.url)
-    const styleId = url.pathname.split('/').pop()
+    const idOrSlug = url.pathname.split('/').pop()
 
-    if (!styleId) {
-      return NextResponse.json({ error: 'Style ID is required' }, { status: 400 })
+    if (!idOrSlug) {
+      return NextResponse.json({ error: 'Style ID or slug is required' }, { status: 400 })
     }
+
+    // Check if it's a valid MongoDB ObjectId (24 hex characters)
+    const isObjectId = /^[a-f\d]{24}$/i.test(idOrSlug)
 
     // Validate request body
     const body = await validateRequest(req, updateStyleSchema)
 
     // Check if style exists
-    const existingStyle = await prisma.style.findUnique({
-      where: { id: styleId },
+    const existingStyle = await prisma.style.findFirst({
+      where: isObjectId
+        ? { id: idOrSlug }
+        : { slug: idOrSlug },
     })
 
     if (!existingStyle) {
@@ -157,7 +169,7 @@ export const PATCH = withAuth(async (req: NextRequest, auth) => {
     }
 
     const style = await prisma.style.update({
-      where: { id: styleId },
+      where: { id: existingStyle.id },
       data: updateData,
     })
 
@@ -169,6 +181,7 @@ export const PATCH = withAuth(async (req: NextRequest, auth) => {
 
 /**
  * DELETE /api/styles/[id] - Delete style (if owner)
+ * Supports lookup by ID or slug
  */
 export const DELETE = withAuth(async (req: NextRequest, auth) => {
   try {
@@ -176,15 +189,20 @@ export const DELETE = withAuth(async (req: NextRequest, auth) => {
     requirePermission(auth, 'style:delete')
 
     const url = new URL(req.url)
-    const styleId = url.pathname.split('/').pop()
+    const idOrSlug = url.pathname.split('/').pop()
 
-    if (!styleId) {
-      return NextResponse.json({ error: 'Style ID is required' }, { status: 400 })
+    if (!idOrSlug) {
+      return NextResponse.json({ error: 'Style ID or slug is required' }, { status: 400 })
     }
 
+    // Check if it's a valid MongoDB ObjectId (24 hex characters)
+    const isObjectId = /^[a-f\d]{24}$/i.test(idOrSlug)
+
     // Check if style exists
-    const existingStyle = await prisma.style.findUnique({
-      where: { id: styleId },
+    const existingStyle = await prisma.style.findFirst({
+      where: isObjectId
+        ? { id: idOrSlug }
+        : { slug: idOrSlug },
     })
 
     if (!existingStyle) {
@@ -204,7 +222,7 @@ export const DELETE = withAuth(async (req: NextRequest, auth) => {
 
     // Delete style
     await prisma.style.delete({
-      where: { id: styleId },
+      where: { id: existingStyle.id },
     })
 
     return NextResponse.json({ message: 'Style deleted successfully' })

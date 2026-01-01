@@ -17,6 +17,7 @@ import { Logo } from './Logo'
 import { signOut } from 'next-auth/react'
 import { IconLogout, IconUser } from '@tabler/icons-react'
 import { LanguageSwitcher } from '@/components/ui/LanguageSwitcher'
+import { CreditBalance } from '@/components/ui/CreditBalance'
 import { useRouting } from '@/hooks/useRouting'
 
 interface DashboardLayoutProps {
@@ -58,6 +59,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           </Group>
 
           <Group gap="sm">
+            <CreditBalance locale={locale} />
             <LanguageSwitcher currentLocale={locale} variant="button" />
 
             {user && (

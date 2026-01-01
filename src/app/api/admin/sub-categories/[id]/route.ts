@@ -33,6 +33,23 @@ export const GET = withAdmin(async (
             slug: true,
           },
         },
+        styles: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            images: true,
+            gallery: true,
+            color: {
+              select: {
+                id: true,
+                name: true,
+                hex: true,
+              },
+            },
+          },
+          orderBy: { createdAt: 'desc' },
+        },
         _count: {
           select: {
             styles: true,

@@ -73,8 +73,9 @@ model Organization {
   name String
   slug String @unique
 
-  settings     OrganizationSettings?
-  subscription Subscription?
+  settings      OrganizationSettings?
+  subscription  Subscription?
+  creditBalance CreditBalance?
 
   // Relations
   users     User[]
@@ -86,6 +87,8 @@ model Organization {
   products  Product[]
   colors    Color[]
   auditLogs AuditLog[]
+  creditTransactions CreditTransaction[]
+  generatedStyles    GeneratedStyle[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @default(now())
@@ -116,11 +119,24 @@ type FeatureFlags {
 }
 
 type Subscription {
-  plan       String // free, pro, enterprise
+  plan       String   // free, pro, enterprise
   validUntil DateTime
   seats      Int      @default(1)
   stripeId   String?
 }
+
+type CreditBalance {
+  balance        Int      @default(0)
+  monthlyCredits Int      @default(20)  // Credits allocated per month based on plan
+  usedThisMonth  Int      @default(0)   // Credits used this billing cycle
+  cycleStartDate DateTime @default(now())
+  lastUpdated    DateTime @default(now())
+}
+
+// Credit plans configuration
+// free: 20 credits/month
+// pro: 100 credits/month
+// enterprise: 500 credits/month
 
 // NextAuth.js required models
 model Account {
@@ -196,6 +212,8 @@ model User {
   comments             Comment[]
   approvals            Approval[]
   inspirationLibraries InspirationLibrary[]
+  creditTransactions   CreditTransaction[]
+  generatedStyles      GeneratedStyle[]
 
   @@index([organizationId])
   @@map("users")
@@ -237,7 +255,8 @@ model Client {
   notes       Note[]
 
   // Relations
-  projects Project[]
+  projects        Project[]
+  generatedStyles GeneratedStyle[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @default(now())
@@ -1387,4 +1406,117 @@ type GeneratedStyleReference {
   color          String // Name for display
   adminEditUrl   String // /admin/styles/{id}/edit
   publicViewUrl  String // /styles/{slug}
+}
+
+// ============================================
+// AI Studio - Credit System
+// ============================================
+
+model CreditTransaction {
+  id             String   @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId String   @db.ObjectId
+  userId         String   @db.ObjectId
+
+  type           String   // 'purchase' | 'usage' | 'refund' | 'bonus'
+  amount         Int      // positive for credit, negative for debit
+  balanceAfter   Int
+
+  // Metadata
+  description    String?
+  referenceId    String?  // GeneratedStyle ID or Stripe payment ID
+  referenceType  String?  // 'generation' | 'stripe' | 'admin'
+
+  createdAt      DateTime @default(now())
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([userId])
+  @@index([createdAt])
+  @@map("credit_transactions")
+}
+
+// ============================================
+// AI Studio - Generated Styles
+// ============================================
+
+model GeneratedStyle {
+  id             String   @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId String   @db.ObjectId
+  createdBy      String   @db.ObjectId
+  clientId       String?  @db.ObjectId
+
+  // Generation input
+  input          GenerationInput
+
+  // Results
+  generatedImages AIGeneratedImage[]
+  status          GenerationStatus   @default(PENDING)
+
+  // Promotion to full Style
+  promotedToStyleId String? @db.ObjectId
+
+  // Metadata
+  creditsUsed    Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  creator        User         @relation(fields: [createdBy], references: [id], onDelete: Cascade)
+  client         Client?      @relation(fields: [clientId], references: [id])
+
+  @@index([organizationId])
+  @@index([createdBy])
+  @@index([clientId])
+  @@index([status])
+  @@map("generated_styles")
+}
+
+type GenerationInput {
+  categoryId      String?
+  subCategoryId   String?
+  colorIds        String[]
+  textureIds      String[]
+  materialIds     String[]
+  roomSpec        AIRoomSpecification?
+  highlightAreas  AIHighlightArea[]
+  customPrompt    String?
+  sourceStyleId   String?  // If started from existing style
+}
+
+type AIRoomSpecification {
+  roomTypeId      String?
+  width           Float?
+  length          Float?
+  height          Float?
+  windowCount     Int?
+  windowPosition  String?  // 'north' | 'south' | 'east' | 'west' | 'multiple'
+  windowSize      String?  // 'small' | 'medium' | 'large' | 'floor-to-ceiling'
+  furnitureZones  AIFurnitureZone[]
+  specialFeatures String[]
+}
+
+type AIFurnitureZone {
+  id       String
+  type     String  // 'seating' | 'dining' | 'sleeping' | 'work' | 'storage'
+  position String  // 'center' | 'corner' | 'wall' | 'window'
+}
+
+type AIHighlightArea {
+  id     String
+  type   String  // 'rectangle'
+  label  String  // 'wall' | 'floor' | 'ceiling' | 'window' | 'furniture'
+  x      Float
+  y      Float
+  width  Float
+  height Float
+}
+
+type AIGeneratedImage {
+  id        String
+  url       String
+  prompt    String?
+  status    GenerationStatus
+  createdAt DateTime
 }
