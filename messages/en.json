@@ -1621,6 +1621,10 @@
       "forked": "Copied",
       "images": "Images",
       "noImages": "No images yet",
+      "noImage": "No image",
+      "delete": "Delete",
+      "creditsUsed": "credits used",
+      "credit": "credit",
       "costPerGeneration": "1 credit per image generation"
     },
     "selectStyle": {

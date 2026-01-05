@@ -83,7 +83,7 @@ export function ElementsSection({
           <Group justify="space-between">
             <Group gap="sm">
               <IconPalette size={20} />
-              <Title order={4}>{t('colors')}</Title>
+              <Title order={4}>{t('elements.colors')}</Title>
               <Text c="dimmed" size="sm">
                 ({colors.length})
               </Text>
@@ -94,13 +94,13 @@ export function ElementsSection({
               leftSection={<IconPlus size={14} />}
               onClick={onAddColor}
             >
-              {t('addColor')}
+              {t('elements.addColor')}
             </Button>
           </Group>
 
           {colors.length === 0 ? (
             <Text c="dimmed" size="sm" ta="center" py="md">
-              {t('noColors')}
+              {t('elements.noColors')}
             </Text>
           ) : (
             <Group gap="sm">
@@ -139,7 +139,7 @@ export function ElementsSection({
           <Group justify="space-between">
             <Group gap="sm">
               <IconTexture size={20} />
-              <Title order={4}>{t('textures')}</Title>
+              <Title order={4}>{t('elements.textures')}</Title>
               <Text c="dimmed" size="sm">
                 ({textures.length})
               </Text>
@@ -150,13 +150,13 @@ export function ElementsSection({
               leftSection={<IconPlus size={14} />}
               onClick={onAddTexture}
             >
-              {t('addTexture')}
+              {t('elements.addTexture')}
             </Button>
           </Group>
 
           {textures.length === 0 ? (
             <Text c="dimmed" size="sm" ta="center" py="md">
-              {t('noTextures')}
+              {t('elements.noTextures')}
             </Text>
           ) : (
             <SimpleGrid cols={{ base: 3, sm: 4, md: 6 }} spacing="sm">
@@ -198,7 +198,7 @@ export function ElementsSection({
           <Group justify="space-between">
             <Group gap="sm">
               <IconBox size={20} />
-              <Title order={4}>{t('materials')}</Title>
+              <Title order={4}>{t('elements.materials')}</Title>
               <Text c="dimmed" size="sm">
                 ({materials.length})
               </Text>
@@ -209,13 +209,13 @@ export function ElementsSection({
               leftSection={<IconPlus size={14} />}
               onClick={onAddMaterial}
             >
-              {t('addMaterial')}
+              {t('elements.addMaterial')}
             </Button>
           </Group>
 
           {materials.length === 0 ? (
             <Text c="dimmed" size="sm" ta="center" py="md">
-              {t('noMaterials')}
+              {t('elements.noMaterials')}
             </Text>
           ) : (
             <SimpleGrid cols={{ base: 2, sm: 3, md: 4 }} spacing="sm">

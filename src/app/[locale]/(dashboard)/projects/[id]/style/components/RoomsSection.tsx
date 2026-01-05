@@ -72,7 +72,7 @@ export function RoomsSection({
         <Group justify="space-between">
           <Group gap="sm">
             <IconHome size={20} />
-            <Title order={4}>{t('rooms')}</Title>
+            <Title order={4}>{t('rooms.title')}</Title>
             <Text c="dimmed" size="sm">
               ({rooms.length})
             </Text>
@@ -83,7 +83,7 @@ export function RoomsSection({
             leftSection={<IconPlus size={14} />}
             onClick={onAddRoom}
           >
-            {t('addRoom')}
+            {t('rooms.addRoom')}
           </Button>
         </Group>
 
@@ -92,14 +92,14 @@ export function RoomsSection({
             <Stack align="center" gap="md">
               <IconPhoto size={40} color="gray" />
               <Text c="dimmed" size="sm" ta="center">
-                {t('noRooms')}
+                {t('rooms.noRooms')}
               </Text>
               <Button
                 variant="light"
                 leftSection={<IconPlus size={16} />}
                 onClick={onAddRoom}
               >
-                {t('addFirstRoom')}
+                {t('rooms.addRoom')}
               </Button>
             </Stack>
           </Center>
@@ -127,14 +127,14 @@ export function RoomsSection({
                             <Stack align="center" gap="xs">
                               <Loader size="sm" />
                               <Text size="xs" c="dimmed">
-                                {t('generating')}
+                                {t('rooms.generating')}
                               </Text>
                             </Stack>
                           ) : (
                             <Stack align="center" gap="xs">
                               <IconPhoto size={32} color="gray" />
                               <Text size="xs" c="dimmed">
-                                {t('noImage')}
+                                {t('rooms.noImage')}
                               </Text>
                             </Stack>
                           )}
@@ -145,7 +145,7 @@ export function RoomsSection({
                       <Group pos="absolute" top={8} left={8} gap={4}>
                         {room.isForked && (
                           <Badge size="xs" color="blue" variant="filled">
-                            {t('forked')}
+                            {t('rooms.forked')}
                           </Badge>
                         )}
                         <Badge
@@ -153,7 +153,7 @@ export function RoomsSection({
                           color={getStatusColor(room.status)}
                           variant="filled"
                         >
-                          {t(`status.${room.status}`)}
+                          {t(`rooms.${room.status}`)}
                         </Badge>
                       </Group>
 
@@ -177,7 +177,7 @@ export function RoomsSection({
                             onClick={() => onGenerateRoom(room.id)}
                             disabled={isCurrentlyGenerating}
                           >
-                            {latestImage ? t('regenerate') : t('generate')}
+                            {latestImage ? t('rooms.regenerate') : t('rooms.generate')}
                           </Menu.Item>
                           <Menu.Divider />
                           <Menu.Item
@@ -185,7 +185,7 @@ export function RoomsSection({
                             color="red"
                             onClick={() => onDeleteRoom(room.id)}
                           >
-                            {t('delete')}
+                            {t('rooms.delete')}
                           </Menu.Item>
                         </Menu.Dropdown>
                       </Menu>
@@ -199,7 +199,7 @@ export function RoomsSection({
                     </Text>
                     {room.creditsUsed > 0 && (
                       <Text size="xs" c="dimmed">
-                        {room.creditsUsed} {t('creditsUsed')}
+                        {room.creditsUsed} {t('rooms.creditsUsed')}
                       </Text>
                     )}
                   </Stack>
@@ -214,9 +214,9 @@ export function RoomsSection({
                     loading={isCurrentlyGenerating}
                     disabled={isCurrentlyGenerating}
                   >
-                    {latestImage ? t('regenerate') : t('generate')}
+                    {latestImage ? t('rooms.regenerate') : t('rooms.generate')}
                     <Text component="span" size="xs" c="dimmed" ml={4}>
-                      (1 {t('credit')})
+                      (1 {t('rooms.credit')})
                     </Text>
                   </Button>
                 </Card>
@@ -240,7 +240,7 @@ export function RoomsSection({
                     <IconPlus size={24} />
                   </ActionIcon>
                   <Text size="sm" c="dimmed">
-                    {t('addRoom')}
+                    {t('rooms.addRoom')}
                   </Text>
                 </Stack>
               </Center>

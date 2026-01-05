@@ -31,9 +31,9 @@ export function EmptyState({ onSelectStyle, onStartFromScratch, isCreating }: Em
           </ThemeIcon>
 
           <Stack gap="xs">
-            <Title order={3}>{t('emptyTitle')}</Title>
+            <Title order={3}>{t('empty.title')}</Title>
             <Text c="dimmed" size="sm">
-              {t('emptyDescription')}
+              {t('empty.description')}
             </Text>
           </Stack>
 
@@ -44,11 +44,11 @@ export function EmptyState({ onSelectStyle, onStartFromScratch, isCreating }: Em
               onClick={onSelectStyle}
               fullWidth
             >
-              {t('startFromStyle')}
+              {t('empty.startFromStyle')}
             </Button>
 
             <Text c="dimmed" size="xs">
-              {t('or')}
+              {t('empty.startFromStyleDescription')}
             </Text>
 
             <Button
@@ -59,12 +59,12 @@ export function EmptyState({ onSelectStyle, onStartFromScratch, isCreating }: Em
               loading={isCreating}
               fullWidth
             >
-              {t('startFromScratch')}
+              {t('empty.buildFromScratch')}
             </Button>
           </Stack>
 
           <Text c="dimmed" size="xs" maw={400}>
-            {t('emptyHint')}
+            {t('empty.buildFromScratchDescription')}
           </Text>
         </Stack>
       </Paper>

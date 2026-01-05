@@ -1536,6 +1536,10 @@
       "forked": "הועתק",
       "images": "תמונות",
       "noImages": "אין תמונות עדיין",
+      "noImage": "אין תמונה",
+      "delete": "מחק",
+      "creditsUsed": "קרדיטים בשימוש",
+      "credit": "קרדיט",
       "costPerGeneration": "1 קרדיט ליצירת תמונה"
     },
     "selectStyle": {
