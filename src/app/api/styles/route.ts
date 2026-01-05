@@ -89,6 +89,16 @@ export const GET = withAuth(async (req: NextRequest, auth) => {
             hex: true,
           },
         },
+        // Include StyleImage records for thumbnails
+        images: {
+          orderBy: { displayOrder: 'asc' },
+          take: 5, // Only need first few for list view thumbnails
+          select: {
+            id: true,
+            url: true,
+            imageCategory: true,
+          },
+        },
       },
     })
 

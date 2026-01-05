@@ -1475,7 +1475,107 @@
       "teamListComingSoon": "רשימת חברי צוות תהיה זמינה בקרוב",
       "clickAddRoomToStart": "לחץ על 'הוסף חדר' כדי ליצור את החדר הראשון שלך",
       "deleteRoomTitle": "מחיקת חדר",
-      "deleteRoomMessage": "האם אתה בטוח שברצונך למחוק חדר זה? פעולה זו אינה ניתנת לביטול."
+      "deleteRoomMessage": "האם אתה בטוח שברצונך למחוק חדר זה? פעולה זו אינה ניתנת לביטול.",
+      "style": "סגנון עיצוב",
+      "quickActions": "פעולות מהירות",
+      "designStyle": "עיצוב סגנון הפרויקט"
+    }
+  },
+  "projectStyle": {
+    "pageTitle": "סגנון עיצוב הפרויקט",
+    "untitledProject": "פרויקט ללא שם",
+    "share": "שתף",
+    "export": "ייצא",
+    "basedOn": "מבוסס על:",
+    "changeBase": "שנה בסיס",
+    "messages": {
+      "loadError": "שגיאה בטעינת סגנון הפרויקט",
+      "createError": "שגיאה ביצירת סגנון הפרויקט",
+      "forkError": "שגיאה בהעתקת הסגנון",
+      "forkSuccess": "הסגנון הועתק בהצלחה! {count} חדרים נוספו.",
+      "generateError": "שגיאה ביצירת התמונה",
+      "generateSuccess": "התמונה נוצרה בהצלחה!",
+      "insufficientCredits": "אין מספיק קרדיטים"
+    },
+    "empty": {
+      "title": "עוד לא הגדרת סגנון לפרויקט זה",
+      "description": "בחר להתחיל מסגנון קיים או לבנות מאפס",
+      "startFromStyle": "התחל מסגנון קיים",
+      "startFromStyleDescription": "העתק סגנון קיים כולל כל החדרים והאלמנטים (בחינם)",
+      "buildFromScratch": "בנה מאפס",
+      "buildFromScratchDescription": "בחר צבעים, טקסטורות וחומרים בעצמך"
+    },
+    "baseStyle": {
+      "title": "סגנון בסיס",
+      "forkedFrom": "הועתק מסגנון זה",
+      "change": "שנה סגנון בסיס"
+    },
+    "elements": {
+      "title": "אלמנטים עיצוביים",
+      "colors": "צבעים",
+      "textures": "טקסטורות",
+      "materials": "חומרים",
+      "addColor": "הוסף צבע",
+      "addTexture": "הוסף טקסטורה",
+      "addMaterial": "הוסף חומר",
+      "noColors": "לא נבחרו צבעים",
+      "noTextures": "לא נבחרו טקסטורות",
+      "noMaterials": "לא נבחרו חומרים"
+    },
+    "rooms": {
+      "title": "חדרים",
+      "addRoom": "הוסף חדר",
+      "noRooms": "אין חדרים עדיין",
+      "noRoomsDescription": "הוסף חדר כדי להתחיל ליצור תמונות",
+      "generate": "צור תמונה",
+      "regenerate": "צור מחדש",
+      "generating": "יוצר...",
+      "pending": "ממתין",
+      "completed": "הושלם",
+      "failed": "נכשל",
+      "forked": "הועתק",
+      "images": "תמונות",
+      "noImages": "אין תמונות עדיין",
+      "costPerGeneration": "1 קרדיט ליצירת תמונה"
+    },
+    "selectStyle": {
+      "title": "בחר סגנון בסיס",
+      "description": "הסגנון הנבחר יועתק לפרויקט שלך כולל כל החדרים",
+      "searchPlaceholder": "חפש סגנונות...",
+      "filterByCategory": "סנן לפי קטגוריה",
+      "noStyles": "לא נמצאו סגנונות",
+      "select": "בחר סגנון זה",
+      "rooms": "חדרים",
+      "free": "בחינם"
+    },
+    "addElement": {
+      "colorTitle": "הוסף צבע",
+      "textureTitle": "הוסף טקסטורה",
+      "materialTitle": "הוסף חומר",
+      "searchPlaceholder": "חפש...",
+      "noResults": "לא נמצאו תוצאות",
+      "add": "הוסף",
+      "alreadyAdded": "כבר נוסף"
+    },
+    "addRoom": {
+      "title": "הוסף חדר",
+      "roomType": "סוג חדר",
+      "roomTypePlaceholder": "בחר סוג חדר",
+      "name": "שם מותאם (אופציונלי)",
+      "namePlaceholder": "לדוגמה: סלון מרכזי",
+      "customPrompt": "הנחיות מותאמות (אופציונלי)",
+      "customPromptPlaceholder": "הוסף פרטים נוספים על החדר...",
+      "add": "הוסף חדר"
+    },
+    "generateRoom": {
+      "title": "צור תמונת חדר",
+      "description": "יצירת התמונה תעלה 1 קרדיט",
+      "customPrompt": "הנחיות מותאמות (אופציונלי)",
+      "customPromptPlaceholder": "תאר את התמונה הרצויה...",
+      "overrideColors": "שנה צבעים לתמונה זו",
+      "creditBalance": "יתרת קרדיטים",
+      "generate": "צור תמונה (1 קרדיט)",
+      "generating": "יוצר תמונה..."
     }
   },
   "styles": {

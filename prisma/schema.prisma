@@ -89,6 +89,7 @@ model Organization {
   auditLogs AuditLog[]
   creditTransactions CreditTransaction[]
   generatedStyles    GeneratedStyle[]
+  projectStyles      ProjectStyle[]  // Project custom style pages
 
   createdAt DateTime @default(now())
   updatedAt DateTime @default(now())
@@ -257,6 +258,7 @@ model Client {
   // Relations
   projects        Project[]
   generatedStyles GeneratedStyle[]
+  clientBoards    ClientBoard[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @default(now())
@@ -320,6 +322,7 @@ model Project {
   comments             Comment[]
   assets               Asset[]
   inspirationLibraries InspirationLibrary[]
+  projectStyle         ProjectStyle?  // Custom style page for this project
 
   metadata ProjectMetadata
 
@@ -581,6 +584,9 @@ model Style {
   images        StyleImage[]    // New: Categorized images
   textureLinks  StyleTexture[]  // New: Many-to-many with textures (join model)
   materialLinks StyleMaterial[] // New: Many-to-many with materials (join model)
+
+  // Project style forks (styles forked from this base style)
+  forkedProjectStyles ProjectStyle[] @relation("ForkedFromStyle")
 
   metadata StyleMetadata
 
@@ -1519,4 +1525,197 @@ type AIGeneratedImage {
   prompt    String?
   status    GenerationStatus
   createdAt DateTime
+}
+
+// ============================================
+// Client Board - Design Inspiration Boards
+// ============================================
+
+enum BoardStatus {
+  DRAFT
+  IN_PROGRESS
+  READY_FOR_REVIEW
+  SHARED
+  APPROVED
+  ARCHIVED
+}
+
+enum RoomDesignStatus {
+  DRAFT
+  DESIGNING
+  COMPLETE
+}
+
+model ClientBoard {
+  id             String       @id @default(auto()) @map("_id") @db.ObjectId
+  clientId       String       @unique @db.ObjectId
+  organizationId String       @db.ObjectId
+
+  // Base style (optional - can start from scratch)
+  baseStyleId    String?      @db.ObjectId
+
+  // Room designs (embedded documents)
+  roomDesigns    ClientRoomDesign[]
+
+  // Overall status
+  status         BoardStatus  @default(DRAFT)
+
+  // Budget tracking
+  targetBudget   BudgetRange?
+
+  // Sharing
+  shareToken     String?      @unique
+  sharedAt       DateTime?
+
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  client         Client       @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([status])
+  @@map("client_boards")
+}
+
+type ClientRoomDesign {
+  id             String              @default(uuid())
+  roomTypeId     String              @db.ObjectId
+  roomName       String
+
+  // Dimensions
+  width          Float?
+  length         Float?
+  height         Float?
+
+  // Visual layer
+  colorPalette   RoomColorPalette?
+  textureIds     String[]            @db.ObjectId
+
+  // Material layer with pricing
+  materials      ClientMaterialSelection[]
+
+  // AI-generated and copied images
+  images         ClientRoomImage[]
+
+  // Notes
+  notes          String?
+
+  // Status
+  status         RoomDesignStatus    @default(DRAFT)
+
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @default(now())
+}
+
+type ClientMaterialSelection {
+  id             String   @default(uuid())
+  materialId     String   @db.ObjectId
+  supplierId     String?  @db.ObjectId  // Which supplier's pricing to use
+  quantity       Float
+  unit           String
+  unitPrice      Float
+  wastePct       Float    @default(0)
+  total          Float    // Calculated: quantity * unitPrice * (1 + wastePct)
+  notes          String?
+}
+
+type ClientRoomImage {
+  id             String   @default(uuid())
+  url            String
+  source         String   // 'style' | 'ai_generated' | 'uploaded'
+  sourceStyleId  String?  @db.ObjectId  // If copied from a style
+  prompt         String?  // If AI generated
+  createdAt      DateTime @default(now())
+}
+
+// ============================================
+// Project Custom Style Page
+// ============================================
+
+model ProjectStyle {
+  id             String   @id @default(auto()) @map("_id") @db.ObjectId
+  projectId      String   @unique @db.ObjectId  // One style per project
+  organizationId String   @db.ObjectId
+
+  // Base style reference (optional - null if custom/from scratch)
+  baseStyleId    String?  @db.ObjectId
+
+  // Category/SubCategory (optional - from base style or manually selected)
+  categoryId     String?  @db.ObjectId
+  subCategoryId  String?  @db.ObjectId
+
+  // Design elements (forked from base style or manually selected)
+  colorIds       String[] @db.ObjectId
+  textureIds     String[] @db.ObjectId
+  materialIds    String[] @db.ObjectId
+
+  // Custom prompt/instructions for generations
+  customPrompt   String?
+
+  // Metadata
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  createdBy      String   @db.ObjectId
+
+  // Relations
+  project        Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  baseStyle      Style?       @relation("ForkedFromStyle", fields: [baseStyleId], references: [id])
+  rooms          ProjectRoom[]
+
+  @@index([organizationId])
+  @@index([baseStyleId])
+  @@map("project_styles")
+}
+
+model ProjectRoom {
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  projectStyleId  String   @db.ObjectId
+
+  // Room details
+  roomType        String   // 'living_room', 'bedroom', 'kitchen', etc.
+  roomTypeId      String?  @db.ObjectId  // Reference to RoomType
+  name            String?  // Custom name like "Master Bedroom"
+  dimensions      ProjectRoomDimensions?
+
+  // Override elements (if different from project style)
+  overrideColorIds    String[] @db.ObjectId
+  overrideTextureIds  String[] @db.ObjectId
+  overrideMaterialIds String[] @db.ObjectId
+
+  // Generation
+  customPrompt    String?
+  generatedImages ProjectGeneratedImage[]
+  status          String   @default("pending") // pending | generating | completed | failed
+
+  // Fork tracking
+  isForked        Boolean  @default(false)  // True if copied from base style
+  forkedFromView  String?  // ID of original RoomView if forked
+
+  // Credits
+  creditsUsed     Int      @default(0)
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  projectStyle    ProjectStyle @relation(fields: [projectStyleId], references: [id], onDelete: Cascade)
+
+  @@index([projectStyleId])
+  @@index([roomType])
+  @@index([status])
+  @@map("project_rooms")
+}
+
+type ProjectRoomDimensions {
+  width  Float
+  length Float
+  height Float?
+}
+
+type ProjectGeneratedImage {
+  id        String   @default(uuid())
+  url       String
+  prompt    String?
+  isForked  Boolean  @default(false)  // True if copied from base style (no credit cost)
+  createdAt DateTime @default(now())
 }

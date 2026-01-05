@@ -1458,7 +1458,10 @@
       "teamListComingSoon": "Team member list coming soon",
       "clickAddRoomToStart": "Click 'Add Room' to create your first room",
       "deleteRoomTitle": "Delete Room",
-      "deleteRoomMessage": "Are you sure you want to delete this room? This action cannot be undone."
+      "deleteRoomMessage": "Are you sure you want to delete this room? This action cannot be undone.",
+      "style": "Design Style",
+      "quickActions": "Quick Actions",
+      "designStyle": "Design Project Style"
     },
     "categories": {
       "title": "Categories Management",
@@ -1561,6 +1564,103 @@
         "createdAt": "Created At",
         "styles": "Styles"
       }
+    }
+  },
+  "projectStyle": {
+    "pageTitle": "Project Design Style",
+    "untitledProject": "Untitled Project",
+    "share": "Share",
+    "export": "Export",
+    "basedOn": "Based on:",
+    "changeBase": "Change Base",
+    "messages": {
+      "loadError": "Error loading project style",
+      "createError": "Error creating project style",
+      "forkError": "Error copying style",
+      "forkSuccess": "Style copied successfully! {count} rooms added.",
+      "generateError": "Error generating image",
+      "generateSuccess": "Image generated successfully!",
+      "insufficientCredits": "Insufficient credits"
+    },
+    "empty": {
+      "title": "You haven't defined a style for this project yet",
+      "description": "Choose to start from an existing style or build from scratch",
+      "startFromStyle": "Start from existing style",
+      "startFromStyleDescription": "Copy an existing style including all rooms and elements (free)",
+      "buildFromScratch": "Build from scratch",
+      "buildFromScratchDescription": "Choose colors, textures and materials yourself"
+    },
+    "baseStyle": {
+      "title": "Base Style",
+      "forkedFrom": "Copied from this style",
+      "change": "Change base style"
+    },
+    "elements": {
+      "title": "Design Elements",
+      "colors": "Colors",
+      "textures": "Textures",
+      "materials": "Materials",
+      "addColor": "Add Color",
+      "addTexture": "Add Texture",
+      "addMaterial": "Add Material",
+      "noColors": "No colors selected",
+      "noTextures": "No textures selected",
+      "noMaterials": "No materials selected"
+    },
+    "rooms": {
+      "title": "Rooms",
+      "addRoom": "Add Room",
+      "noRooms": "No rooms yet",
+      "noRoomsDescription": "Add a room to start generating images",
+      "generate": "Generate Image",
+      "regenerate": "Regenerate",
+      "generating": "Generating...",
+      "pending": "Pending",
+      "completed": "Completed",
+      "failed": "Failed",
+      "forked": "Copied",
+      "images": "Images",
+      "noImages": "No images yet",
+      "costPerGeneration": "1 credit per image generation"
+    },
+    "selectStyle": {
+      "title": "Select Base Style",
+      "description": "The selected style will be copied to your project including all rooms",
+      "searchPlaceholder": "Search styles...",
+      "filterByCategory": "Filter by category",
+      "noStyles": "No styles found",
+      "select": "Select this style",
+      "rooms": "Rooms",
+      "free": "Free"
+    },
+    "addElement": {
+      "colorTitle": "Add Color",
+      "textureTitle": "Add Texture",
+      "materialTitle": "Add Material",
+      "searchPlaceholder": "Search...",
+      "noResults": "No results found",
+      "add": "Add",
+      "alreadyAdded": "Already added"
+    },
+    "addRoom": {
+      "title": "Add Room",
+      "roomType": "Room Type",
+      "roomTypePlaceholder": "Select room type",
+      "name": "Custom Name (optional)",
+      "namePlaceholder": "e.g., Main Living Room",
+      "customPrompt": "Custom Instructions (optional)",
+      "customPromptPlaceholder": "Add additional details about the room...",
+      "add": "Add Room"
+    },
+    "generateRoom": {
+      "title": "Generate Room Image",
+      "description": "Image generation costs 1 credit",
+      "customPrompt": "Custom Instructions (optional)",
+      "customPromptPlaceholder": "Describe the desired image...",
+      "overrideColors": "Override colors for this image",
+      "creditBalance": "Credit Balance",
+      "generate": "Generate Image (1 credit)",
+      "generating": "Generating image..."
     }
   },
   "styles": {

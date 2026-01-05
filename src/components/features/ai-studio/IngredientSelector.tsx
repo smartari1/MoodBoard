@@ -85,9 +85,9 @@ export function IngredientSelector({
   const { data: subCategoriesData, isLoading: subCategoriesLoading } = useSubCategories(
     input.categoryId || undefined
   )
-  const { data: colorsData, isLoading: colorsLoading } = useColors({ search: colorSearch, page: 1, limit: 50 })
-  const { data: texturesData, isLoading: texturesLoading } = useTextures({ search: textureSearch, page: 1, limit: 50 })
-  const { data: materialsData, isLoading: materialsLoading } = useMaterials({ search: materialSearch, page: 1, limit: 50 })
+  const { data: colorsData, isLoading: colorsLoading } = useColors({ search: colorSearch, limit: 50 })
+  const { data: texturesData, isLoading: texturesLoading } = useTextures({ search: textureSearch, limit: 50 })
+  const { data: materialsData, isLoading: materialsLoading } = useMaterials({ search: materialSearch, limit: 50 })
 
   // Filter helpers
   const categories = categoriesData?.data || []

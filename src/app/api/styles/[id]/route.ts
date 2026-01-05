@@ -79,6 +79,10 @@ export const GET = withAuth(async (req: NextRequest, auth) => {
             category: true,
           },
         },
+        // Include StyleImage records (categorized images from Phase 2)
+        images: {
+          orderBy: { displayOrder: 'asc' },
+        },
       },
     })
 

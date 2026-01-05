@@ -5,27 +5,80 @@
 
 'use client'
 
-import { Container, Title, Text, Stack, Grid, Image, Badge, Group, Paper, Divider, SimpleGrid, Box, Tabs, Select } from '@mantine/core'
-import { IconBuildingStore, IconDiamond, IconDoor, IconPalette, IconPhoto, IconSparkles, IconTexture } from '@tabler/icons-react'
+import { Container, Title, Text, Stack, Grid, Image, Badge, Group, Paper, Divider, SimpleGrid, Box, Tabs, Select, Button, Modal, Loader, Alert } from '@mantine/core'
+import { IconBuildingStore, IconDiamond, IconDoor, IconPalette, IconPhoto, IconSparkles, IconTexture, IconCopy, IconFolder, IconCheck, IconX } from '@tabler/icons-react'
 import { useTranslations } from 'next-intl'
-import { useParams } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import { LoadingState } from '@/components/ui/LoadingState'
 import { ErrorState } from '@/components/ui/ErrorState'
+import { ImageWithFallback } from '@/components/ui/ImageWithFallback'
 import { useStyle } from '@/hooks/useStyles'
 import { useStyleImages, useStyleRoomImages, useStyleMaterialImages } from '@/hooks/useStyleImages'
 import { useStyleTextures } from '@/hooks/useStyleTextures'
 import { useStyleMaterials } from '@/hooks/useStyleMaterials'
 import { useImageViewer } from '@/contexts/ImageViewerContext'
+import { useProjects } from '@/hooks/useProjects'
+import { useForkFromStyle } from '@/hooks/useProjectStyle'
+import { useAllColors, type Color } from '@/hooks/useColors'
 import { useMemo, useState } from 'react'
 
 export default function StyleDetailPage() {
   const tCommon = useTranslations('common')
+  const t = useTranslations('projectStyle')
   const params = useParams()
-  const locale = params.locale as string
-  const styleId = params.id as string
+  const router = useRouter()
+  const locale = (params?.locale as string) || 'he'
+  const styleId = (params?.id as string) || ''
 
   const { data: style, isLoading, error } = useStyle(styleId)
   const { openImages } = useImageViewer()
+
+  // Projects for "Use for Project" modal
+  const { data: projectsData, isLoading: projectsLoading } = useProjects()
+  const forkMutation = useForkFromStyle()
+
+  // Modal state for "Use for Project"
+  const [useForProjectModalOpen, setUseForProjectModalOpen] = useState(false)
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null)
+  const [forkStatus, setForkStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
+  const [forkError, setForkError] = useState<string | null>(null)
+  const [forkResult, setForkResult] = useState<{ forkedRoomsCount: number } | null>(null)
+
+  const projects = projectsData?.data || []
+
+  const handleUseForProject = async () => {
+    if (!selectedProjectId) return
+
+    setForkStatus('loading')
+    setForkError(null)
+
+    try {
+      const result = await forkMutation.mutateAsync({
+        projectId: selectedProjectId,
+        sourceStyleId: styleId,
+      })
+      setForkStatus('success')
+      setForkResult({ forkedRoomsCount: result.forkedRoomsCount })
+    } catch (err: any) {
+      setForkStatus('error')
+      setForkError(err.message || t('messages.forkError'))
+    }
+  }
+
+  const handleCloseModal = () => {
+    setUseForProjectModalOpen(false)
+    setSelectedProjectId(null)
+    setForkStatus('idle')
+    setForkError(null)
+    setForkResult(null)
+  }
+
+  const handleGoToProjectStyle = () => {
+    if (selectedProjectId) {
+      router.push(`/${locale}/projects/${selectedProjectId}/style`)
+    }
+    handleCloseModal()
+  }
 
   // Fetch categorized images
   const { data: roomImagesData } = useStyleRoomImages(styleId)
@@ -33,10 +86,22 @@ export default function StyleDetailPage() {
   const { data: texturesData } = useStyleTextures(styleId)
   const { data: materialsData } = useStyleMaterials(styleId)
 
+  // Fetch all colors for color palette display
+  const { data: allColors } = useAllColors()
+
   // State for room type filter
   const [selectedRoomType, setSelectedRoomType] = useState<string | null>(null)
 
   const currentLocale = locale === 'he' ? 'he' : 'en'
+
+  // Create color lookup map by ID
+  const colorMap = useMemo(() => {
+    const map = new Map<string, Color>()
+    if (allColors) {
+      allColors.forEach((color) => map.set(color.id, color))
+    }
+    return map
+  }, [allColors])
 
   // Extract room images grouped by room type
   const roomImages = roomImagesData?.data.images || []
@@ -98,48 +163,52 @@ export default function StyleDetailPage() {
                 position: 'relative',
               }}
             >
-              <Image
+              <ImageWithFallback
                 src={style.compositeImageUrl}
                 alt={`${style.name[currentLocale]} - Composite Mood Board`}
                 fit="cover"
-                style={{ width: '100%', height: '100%' }}
+                height={400}
+                width="100%"
+                maxRetries={3}
+                retryDelay={1000}
               />
             </Box>
           </Paper>
         )}
 
         {/* Header */}
-        <div>
-          <Group gap="xs" mb="xs" wrap="wrap">
-            {style.category && (
-              <Badge size="lg" variant="light">
-                {style.category.name[currentLocale]}
-              </Badge>
-            )}
-            {style.subCategory && (
-              <Badge size="lg" variant="outline">
-                {style.subCategory.name[currentLocale]}
-              </Badge>
-            )}
-            {style.priceLevel && (
-              <Badge
-                size="lg"
-                variant="filled"
-                color={style.priceLevel === 'LUXURY' ? 'grape' : 'blue'}
-                leftSection={style.priceLevel === 'LUXURY' ? <IconDiamond size={14} /> : undefined}
-              >
-                {style.priceLevel === 'LUXURY'
-                  ? (locale === 'he' ? 'יוקרתי' : 'Luxury')
-                  : (locale === 'he' ? 'רגיל' : 'Regular')}
-              </Badge>
-            )}
-            {style.roomCategory && (
-              <Badge size="lg" variant="light" color="teal" leftSection={<IconBuildingStore size={14} />}>
-                {style.roomCategory}
-              </Badge>
-            )}
-          </Group>
-          <Title order={1} mb="xs">
+        <Group justify="space-between" align="flex-start">
+          <div style={{ flex: 1 }}>
+            <Group gap="xs" mb="xs" wrap="wrap">
+              {style.category && (
+                <Badge size="lg" variant="light">
+                  {style.category.name[currentLocale]}
+                </Badge>
+              )}
+              {style.subCategory && (
+                <Badge size="lg" variant="outline">
+                  {style.subCategory.name[currentLocale]}
+                </Badge>
+              )}
+              {style.priceLevel && (
+                <Badge
+                  size="lg"
+                  variant="filled"
+                  color={style.priceLevel === 'LUXURY' ? 'grape' : 'blue'}
+                  leftSection={style.priceLevel === 'LUXURY' ? <IconDiamond size={14} /> : undefined}
+                >
+                  {style.priceLevel === 'LUXURY'
+                    ? (locale === 'he' ? 'יוקרתי' : 'Luxury')
+                    : (locale === 'he' ? 'רגיל' : 'Regular')}
+                </Badge>
+              )}
+              {style.roomCategory && (
+                <Badge size="lg" variant="light" color="teal" leftSection={<IconBuildingStore size={14} />}>
+                  {style.roomCategory}
+                </Badge>
+              )}
+            </Group>
+            <Title order={1} mb="xs">
             {style.name[currentLocale]}
           </Title>
           <Group gap="md" wrap="wrap">
@@ -166,7 +235,19 @@ export default function StyleDetailPage() {
               </Group>
             )}
           </Group>
-        </div>
+          </div>
+
+          {/* Use for Project Button */}
+          <Button
+            size="md"
+            variant="filled"
+            color="brand"
+            leftSection={<IconCopy size={18} />}
+            onClick={() => setUseForProjectModalOpen(true)}
+          >
+            {locale === 'he' ? 'השתמש בפרויקט' : 'Use for Project'}
+          </Button>
+        </Group>
 
         {/* Anchor Image */}
         {style.anchorImageUrl && (
@@ -193,11 +274,14 @@ export default function StyleDetailPage() {
                   }
                 }}
               >
-                <Image
+                <ImageWithFallback
                   src={style.anchorImageUrl}
                   alt={`${style.name[currentLocale]} - Anchor`}
                   fit="cover"
-                  style={{ width: '100%', height: '100%' }}
+                  height={300}
+                  width="100%"
+                  maxRetries={3}
+                  retryDelay={1000}
                 />
               </Box>
             </Paper>
@@ -298,58 +382,73 @@ export default function StyleDetailPage() {
                         </Text>
                       )}
                     </div>
-                    {roomProfile.images && roomProfile.images.length > 0 && (
+                    {/* Check both views (new schema) and images (legacy) */}
+                    {((roomProfile.views && roomProfile.views.length > 0) || (roomProfile.images && roomProfile.images.length > 0)) && (
                       <Badge size="lg" variant="light" leftSection={<IconPhoto size={14} />}>
-                        {roomProfile.images.length} Images
+                        {(roomProfile.views?.length || roomProfile.images?.length || 0)} Images
                       </Badge>
                     )}
                   </Group>
 
-                  {/* Room Images */}
-                  {roomProfile.images && roomProfile.images.length > 0 && (
-                    <>
-                      <Divider />
-                      <SimpleGrid cols={{ base: 2, sm: 3, md: 4 }} spacing="md">
-                        {roomProfile.images.map((imageUrl: string, imgIndex: number) => (
-                          <Paper
-                            key={imgIndex}
-                            p="xs"
-                            withBorder
-                            radius="md"
-                            style={{ overflow: 'hidden', cursor: 'pointer' }}
-                            onClick={() =>
-                              openImages(
-                                roomProfile.images.map((url: string, idx: number) => ({
-                                  url,
-                                  title: `${roomProfile.description?.[currentLocale] || `Room ${index + 1}`} - Image ${idx + 1}`,
-                                  description: style.name[currentLocale],
-                                })),
-                                imgIndex
-                              )
-                            }
-                          >
-                            <Box
-                              style={{
-                                aspectRatio: '1',
-                                overflow: 'hidden',
-                                borderRadius: 'var(--mantine-radius-sm)',
-                                transition: 'transform 0.2s ease',
-                              }}
-                              onMouseEnter={(e) => (e.currentTarget.style.transform = 'scale(1.05)')}
-                              onMouseLeave={(e) => (e.currentTarget.style.transform = 'scale(1)')}
+                  {/* Room Images - Support both views (new) and images (legacy) */}
+                  {(() => {
+                    // Get images from views (new schema) or images (legacy)
+                    const roomViewImages = roomProfile.views
+                      ?.filter((v: any) => v.url && v.status === 'COMPLETED')
+                      .map((v: any) => v.url) || []
+                    const legacyImages = roomProfile.images || []
+                    const allImages = roomViewImages.length > 0 ? roomViewImages : legacyImages
+
+                    if (allImages.length === 0) return null
+
+                    return (
+                      <>
+                        <Divider />
+                        <SimpleGrid cols={{ base: 2, sm: 3, md: 4 }} spacing="md">
+                          {allImages.map((imageUrl: string, imgIndex: number) => (
+                            <Paper
+                              key={imgIndex}
+                              p="xs"
+                              withBorder
+                              radius="md"
+                              style={{ overflow: 'hidden', cursor: 'pointer' }}
+                              onClick={() =>
+                                openImages(
+                                  allImages.map((url: string, idx: number) => ({
+                                    url,
+                                    title: `${roomProfile.description?.[currentLocale] || `Room ${index + 1}`} - Image ${idx + 1}`,
+                                    description: style.name[currentLocale],
+                                  })),
+                                  imgIndex
+                                )
+                              }
                             >
-                              <Image
-                                src={imageUrl}
-                                alt={`${roomProfile.description?.[currentLocale] || `Room ${index + 1}`} - Image ${imgIndex + 1}`}
-                                fit="cover"
-                                style={{ width: '100%', height: '100%' }}
-                              />
-                            </Box>
-                          </Paper>
-                        ))}
-                      </SimpleGrid>
-                    </>
-                  )}
+                              <Box
+                                style={{
+                                  aspectRatio: '1',
+                                  overflow: 'hidden',
+                                  borderRadius: 'var(--mantine-radius-sm)',
+                                  transition: 'transform 0.2s ease',
+                                }}
+                                onMouseEnter={(e) => (e.currentTarget.style.transform = 'scale(1.05)')}
+                                onMouseLeave={(e) => (e.currentTarget.style.transform = 'scale(1)')}
+                              >
+                                <ImageWithFallback
+                                  src={imageUrl}
+                                  alt={`${roomProfile.description?.[currentLocale] || `Room ${index + 1}`} - Image ${imgIndex + 1}`}
+                                  fit="cover"
+                                  height="100%"
+                                  width="100%"
+                                  maxRetries={3}
+                                  retryDelay={1000}
+                                />
+                              </Box>
+                            </Paper>
+                          ))}
+                        </SimpleGrid>
+                      </>
+                    )
+                  })()}
 
                   {/* Color Palette */}
                   {roomProfile.colorPalette && (
@@ -357,27 +456,101 @@ export default function StyleDetailPage() {
                       <Divider />
                       <div>
                         <Text fw={600} mb="xs">
-                          Color Palette
+                          {locale === 'he' ? 'פלטת צבעים' : 'Color Palette'}
                         </Text>
                         {roomProfile.colorPalette.description?.[currentLocale] && (
                           <Text size="sm" c="dimmed" mb="sm">
                             {roomProfile.colorPalette.description[currentLocale]}
                           </Text>
                         )}
-                        <Group gap="xs">
-                          {roomProfile.colorPalette.primaryId && (
-                            <Badge variant="filled">Primary Color</Badge>
-                          )}
-                          {roomProfile.colorPalette.secondaryIds?.map((colorId: string, idx: number) => (
-                            <Badge key={idx} variant="light">
-                              Secondary {idx + 1}
-                            </Badge>
-                          ))}
-                          {roomProfile.colorPalette.accentIds?.map((colorId: string, idx: number) => (
-                            <Badge key={idx} variant="outline">
-                              Accent {idx + 1}
-                            </Badge>
-                          ))}
+                        <Group gap="sm" wrap="wrap">
+                          {/* Primary Color */}
+                          {roomProfile.colorPalette.primaryId && (() => {
+                            const color = colorMap.get(roomProfile.colorPalette.primaryId)
+                            return color ? (
+                              <Badge
+                                key={color.id}
+                                variant="filled"
+                                size="lg"
+                                leftSection={
+                                  <Box
+                                    style={{
+                                      width: 16,
+                                      height: 16,
+                                      borderRadius: '50%',
+                                      backgroundColor: color.hex,
+                                      border: '2px solid rgba(255,255,255,0.5)',
+                                    }}
+                                  />
+                                }
+                                style={{ backgroundColor: '#df2538' }}
+                              >
+                                {color.name[currentLocale]}
+                              </Badge>
+                            ) : (
+                              <Badge variant="filled" size="lg">
+                                {locale === 'he' ? 'צבע ראשי' : 'Primary'}
+                              </Badge>
+                            )
+                          })()}
+
+                          {/* Secondary Colors */}
+                          {roomProfile.colorPalette.secondaryIds?.map((colorId: string, idx: number) => {
+                            const color = colorMap.get(colorId)
+                            return color ? (
+                              <Badge
+                                key={colorId}
+                                variant="light"
+                                size="lg"
+                                leftSection={
+                                  <Box
+                                    style={{
+                                      width: 16,
+                                      height: 16,
+                                      borderRadius: '50%',
+                                      backgroundColor: color.hex,
+                                      border: '1px solid #ccc',
+                                    }}
+                                  />
+                                }
+                              >
+                                {color.name[currentLocale]}
+                              </Badge>
+                            ) : (
+                              <Badge key={idx} variant="light" size="lg">
+                                {locale === 'he' ? `משני ${idx + 1}` : `Secondary ${idx + 1}`}
+                              </Badge>
+                            )
+                          })}
+
+                          {/* Accent Colors */}
+                          {roomProfile.colorPalette.accentIds?.map((colorId: string, idx: number) => {
+                            const color = colorMap.get(colorId)
+                            return color ? (
+                              <Badge
+                                key={colorId}
+                                variant="outline"
+                                size="lg"
+                                leftSection={
+                                  <Box
+                                    style={{
+                                      width: 16,
+                                      height: 16,
+                                      borderRadius: '50%',
+                                      backgroundColor: color.hex,
+                                      border: '1px solid #ccc',
+                                    }}
+                                  />
+                                }
+                              >
+                                {color.name[currentLocale]}
+                              </Badge>
+                            ) : (
+                              <Badge key={idx} variant="outline" size="lg">
+                                {locale === 'he' ? `הדגשה ${idx + 1}` : `Accent ${idx + 1}`}
+                              </Badge>
+                            )
+                          })}
                         </Group>
                       </div>
                     </>
@@ -484,11 +657,14 @@ export default function StyleDetailPage() {
                         onMouseEnter={(e) => (e.currentTarget.style.transform = 'scale(1.05)')}
                         onMouseLeave={(e) => (e.currentTarget.style.transform = 'scale(1)')}
                       >
-                        <Image
+                        <ImageWithFallback
                           src={image.url}
                           alt={image.roomType || 'Room image'}
                           fit="cover"
-                          style={{ width: '100%', height: '100%' }}
+                          height="100%"
+                          width="100%"
+                          maxRetries={3}
+                          retryDelay={1000}
                         />
                       </Box>
                       {image.roomType && (
@@ -557,11 +733,14 @@ export default function StyleDetailPage() {
                                 marginBottom: '0.5rem',
                               }}
                             >
-                              <Image
+                              <ImageWithFallback
                                 src={material.assets?.thumbnail || material.assets?.images?.[0]}
                                 alt={locale === 'he' ? material.name.he : material.name.en}
                                 fit="cover"
-                                style={{ width: '100%', height: '100%' }}
+                                height={200}
+                                width="100%"
+                                maxRetries={3}
+                                retryDelay={1000}
                               />
                             </Box>
                           )}
@@ -643,11 +822,14 @@ export default function StyleDetailPage() {
                               marginBottom: '0.5rem',
                             }}
                           >
-                            <Image
+                            <ImageWithFallback
                               src={image.url}
                               alt={image.description || 'Material'}
                               fit="cover"
-                              style={{ width: '100%', height: '100%' }}
+                              height={200}
+                              width="100%"
+                              maxRetries={3}
+                              retryDelay={1000}
                             />
                           </Box>
                           {image.description && (
@@ -764,7 +946,7 @@ export default function StyleDetailPage() {
           <Tabs.Panel value="images" pt="xl">
             {style.images && style.images.length > 0 ? (
               <SimpleGrid cols={{ base: 2, sm: 3, md: 4 }} spacing="md">
-                {style.images.map((image, index) => (
+                {style.images.map((image: string, index: number) => (
                   <Paper
                     key={index}
                     p="xs"
@@ -773,7 +955,7 @@ export default function StyleDetailPage() {
                     style={{ overflow: 'hidden', cursor: 'pointer' }}
                     onClick={() =>
                       openImages(
-                        style.images.map((url, idx) => ({
+                        style.images.map((url: string, idx: number) => ({
                           url,
                           title: `${style.name[currentLocale]} - תמונה ${idx + 1}`,
                           description: style.approach?.name?.[currentLocale] || '',
@@ -815,6 +997,121 @@ export default function StyleDetailPage() {
           </Tabs.Panel>
         </Tabs>
       </Stack>
+
+      {/* Use for Project Modal */}
+      <Modal
+        opened={useForProjectModalOpen}
+        onClose={handleCloseModal}
+        title={locale === 'he' ? 'השתמש בסגנון זה לפרויקט' : 'Use This Style for Project'}
+        size="md"
+      >
+        <Stack gap="md">
+          {forkStatus === 'idle' && (
+            <>
+              <Text size="sm" c="dimmed">
+                {locale === 'he'
+                  ? 'בחר פרויקט להעתקת הסגנון אליו. כל החדרים והאלמנטים יועתקו בחינם.'
+                  : 'Select a project to copy this style to. All rooms and elements will be copied for free.'}
+              </Text>
+
+              {projectsLoading ? (
+                <Stack align="center" py="md">
+                  <Loader size="sm" />
+                </Stack>
+              ) : projects.length === 0 ? (
+                <Alert color="yellow">
+                  {locale === 'he'
+                    ? 'אין לך פרויקטים עדיין. צור פרויקט חדש תחילה.'
+                    : 'You have no projects yet. Create a project first.'}
+                </Alert>
+              ) : (
+                <Select
+                  label={locale === 'he' ? 'בחר פרויקט' : 'Select Project'}
+                  placeholder={locale === 'he' ? 'בחר פרויקט...' : 'Select a project...'}
+                  data={projects.map((p: any) => ({
+                    value: p.id,
+                    label: `${p.name}${p.client ? ` (${p.client.name})` : ''}`,
+                  }))}
+                  value={selectedProjectId}
+                  onChange={setSelectedProjectId}
+                  searchable
+                  leftSection={<IconFolder size={16} />}
+                />
+              )}
+
+              <Group justify="flex-end" mt="md">
+                <Button variant="subtle" onClick={handleCloseModal}>
+                  {locale === 'he' ? 'ביטול' : 'Cancel'}
+                </Button>
+                <Button
+                  onClick={handleUseForProject}
+                  disabled={!selectedProjectId}
+                  leftSection={<IconCopy size={16} />}
+                >
+                  {locale === 'he' ? 'העתק לפרויקט' : 'Copy to Project'}
+                </Button>
+              </Group>
+            </>
+          )}
+
+          {forkStatus === 'loading' && (
+            <Stack align="center" py="xl">
+              <Loader size="lg" />
+              <Text size="sm" c="dimmed">
+                {locale === 'he' ? 'מעתיק סגנון וחדרים...' : 'Copying style and rooms...'}
+              </Text>
+            </Stack>
+          )}
+
+          {forkStatus === 'success' && forkResult && (
+            <Stack align="center" py="lg" gap="md">
+              <Paper p="md" radius="xl" bg="green.0">
+                <IconCheck size={48} color="green" />
+              </Paper>
+              <Text fw={600} ta="center">
+                {locale === 'he' ? 'הסגנון הועתק בהצלחה!' : 'Style copied successfully!'}
+              </Text>
+              <Text size="sm" c="dimmed" ta="center">
+                {locale === 'he'
+                  ? `${forkResult.forkedRoomsCount} חדרים נוספו לפרויקט`
+                  : `${forkResult.forkedRoomsCount} rooms added to the project`}
+              </Text>
+              <Group>
+                <Button variant="subtle" onClick={handleCloseModal}>
+                  {locale === 'he' ? 'סגור' : 'Close'}
+                </Button>
+                <Button onClick={handleGoToProjectStyle}>
+                  {locale === 'he' ? 'עבור לעמוד הסגנון' : 'Go to Style Page'}
+                </Button>
+              </Group>
+            </Stack>
+          )}
+
+          {forkStatus === 'error' && (
+            <Stack align="center" py="lg" gap="md">
+              <Paper p="md" radius="xl" bg="red.0">
+                <IconX size={48} color="red" />
+              </Paper>
+              <Text fw={600} c="red" ta="center">
+                {locale === 'he' ? 'שגיאה בהעתקת הסגנון' : 'Error copying style'}
+              </Text>
+              {forkError && (
+                <Text size="sm" c="dimmed" ta="center">
+                  {forkError}
+                </Text>
+              )}
+              <Group>
+                <Button variant="subtle" onClick={handleCloseModal}>
+                  {locale === 'he' ? 'סגור' : 'Close'}
+                </Button>
+                <Button onClick={() => setForkStatus('idle')}>
+                  {locale === 'he' ? 'נסה שנית' : 'Try Again'}
+                </Button>
+              </Group>
+            </Stack>
+          )}
+        </Stack>
+      </Modal>
     </Container>
   )
 }

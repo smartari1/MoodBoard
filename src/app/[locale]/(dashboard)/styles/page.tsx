@@ -194,7 +194,18 @@ export default function StylesPage() {
                 const isGlobal = style.organizationId === null
                 const isPublic = metadata.isPublic && metadata.approvalStatus === 'approved'
                 const isPersonal = !isGlobal && !isPublic
-                const firstImage = style.images?.[0]
+                // Get first image from multiple sources (in priority order):
+                // 1. StyleImage relation (Phase 2 categorized images)
+                // 2. Composite image URL
+                // 3. Anchor image URL
+                // 4. Gallery items (legacy embedded images)
+                // 5. Room profile views
+                const firstImage =
+                  (style.images as any)?.[0]?.url ||
+                  (style as any).compositeImageUrl ||
+                  (style as any).anchorImageUrl ||
+                  (style.gallery as any)?.[0]?.url ||
+                  (style.roomProfiles as any)?.[0]?.views?.[0]?.url
 
                 return (
                   <Card

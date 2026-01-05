@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
+import { useEffect } from 'react'
 import { useSearchParams, useRouter, usePathname } from 'next/navigation'
 import { Paper, Stack, Text, Title, Divider } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
@@ -12,7 +12,7 @@ import {
   RoomSpecForm,
   GenerationPreview,
 } from '@/components/features/ai-studio'
-import { useAIStudio, useAIStudioStore } from '@/hooks/useAIStudio'
+import { useAIStudio } from '@/hooks/useAIStudio'
 import { useHasCredits, useInvalidateCredits } from '@/hooks/useCredits'
 
 /**
@@ -24,16 +24,15 @@ export default function AIStudioPage() {
   const router = useRouter()
   const pathname = usePathname()
   const locale = pathname?.split('/')[1] || 'he'
-  const progressRef = useRef(0)
 
   const {
+    reset,
     setGenerating,
     setProgress,
     setError,
     setPreviewImage,
     input,
     canGenerate,
-    generationProgress,
   } = useAIStudio()
 
   const { hasCredits } = useHasCredits(1)
@@ -41,8 +40,6 @@ export default function AIStudioPage() {
 
   // Handle URL params for deep linking from library
   useEffect(() => {
-    if (!searchParams) return
-
     const categoryId = searchParams.get('categoryId')
     const colorId = searchParams.get('colorId')
     const textureId = searchParams.get('textureId')
@@ -78,12 +75,16 @@ export default function AIStudioPage() {
       setGenerating(true)
       setError(null)
       setProgress(0)
-      progressRef.current = 0
 
       // Simulate progress for now (will be replaced with actual API call)
       const progressInterval = setInterval(() => {
-        progressRef.current = Math.min(90, progressRef.current + Math.random() * 10)
-        setProgress(progressRef.current)
+        setProgress((prev) => {
+          if (prev >= 90) {
+            clearInterval(progressInterval)
+            return prev
+          }
+          return prev + Math.random() * 10
+        })
       }, 500)
 
       // Call the generation API

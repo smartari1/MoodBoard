@@ -31,6 +31,7 @@ import {
   IconCurrencyDollar,
   IconBuilding,
   IconFileText,
+  IconPalette,
 } from '@tabler/icons-react'
 // FIX: Replaced barrel import with direct imports to improve compilation speed
 // Barrel imports force compilation of ALL components (including heavy RichTextEditor, ImageUpload)
@@ -282,6 +283,22 @@ export default function ProjectDetailPage() {
                   </SimpleGrid>
                 </Stack>
               </MoodBCard>
+
+              {/* Quick Actions Card */}
+              <MoodBCard>
+                <Stack gap="md">
+                  <Text fw={600}>{t('details.quickActions')}</Text>
+                  <Divider />
+                  <Button
+                    fullWidth
+                    variant="light"
+                    leftSection={<IconPalette size={18} />}
+                    onClick={() => router.push(`/${locale}/projects/${projectId}/style`)}
+                  >
+                    {t('details.designStyle')}
+                  </Button>
+                </Stack>
+              </MoodBCard>
             </Stack>
           </Grid.Col>
 
@@ -294,6 +311,13 @@ export default function ProjectDetailPage() {
                 </Tabs.Tab>
                 <Tabs.Tab value="rooms" leftSection={<IconBuilding size={16} />}>
                   {t('details.rooms')} ({project.rooms?.length || 0})
+                </Tabs.Tab>
+                <Tabs.Tab
+                  value="style"
+                  leftSection={<IconPalette size={16} />}
+                  onClick={() => router.push(`/${locale}/projects/${projectId}/style`)}
+                >
+                  {t('details.style')}
                 </Tabs.Tab>
                 <Tabs.Tab value="budget" leftSection={<IconCurrencyDollar size={16} />}>
                   {t('details.budget')}
