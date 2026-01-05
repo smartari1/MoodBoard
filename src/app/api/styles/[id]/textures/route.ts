@@ -1,6 +1,9 @@
 /**
  * Style Textures API
- * Fetch Texture entities linked to a style via StyleTexture join table
+ * Fetch Texture entities linked to a style via:
+ * 1. StyleTexture join table (explicit links)
+ * 2. Materials linked to the style that have textures (implicit via material.textureId)
+ * 3. Embedded roomProfiles[].materials[] that reference materials with textures
  */
 
 import { prisma } from '@/lib/db/prisma'
@@ -14,10 +17,13 @@ export async function GET(
     const params = await context.params
     const styleId = params.id
 
-    // Verify style exists
+    // Fetch style with roomProfiles
     const style = await prisma.style.findUnique({
       where: { id: styleId },
-      select: { id: true },
+      select: {
+        id: true,
+        roomProfiles: true,
+      },
     })
 
     if (!style) {
@@ -27,37 +33,90 @@ export async function GET(
       )
     }
 
-    // Fetch textures via StyleTexture join table
+    // Collect all texture IDs from multiple sources
+    const textureIdsSet = new Set<string>()
+
+    // 1. Get textures from StyleTexture join table
     const styleTextures = await prisma.styleTexture.findMany({
+      where: { styleId },
+      select: { textureId: true, notes: true },
+    })
+    const textureNotes: Record<string, string | null> = {}
+    styleTextures.forEach((st) => {
+      textureIdsSet.add(st.textureId)
+      textureNotes[st.textureId] = st.notes
+    })
+
+    // 2. Get material IDs from embedded roomProfiles
+    const materialIdsSet = new Set<string>()
+    const roomProfiles = style.roomProfiles as any[] || []
+    roomProfiles.forEach((profile) => {
+      const embeddedMaterials = profile.materials || []
+      embeddedMaterials.forEach((mat: any) => {
+        if (mat.materialId) {
+          materialIdsSet.add(mat.materialId)
+        }
+      })
+    })
+
+    // 3. Get materials from StyleMaterial join table
+    const styleMaterials = await prisma.styleMaterial.findMany({
+      where: { styleId },
+      select: { materialId: true },
+    })
+    styleMaterials.forEach((sm) => materialIdsSet.add(sm.materialId))
+
+    // 4. Fetch materials to get their texture IDs
+    if (materialIdsSet.size > 0) {
+      const materials = await prisma.material.findMany({
+        where: {
+          id: { in: Array.from(materialIdsSet) },
+          textureId: { not: null },
+        },
+        select: { textureId: true },
+      })
+      materials.forEach((m) => {
+        if (m.textureId) {
+          textureIdsSet.add(m.textureId)
+        }
+      })
+    }
+
+    const allTextureIds = Array.from(textureIdsSet)
+
+    if (allTextureIds.length === 0) {
+      return NextResponse.json({
+        success: true,
+        data: {
+          textures: [],
+          groupedByCategory: {},
+          counts: { total: 0, byCategory: [] },
+        },
+      })
+    }
+
+    // Fetch all textures by IDs
+    const textureEntities = await prisma.texture.findMany({
       where: {
-        styleId,
+        id: { in: allTextureIds },
       },
       include: {
-        texture: {
-          include: {
-            category: true,
-            type: true,
-          },
-        },
-      },
-      orderBy: {
-        createdAt: 'asc',
+        category: true,
+        type: true,
       },
     })
 
-    // Extract texture data with usage count
+    // Build textures array with usage count
     const textures = await Promise.all(
-      styleTextures.map(async (st) => {
+      textureEntities.map(async (texture) => {
         const usageCount = await prisma.styleTexture.count({
-          where: {
-            textureId: st.texture.id,
-          },
+          where: { textureId: texture.id },
         })
 
         return {
-          ...st.texture,
-          usageCount,
-          notes: st.notes,
+          ...texture,
+          usageCount: Math.max(usageCount, 1), // At least 1 since it's used in this style
+          notes: textureNotes[texture.id] || null,
         }
       })
     )
@@ -66,7 +125,7 @@ export async function GET(
     const groupedByCategory: Record<string, typeof textures> = {}
 
     textures.forEach((texture) => {
-      const catName = texture.category.name.en
+      const catName = texture.category?.name?.en || 'Uncategorized'
       if (!groupedByCategory[catName]) {
         groupedByCategory[catName] = []
       }

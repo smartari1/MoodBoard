@@ -1,6 +1,8 @@
 /**
  * Style Materials API
- * Fetch Material entities linked to a style via StyleMaterial join table
+ * Fetch Material entities linked to a style via:
+ * 1. StyleMaterial join table (explicit links)
+ * 2. Embedded roomProfiles[].materials[].materialId (implicit links)
  */
 
 import { prisma } from '@/lib/db/prisma'
@@ -14,10 +16,13 @@ export async function GET(
     const params = await context.params
     const styleId = params.id
 
-    // Verify style exists
+    // Fetch style with roomProfiles to get embedded material IDs
     const style = await prisma.style.findUnique({
       where: { id: styleId },
-      select: { id: true },
+      select: {
+        id: true,
+        roomProfiles: true,
+      },
     })
 
     if (!style) {
@@ -27,51 +32,92 @@ export async function GET(
       )
     }
 
-    // Fetch materials via StyleMaterial join table
+    // Collect all material IDs from both sources
+    const materialIdsSet = new Set<string>()
+
+    // 1. Get materials from StyleMaterial join table
     const styleMaterials = await prisma.styleMaterial.findMany({
+      where: { styleId },
+      select: { materialId: true },
+    })
+    styleMaterials.forEach((sm) => materialIdsSet.add(sm.materialId))
+
+    // 2. Get materials from embedded roomProfiles
+    const roomProfiles = style.roomProfiles as any[] || []
+    roomProfiles.forEach((profile) => {
+      const embeddedMaterials = profile.materials || []
+      embeddedMaterials.forEach((mat: any) => {
+        if (mat.materialId) {
+          materialIdsSet.add(mat.materialId)
+        }
+      })
+    })
+
+    const allMaterialIds = Array.from(materialIdsSet)
+
+    if (allMaterialIds.length === 0) {
+      return NextResponse.json({
+        success: true,
+        data: {
+          materials: [],
+          groupedByCategory: {},
+          counts: { total: 0, byCategory: [] },
+        },
+      })
+    }
+
+    // Fetch all materials by IDs
+    const materialEntities = await prisma.material.findMany({
       where: {
-        styleId,
+        id: { in: allMaterialIds },
       },
       include: {
-        material: {
-          include: {
-            category: true,
-            texture: {
-              select: {
-                id: true,
-                name: true,
-                imageUrl: true,
-              },
-            },
+        category: true,
+        texture: {
+          select: {
+            id: true,
+            name: true,
+            imageUrl: true,
           },
         },
       },
-      orderBy: {
-        createdAt: 'asc',
-      },
     })
 
-    // Extract material data with usage count
+    // Build materials array with usage count and application info
     const materials = await Promise.all(
-      styleMaterials.map(async (sm) => {
+      materialEntities.map(async (material) => {
         const usageCount = await prisma.styleMaterial.count({
-          where: {
-            materialId: sm.material.id,
-          },
+          where: { materialId: material.id },
         })
 
+        // Find application info from embedded data
+        let application: any = null
+        let finish: string | null = null
+        for (const profile of roomProfiles) {
+          const embeddedMat = (profile.materials || []).find(
+            (m: any) => m.materialId === material.id
+          )
+          if (embeddedMat) {
+            application = embeddedMat.application
+            finish = embeddedMat.finish
+            break
+          }
+        }
+
         return {
-          id: sm.material.id,
-          name: sm.material.name,
-          sku: sm.material.sku,
-          isAbstract: sm.material.isAbstract,
-          aiDescription: sm.material.aiDescription,
-          generationStatus: sm.material.generationStatus,
-          category: sm.material.category,
-          texture: sm.material.texture,
-          assets: sm.material.assets,
-          usageCount,
-          linkedAt: sm.createdAt,
+          id: material.id,
+          name: material.name,
+          sku: material.sku,
+          isAbstract: material.isAbstract,
+          aiDescription: material.aiDescription,
+          generationStatus: material.generationStatus,
+          category: material.category,
+          texture: material.texture,
+          assets: material.assets,
+          usageCount: Math.max(usageCount, 1), // At least 1 since it's used in this style
+          application,
+          finish,
+          linkedAt: new Date(),
         }
       })
     )

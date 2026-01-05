@@ -16,7 +16,7 @@ export interface StyleMaterial {
     id: string
     name: { he: string; en: string }
     slug: string
-  }
+  } | null
   texture: {
     id: string
     name: { he: string; en: string }
@@ -25,9 +25,12 @@ export interface StyleMaterial {
   assets: {
     thumbnail: string
     images: string[]
-  }
+  } | null
   usageCount: number
   linkedAt: string
+  // Application info from embedded roomProfiles data
+  application?: { he: string; en: string } | null
+  finish?: string | null
 }
 
 export interface StyleMaterialsResponse {

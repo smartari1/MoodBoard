@@ -178,7 +178,11 @@ export const POST = withAuth(async (req: NextRequest, auth, context: RouteContex
             id: true,
             name: true,
             slug: true,
-            images: true,
+            images: {
+              select: { id: true, url: true, imageCategory: true },
+              orderBy: { displayOrder: 'asc' },
+              take: 5,
+            },
           },
         },
         rooms: {
@@ -204,13 +208,13 @@ export const POST = withAuth(async (req: NextRequest, auth, context: RouteContex
       textureIds.length > 0
         ? prisma.texture.findMany({
             where: { id: { in: textureIds } },
-            select: { id: true, name: true, images: true },
+            select: { id: true, name: true, imageUrl: true },
           })
         : [],
       materialIds.length > 0
         ? prisma.material.findMany({
             where: { id: { in: materialIds } },
-            select: { id: true, name: true, images: true, pricing: true },
+            select: { id: true, name: true, assets: true },
           })
         : [],
     ])

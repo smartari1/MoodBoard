@@ -750,12 +750,29 @@ export default function StyleDetailPage() {
                             {locale === 'he' ? material.name.he : material.name.en}
                           </Text>
 
+                          {/* Application Info (where this material is used) */}
+                          {(material as any).application && (
+                            <Text size="xs" c="dimmed" mt={2}>
+                              {locale === 'he'
+                                ? (material as any).application.he
+                                : (material as any).application.en}
+                              {(material as any).finish && ` • ${(material as any).finish}`}
+                            </Text>
+                          )}
+
                           {/* Material Badges */}
                           <Group gap="xs" mt="xs" wrap="wrap">
                             {/* Category Badge */}
                             {material.category && (
                               <Badge size="xs" variant="light" color="blue">
                                 {locale === 'he' ? material.category.name?.he : material.category.name?.en}
+                              </Badge>
+                            )}
+
+                            {/* Finish Badge */}
+                            {(material as any).finish && (
+                              <Badge size="xs" variant="light" color="cyan">
+                                {(material as any).finish}
                               </Badge>
                             )}
 
