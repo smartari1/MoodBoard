@@ -499,7 +499,7 @@ export default function StyleDetailPage() {
                             const color = colorMap.get(colorId)
                             return color ? (
                               <Badge
-                                key={colorId}
+                                key={`secondary-${colorId}-${idx}`}
                                 variant="light"
                                 size="lg"
                                 leftSection={
@@ -517,7 +517,7 @@ export default function StyleDetailPage() {
                                 {color.name[currentLocale]}
                               </Badge>
                             ) : (
-                              <Badge key={idx} variant="light" size="lg">
+                              <Badge key={`secondary-fallback-${idx}`} variant="light" size="lg">
                                 {locale === 'he' ? `משני ${idx + 1}` : `Secondary ${idx + 1}`}
                               </Badge>
                             )
@@ -528,7 +528,7 @@ export default function StyleDetailPage() {
                             const color = colorMap.get(colorId)
                             return color ? (
                               <Badge
-                                key={colorId}
+                                key={`accent-${colorId}-${idx}`}
                                 variant="outline"
                                 size="lg"
                                 leftSection={
@@ -546,7 +546,7 @@ export default function StyleDetailPage() {
                                 {color.name[currentLocale]}
                               </Badge>
                             ) : (
-                              <Badge key={idx} variant="outline" size="lg">
+                              <Badge key={`accent-fallback-${idx}`} variant="outline" size="lg">
                                 {locale === 'he' ? `הדגשה ${idx + 1}` : `Accent ${idx + 1}`}
                               </Badge>
                             )
