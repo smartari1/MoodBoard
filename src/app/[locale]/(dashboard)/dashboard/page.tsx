@@ -54,13 +54,6 @@ export default function DashboardPage() {
       href: `/${locale}/styles`,
       color: '#df2538',
     },
-    {
-      title: tNav('budget'),
-      description: 'Budget management',
-      icon: IconCoins,
-      href: `/${locale}/budget`,
-      color: '#df2538',
-    },
   ]
 
   // Format budget value

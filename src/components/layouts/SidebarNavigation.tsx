@@ -7,7 +7,6 @@ import {
   IconFolder,
   IconUsers,
   IconPalette,
-  IconCoins,
   IconBox,
   IconSettings,
   IconLibrary,
@@ -59,12 +58,6 @@ export function SidebarNavigation() {
       icon: IconBox,
       href: '/materials',
       translationKey: 'materials',
-    },
-    {
-      label: t('budget'),
-      icon: IconCoins,
-      href: '/budget',
-      translationKey: 'budget',
     },
     {
       label: t('settings'),

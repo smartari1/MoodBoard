@@ -93,13 +93,13 @@ export const GET = withAuth(async (req: NextRequest, auth, context: RouteContext
       projectStyle.textureIds.length > 0
         ? prisma.texture.findMany({
             where: { id: { in: projectStyle.textureIds } },
-            select: { id: true, name: true, images: true },
+            select: { id: true, name: true, imageUrl: true, thumbnailUrl: true },
           })
         : [],
       projectStyle.materialIds.length > 0
         ? prisma.material.findMany({
             where: { id: { in: projectStyle.materialIds } },
-            select: { id: true, name: true, images: true, pricing: true },
+            select: { id: true, name: true, assets: true },
           })
         : [],
     ])

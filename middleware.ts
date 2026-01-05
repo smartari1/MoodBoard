@@ -28,7 +28,7 @@ export async function middleware(request: NextRequest) {
   const isAuthPage = isSignInPage || isSignUpPage
 
   // Protected routes require authentication
-  const protectedRoutes = ['/dashboard', '/projects', '/clients', '/styles', '/materials', '/budget', '/settings', '/onboarding', '/admin']
+  const protectedRoutes = ['/dashboard', '/projects', '/clients', '/styles', '/materials', '/settings', '/onboarding', '/admin']
   const isProtectedRoute = protectedRoutes.some(route => pathname.includes(route))
   const isAdminRoute = pathname.includes('/admin')
 

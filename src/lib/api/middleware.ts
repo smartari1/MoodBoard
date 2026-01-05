@@ -199,13 +199,13 @@ export function handleError(error: unknown): NextResponse {
 /**
  * API Route wrapper with authentication and error handling
  */
-export function withAuth(
-  handler: (req: NextRequest, auth: AuthContext) => Promise<NextResponse>
+export function withAuth<T = unknown>(
+  handler: (req: NextRequest, auth: AuthContext, context?: T) => Promise<NextResponse>
 ) {
-  return async (req: NextRequest): Promise<NextResponse> => {
+  return async (req: NextRequest, context?: T): Promise<NextResponse> => {
     try {
       const auth = await getAuthUser(req)
-      return await handler(req, auth)
+      return await handler(req, auth, context)
     } catch (error) {
       return handleError(error)
     }
