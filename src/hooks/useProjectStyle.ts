@@ -95,15 +95,15 @@ export interface ProjectStyle {
   textures?: Array<{
     id: string
     name: LocalizedString
-    images?: string[]
+    imageUrl?: string
+    thumbnailUrl?: string
   }>
   materials?: Array<{
     id: string
     name: LocalizedString
-    images?: string[]
-    pricing?: {
-      basePrice?: number
-      unit?: string
+    assets?: {
+      thumbnail?: string
+      images?: string[]
     }
   }>
 }
@@ -366,11 +366,9 @@ export function useCreateProjectStyle() {
       projectId: string
       data: Parameters<typeof createProjectStyle>[1]
     }) => createProjectStyle(projectId, data),
-    onSuccess: (data) => {
-      queryClient.setQueryData([PROJECT_STYLE_KEY, data.projectId], {
-        exists: true,
-        ...data,
-      })
+    onSuccess: (_, { projectId }) => {
+      // Invalidate to refetch full data including populated colors/textures/materials
+      queryClient.invalidateQueries({ queryKey: [PROJECT_STYLE_KEY, projectId] })
     },
   })
 }
@@ -386,11 +384,9 @@ export function useUpdateProjectStyle() {
       projectId: string
       data: Parameters<typeof updateProjectStyle>[1]
     }) => updateProjectStyle(projectId, data),
-    onSuccess: (data) => {
-      queryClient.setQueryData([PROJECT_STYLE_KEY, data.projectId], {
-        exists: true,
-        ...data,
-      })
+    onSuccess: (_, { projectId }) => {
+      // Invalidate to refetch full data including populated colors/textures/materials
+      queryClient.invalidateQueries({ queryKey: [PROJECT_STYLE_KEY, projectId] })
     },
   })
 }
@@ -406,11 +402,9 @@ export function useForkFromStyle() {
       projectId: string
       sourceStyleId: string
     }) => forkFromStyle(projectId, sourceStyleId),
-    onSuccess: (data) => {
-      queryClient.setQueryData([PROJECT_STYLE_KEY, data.projectId], {
-        exists: true,
-        ...data,
-      })
+    onSuccess: (_, { projectId }) => {
+      // Invalidate to refetch full data including populated colors/textures/materials
+      queryClient.invalidateQueries({ queryKey: [PROJECT_STYLE_KEY, projectId] })
     },
   })
 }

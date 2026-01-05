@@ -33,16 +33,16 @@ interface ColorItem {
 interface TextureItem {
   id: string
   name: LocalizedString
-  images?: string[]
+  imageUrl?: string
+  thumbnailUrl?: string
 }
 
 interface MaterialItem {
   id: string
   name: LocalizedString
-  images?: string[]
-  pricing?: {
-    basePrice?: number
-    unit?: string
+  assets?: {
+    thumbnail?: string
+    images?: string[]
   }
 }
 
@@ -164,7 +164,7 @@ export function ElementsSection({
                 <Box key={texture.id} pos="relative">
                   <Paper radius="md" withBorder style={{ overflow: 'hidden' }}>
                     <Image
-                      src={texture.images?.[0] || '/placeholder-texture.png'}
+                      src={texture.imageUrl || texture.thumbnailUrl || '/placeholder-texture.png'}
                       alt={getName(texture.name)}
                       h={80}
                       fit="cover"
@@ -223,7 +223,7 @@ export function ElementsSection({
                 <Box key={material.id} pos="relative">
                   <Paper radius="md" withBorder style={{ overflow: 'hidden' }}>
                     <Image
-                      src={material.images?.[0] || '/placeholder-material.png'}
+                      src={material.assets?.thumbnail || material.assets?.images?.[0] || '/placeholder-material.png'}
                       alt={getName(material.name)}
                       h={100}
                       fit="cover"
@@ -232,11 +232,6 @@ export function ElementsSection({
                       <Text size="sm" fw={500} truncate>
                         {getName(material.name)}
                       </Text>
-                      {material.pricing?.basePrice && (
-                        <Text size="xs" c="dimmed">
-                          ₪{material.pricing.basePrice}/{material.pricing.unit || 'unit'}
-                        </Text>
-                      )}
                     </Box>
                   </Paper>
                   <ActionIcon

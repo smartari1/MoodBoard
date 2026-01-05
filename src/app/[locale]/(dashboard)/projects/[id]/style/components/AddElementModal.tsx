@@ -36,16 +36,16 @@ interface Color {
 interface Texture {
   id: string
   name: { he: string; en: string }
-  images?: string[]
+  imageUrl?: string
+  thumbnailUrl?: string
 }
 
 interface Material {
   id: string
   name: { he: string; en: string }
-  images?: string[]
-  pricing?: {
-    basePrice?: number
-    unit?: string
+  assets?: {
+    thumbnail?: string
+    images?: string[]
   }
 }
 
@@ -255,7 +255,7 @@ export function AddElementModal({
                 >
                   <Card.Section pos="relative">
                     <Image
-                      src={texture.images?.[0] || '/placeholder-texture.png'}
+                      src={texture.imageUrl || texture.thumbnailUrl || '/placeholder-texture.png'}
                       alt={getName(texture.name)}
                       h={80}
                       fit="cover"
@@ -302,7 +302,7 @@ export function AddElementModal({
                 >
                   <Card.Section pos="relative">
                     <Image
-                      src={material.images?.[0] || '/placeholder-material.png'}
+                      src={material.assets?.thumbnail || material.assets?.images?.[0] || '/placeholder-material.png'}
                       alt={getName(material.name)}
                       h={100}
                       fit="cover"
@@ -324,11 +324,6 @@ export function AddElementModal({
                     <Text size="xs" fw={500} lineClamp={1}>
                       {getName(material.name)}
                     </Text>
-                    {material.pricing?.basePrice && (
-                      <Text size="xs" c="dimmed">
-                        ₪{material.pricing.basePrice}
-                      </Text>
-                    )}
                   </Stack>
                 </Card>
               )
