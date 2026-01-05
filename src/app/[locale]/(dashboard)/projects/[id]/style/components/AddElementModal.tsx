@@ -19,7 +19,7 @@ import {
   Box,
 } from '@mantine/core'
 import { useDebouncedValue } from '@mantine/hooks'
-import { IconSearch, IconCheck } from '@tabler/icons-react'
+import { IconSearch, IconCheck, IconTexture, IconBox } from '@tabler/icons-react'
 import { useTranslations } from 'next-intl'
 import { useParams } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
@@ -127,6 +127,19 @@ export function AddElementModal({
 
   const getName = (name: { he: string; en: string }) =>
     locale === 'he' ? name.he : name.en
+
+  // Helper to get valid image URL or undefined for fallback
+  const getTextureImage = (texture: Texture): string | undefined => {
+    if (texture.imageUrl && texture.imageUrl.length > 0) return texture.imageUrl
+    if (texture.thumbnailUrl && texture.thumbnailUrl.length > 0) return texture.thumbnailUrl
+    return undefined
+  }
+
+  const getMaterialImage = (material: Material): string | undefined => {
+    if (material.assets?.thumbnail && material.assets.thumbnail.length > 0) return material.assets.thumbnail
+    if (material.assets?.images?.[0] && material.assets.images[0].length > 0) return material.assets.images[0]
+    return undefined
+  }
 
   const getTitle = () => {
     switch (type) {
@@ -254,12 +267,18 @@ export function AddElementModal({
                   onClick={() => !isSelected && handleAdd(texture.id)}
                 >
                   <Card.Section pos="relative">
-                    <Image
-                      src={texture.imageUrl || texture.thumbnailUrl || '/placeholder-texture.png'}
-                      alt={getName(texture.name)}
-                      h={80}
-                      fit="cover"
-                    />
+                    {getTextureImage(texture) ? (
+                      <Image
+                        src={getTextureImage(texture)}
+                        alt={getName(texture.name)}
+                        h={80}
+                        fit="cover"
+                      />
+                    ) : (
+                      <Center h={80} bg="gray.1">
+                        <IconTexture size={32} color="gray" />
+                      </Center>
+                    )}
                     {isSelected && (
                       <Badge
                         variant="filled"
@@ -301,12 +320,18 @@ export function AddElementModal({
                   onClick={() => !isSelected && handleAdd(material.id)}
                 >
                   <Card.Section pos="relative">
-                    <Image
-                      src={material.assets?.thumbnail || material.assets?.images?.[0] || '/placeholder-material.png'}
-                      alt={getName(material.name)}
-                      h={100}
-                      fit="cover"
-                    />
+                    {getMaterialImage(material) ? (
+                      <Image
+                        src={getMaterialImage(material)}
+                        alt={getName(material.name)}
+                        h={100}
+                        fit="cover"
+                      />
+                    ) : (
+                      <Center h={100} bg="gray.1">
+                        <IconBox size={40} color="gray" />
+                      </Center>
+                    )}
                     {isSelected && (
                       <Badge
                         variant="filled"

@@ -13,6 +13,7 @@ import {
   SimpleGrid,
   Tooltip,
   ColorSwatch,
+  Center,
 } from '@mantine/core'
 import { IconPlus, IconX, IconPalette, IconTexture, IconBox } from '@tabler/icons-react'
 import { useTranslations } from 'next-intl'
@@ -74,6 +75,19 @@ export function ElementsSection({
   const locale = params.locale as string
 
   const getName = (name: LocalizedString) => (locale === 'he' ? name.he : name.en)
+
+  // Helper to get valid image URL
+  const getTextureImage = (texture: TextureItem): string | undefined => {
+    if (texture.imageUrl && texture.imageUrl.length > 0) return texture.imageUrl
+    if (texture.thumbnailUrl && texture.thumbnailUrl.length > 0) return texture.thumbnailUrl
+    return undefined
+  }
+
+  const getMaterialImage = (material: MaterialItem): string | undefined => {
+    if (material.assets?.thumbnail && material.assets.thumbnail.length > 0) return material.assets.thumbnail
+    if (material.assets?.images?.[0] && material.assets.images[0].length > 0) return material.assets.images[0]
+    return undefined
+  }
 
   return (
     <Stack gap="lg">
@@ -163,12 +177,18 @@ export function ElementsSection({
               {textures.map((texture) => (
                 <Box key={texture.id} pos="relative">
                   <Paper radius="md" withBorder style={{ overflow: 'hidden' }}>
-                    <Image
-                      src={texture.imageUrl || texture.thumbnailUrl || '/placeholder-texture.png'}
-                      alt={getName(texture.name)}
-                      h={80}
-                      fit="cover"
-                    />
+                    {getTextureImage(texture) ? (
+                      <Image
+                        src={getTextureImage(texture)}
+                        alt={getName(texture.name)}
+                        h={80}
+                        fit="cover"
+                      />
+                    ) : (
+                      <Center h={80} bg="gray.1">
+                        <IconTexture size={28} color="gray" />
+                      </Center>
+                    )}
                     <Text size="xs" ta="center" py={4} truncate>
                       {getName(texture.name)}
                     </Text>
@@ -222,12 +242,18 @@ export function ElementsSection({
               {materials.map((material) => (
                 <Box key={material.id} pos="relative">
                   <Paper radius="md" withBorder style={{ overflow: 'hidden' }}>
-                    <Image
-                      src={material.assets?.thumbnail || material.assets?.images?.[0] || '/placeholder-material.png'}
-                      alt={getName(material.name)}
-                      h={100}
-                      fit="cover"
-                    />
+                    {getMaterialImage(material) ? (
+                      <Image
+                        src={getMaterialImage(material)}
+                        alt={getName(material.name)}
+                        h={100}
+                        fit="cover"
+                      />
+                    ) : (
+                      <Center h={100} bg="gray.1">
+                        <IconBox size={36} color="gray" />
+                      </Center>
+                    )}
                     <Box p="xs">
                       <Text size="sm" fw={500} truncate>
                         {getName(material.name)}
