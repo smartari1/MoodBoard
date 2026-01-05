@@ -1,9 +1,10 @@
 /**
  * Style Textures API
  * Fetch Texture entities linked to a style via:
- * 1. StyleTexture join table (explicit links)
- * 2. Materials linked to the style that have textures (implicit via material.textureId)
- * 3. Embedded roomProfiles[].materials[] that reference materials with textures
+ * 1. StyleTexture join table (style-level textures)
+ * 2. Materials linked to the style that have textures (room-level via material.textureId)
+ *
+ * Returns both separately for proper UI display
  */
 
 import { prisma } from '@/lib/db/prisma'
@@ -33,98 +34,122 @@ export async function GET(
       )
     }
 
-    // Collect all texture IDs from multiple sources
-    const textureIdsSet = new Set<string>()
-
-    // 1. Get textures from StyleTexture join table
-    const styleTextures = await prisma.styleTexture.findMany({
-      where: { styleId },
-      select: { textureId: true, notes: true },
-    })
-    const textureNotes: Record<string, string | null> = {}
-    styleTextures.forEach((st) => {
-      textureIdsSet.add(st.textureId)
-      textureNotes[st.textureId] = st.notes
-    })
-
-    // 2. Get material IDs from embedded roomProfiles
-    const materialIdsSet = new Set<string>()
     const roomProfiles = style.roomProfiles as any[] || []
-    roomProfiles.forEach((profile) => {
-      const embeddedMaterials = profile.materials || []
-      embeddedMaterials.forEach((mat: any) => {
-        if (mat.materialId) {
-          materialIdsSet.add(mat.materialId)
-        }
-      })
-    })
 
-    // 3. Get materials from StyleMaterial join table
-    const styleMaterials = await prisma.styleMaterial.findMany({
+    // 1. Get style-level textures from StyleTexture join table
+    const styleTextureLinks = await prisma.styleTexture.findMany({
       where: { styleId },
-      select: { materialId: true },
-    })
-    styleMaterials.forEach((sm) => materialIdsSet.add(sm.materialId))
-
-    // 4. Fetch materials to get their texture IDs
-    if (materialIdsSet.size > 0) {
-      const materials = await prisma.material.findMany({
-        where: {
-          id: { in: Array.from(materialIdsSet) },
-          textureId: { not: null },
-        },
-        select: { textureId: true },
-      })
-      materials.forEach((m) => {
-        if (m.textureId) {
-          textureIdsSet.add(m.textureId)
-        }
-      })
-    }
-
-    const allTextureIds = Array.from(textureIdsSet)
-
-    if (allTextureIds.length === 0) {
-      return NextResponse.json({
-        success: true,
-        data: {
-          textures: [],
-          groupedByCategory: {},
-          counts: { total: 0, byCategory: [] },
-        },
-      })
-    }
-
-    // Fetch all textures by IDs
-    const textureEntities = await prisma.texture.findMany({
-      where: {
-        id: { in: allTextureIds },
-      },
       include: {
-        category: true,
-        type: true,
+        texture: {
+          include: {
+            category: true,
+            type: true,
+          },
+        },
       },
     })
 
-    // Build textures array with usage count
-    const textures = await Promise.all(
-      textureEntities.map(async (texture) => {
+    const styleLevelTextures = await Promise.all(
+      styleTextureLinks.map(async (st) => {
         const usageCount = await prisma.styleTexture.count({
-          where: { textureId: texture.id },
+          where: { textureId: st.texture.id },
         })
-
         return {
-          ...texture,
-          usageCount: Math.max(usageCount, 1), // At least 1 since it's used in this style
-          notes: textureNotes[texture.id] || null,
+          ...st.texture,
+          usageCount,
+          notes: st.notes,
+          source: 'style' as const,
         }
       })
     )
 
-    // Group by category
-    const groupedByCategory: Record<string, typeof textures> = {}
+    // 2. Get room-level textures from materials in roomProfiles
+    const roomMaterialIds = new Set<string>()
+    const materialToRoomMap = new Map<string, {
+      roomTypeId: string
+      roomDescription: any
+      application: any
+      finish: string | null
+    }[]>()
 
-    textures.forEach((texture) => {
+    roomProfiles.forEach((profile) => {
+      const embeddedMaterials = profile.materials || []
+      embeddedMaterials.forEach((mat: any) => {
+        if (mat.materialId) {
+          roomMaterialIds.add(mat.materialId)
+          if (!materialToRoomMap.has(mat.materialId)) {
+            materialToRoomMap.set(mat.materialId, [])
+          }
+          materialToRoomMap.get(mat.materialId)!.push({
+            roomTypeId: profile.roomTypeId,
+            roomDescription: profile.description,
+            application: mat.application,
+            finish: mat.finish,
+          })
+        }
+      })
+    })
+
+    // Also get materials from StyleMaterial join table
+    const styleMaterialLinks = await prisma.styleMaterial.findMany({
+      where: { styleId },
+      select: { materialId: true },
+    })
+    styleMaterialLinks.forEach((sm) => roomMaterialIds.add(sm.materialId))
+
+    // Fetch materials with their textures
+    let roomLevelTextures: any[] = []
+    if (roomMaterialIds.size > 0) {
+      const materialsWithTextures = await prisma.material.findMany({
+        where: {
+          id: { in: Array.from(roomMaterialIds) },
+          textureId: { not: null },
+        },
+        include: {
+          texture: {
+            include: {
+              category: true,
+              type: true,
+            },
+          },
+        },
+      })
+
+      // Build texture list with material info
+      const textureMap = new Map<string, any>()
+      for (const material of materialsWithTextures) {
+        if (material.texture && !textureMap.has(material.texture.id)) {
+          const usageCount = await prisma.styleTexture.count({
+            where: { textureId: material.texture.id },
+          })
+          const roomInfo = materialToRoomMap.get(material.id) || []
+
+          textureMap.set(material.texture.id, {
+            ...material.texture,
+            usageCount: Math.max(usageCount, 1),
+            source: 'room' as const,
+            linkedMaterial: {
+              id: material.id,
+              name: material.name,
+              category: material.category,
+            },
+            roomUsages: roomInfo,
+          })
+        }
+      }
+      roomLevelTextures = Array.from(textureMap.values())
+    }
+
+    // Filter out room-level textures that are also style-level (avoid duplicates)
+    const styleLevelTextureIds = new Set(styleLevelTextures.map(t => t.id))
+    const filteredRoomLevelTextures = roomLevelTextures.filter(t => !styleLevelTextureIds.has(t.id))
+
+    // Combine all textures
+    const allTextures = [...styleLevelTextures, ...filteredRoomLevelTextures]
+
+    // Group by category
+    const groupedByCategory: Record<string, typeof allTextures> = {}
+    allTextures.forEach((texture) => {
       const catName = texture.category?.name?.en || 'Uncategorized'
       if (!groupedByCategory[catName]) {
         groupedByCategory[catName] = []
@@ -135,10 +160,16 @@ export async function GET(
     return NextResponse.json({
       success: true,
       data: {
-        textures,
+        // Separated by source
+        styleLevelTextures,
+        roomLevelTextures: filteredRoomLevelTextures,
+        // Combined (for backward compatibility)
+        textures: allTextures,
         groupedByCategory,
         counts: {
-          total: textures.length,
+          total: allTextures.length,
+          styleLevel: styleLevelTextures.length,
+          roomLevel: filteredRoomLevelTextures.length,
           byCategory: Object.entries(groupedByCategory).map(([category, items]) => ({
             category,
             count: items.length,

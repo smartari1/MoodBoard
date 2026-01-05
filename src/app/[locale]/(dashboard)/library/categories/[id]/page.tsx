@@ -1,7 +1,7 @@
 'use client'
 
 import { Container, Stack, Text, Button, Group, Badge, Paper } from '@mantine/core'
-import { IconCategory, IconSparkles } from '@tabler/icons-react'
+import { IconCategory } from '@tabler/icons-react'
 import { useQuery } from '@tanstack/react-query'
 import { usePathname, useParams } from 'next/navigation'
 import Link from 'next/link'
@@ -92,18 +92,7 @@ export default function CategoryDetailPage() {
           { label: 'קטגוריות', href: `/${locale}/library/categories` },
           { label: category.name[locale], href: `/${locale}/library/categories/${category.id}` },
         ]}
-      >
-        <Button
-          component={Link}
-          href={`/${locale}/ai-studio?categoryId=${category.id}`}
-          variant="white"
-          size="md"
-          leftSection={<IconSparkles size={18} />}
-          style={{ boxShadow: '0 4px 12px rgba(0,0,0,0.2)' }}
-        >
-          צור סגנון עם AI
-        </Button>
-      </LibraryHero>
+      />
 
       <Container size="xl" py="xl">
         {/* Characteristics */}

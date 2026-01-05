@@ -47,7 +47,7 @@ export function CreditBalance({ compact = false, locale = 'he' }: CreditBalanceP
           color={creditCount > 0 ? 'teal' : 'gray'}
           leftSection={<IconCoins size={14} />}
           style={{ cursor: 'pointer' }}
-          onClick={() => router.push(`/${locale}/ai-studio`)}
+          onClick={() => router.push(`/${locale}/styles`)}
         >
           {creditCount}
         </Badge>
@@ -85,7 +85,7 @@ export function CreditBalance({ compact = false, locale = 'he' }: CreditBalanceP
             </ActionIcon>
           }
           style={{ cursor: 'pointer', paddingInlineEnd: 4 }}
-          onClick={() => router.push(`/${locale}/ai-studio`)}
+          onClick={() => router.push(`/${locale}/styles`)}
         >
           {creditCount} קרדיטים
         </Badge>
@@ -106,7 +106,7 @@ export function CreditBalance({ compact = false, locale = 'he' }: CreditBalanceP
 
           {/* Info */}
           <Text size="xs" c="dimmed">
-            כל קרדיט = תמונה אחת שנוצרת ב-AI Studio
+            כל קרדיט = יצירת תמונה אחת
           </Text>
 
           {/* Recent Transactions */}
@@ -156,10 +156,10 @@ export function CreditBalance({ compact = false, locale = 'he' }: CreditBalanceP
               style={{ cursor: 'pointer' }}
               onClick={() => {
                 setOpened(false)
-                router.push(`/${locale}/ai-studio`)
+                router.push(`/${locale}/styles`)
               }}
             >
-              צור עם AI Studio
+              עיין בסגנונות
             </Badge>
           </Group>
         </Stack>

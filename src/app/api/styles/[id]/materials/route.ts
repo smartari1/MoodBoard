@@ -1,8 +1,10 @@
 /**
  * Style Materials API
  * Fetch Material entities linked to a style via:
- * 1. StyleMaterial join table (explicit links)
- * 2. Embedded roomProfiles[].materials[].materialId (implicit links)
+ * 1. StyleMaterial join table (style-level materials)
+ * 2. Embedded roomProfiles[].materials[].materialId (room-level materials)
+ *
+ * Returns both separately for proper UI display
  */
 
 import { prisma } from '@/lib/db/prisma'
@@ -32,100 +34,138 @@ export async function GET(
       )
     }
 
-    // Collect all material IDs from both sources
-    const materialIdsSet = new Set<string>()
-
-    // 1. Get materials from StyleMaterial join table
-    const styleMaterials = await prisma.styleMaterial.findMany({
-      where: { styleId },
-      select: { materialId: true },
-    })
-    styleMaterials.forEach((sm) => materialIdsSet.add(sm.materialId))
-
-    // 2. Get materials from embedded roomProfiles
     const roomProfiles = style.roomProfiles as any[] || []
-    roomProfiles.forEach((profile) => {
-      const embeddedMaterials = profile.materials || []
-      embeddedMaterials.forEach((mat: any) => {
-        if (mat.materialId) {
-          materialIdsSet.add(mat.materialId)
-        }
-      })
-    })
 
-    const allMaterialIds = Array.from(materialIdsSet)
-
-    if (allMaterialIds.length === 0) {
-      return NextResponse.json({
-        success: true,
-        data: {
-          materials: [],
-          groupedByCategory: {},
-          counts: { total: 0, byCategory: [] },
-        },
-      })
-    }
-
-    // Fetch all materials by IDs
-    const materialEntities = await prisma.material.findMany({
-      where: {
-        id: { in: allMaterialIds },
-      },
+    // 1. Get style-level materials from StyleMaterial join table
+    const styleMaterialLinks = await prisma.styleMaterial.findMany({
+      where: { styleId },
       include: {
-        category: true,
-        texture: {
-          select: {
-            id: true,
-            name: true,
-            imageUrl: true,
+        material: {
+          include: {
+            category: true,
+            texture: {
+              select: {
+                id: true,
+                name: true,
+                imageUrl: true,
+              },
+            },
           },
         },
       },
     })
 
-    // Build materials array with usage count and application info
-    const materials = await Promise.all(
-      materialEntities.map(async (material) => {
+    const styleLevelMaterials = await Promise.all(
+      styleMaterialLinks.map(async (sm) => {
         const usageCount = await prisma.styleMaterial.count({
-          where: { materialId: material.id },
+          where: { materialId: sm.material.id },
         })
-
-        // Find application info from embedded data
-        let application: any = null
-        let finish: string | null = null
-        for (const profile of roomProfiles) {
-          const embeddedMat = (profile.materials || []).find(
-            (m: any) => m.materialId === material.id
-          )
-          if (embeddedMat) {
-            application = embeddedMat.application
-            finish = embeddedMat.finish
-            break
-          }
-        }
-
         return {
-          id: material.id,
-          name: material.name,
-          sku: material.sku,
-          isAbstract: material.isAbstract,
-          aiDescription: material.aiDescription,
-          generationStatus: material.generationStatus,
-          category: material.category,
-          texture: material.texture,
-          assets: material.assets,
-          usageCount: Math.max(usageCount, 1), // At least 1 since it's used in this style
-          application,
-          finish,
-          linkedAt: new Date(),
+          id: sm.material.id,
+          name: sm.material.name,
+          sku: sm.material.sku,
+          isAbstract: sm.material.isAbstract,
+          aiDescription: sm.material.aiDescription,
+          generationStatus: sm.material.generationStatus,
+          category: sm.material.category,
+          texture: sm.material.texture,
+          assets: sm.material.assets,
+          usageCount,
+          linkedAt: sm.createdAt,
         }
       })
     )
 
-    // Group by category
-    const groupedByCategory: Record<string, typeof materials> = {}
+    // 2. Get room-level materials from embedded roomProfiles
+    const roomMaterialsMap = new Map<string, {
+      materialId: string
+      application: any
+      finish: string | null
+      roomTypeId: string
+      roomDescription: any
+    }[]>()
 
-    materials.forEach((material) => {
+    roomProfiles.forEach((profile) => {
+      const embeddedMaterials = profile.materials || []
+      embeddedMaterials.forEach((mat: any) => {
+        if (mat.materialId) {
+          if (!roomMaterialsMap.has(mat.materialId)) {
+            roomMaterialsMap.set(mat.materialId, [])
+          }
+          roomMaterialsMap.get(mat.materialId)!.push({
+            materialId: mat.materialId,
+            application: mat.application,
+            finish: mat.finish,
+            roomTypeId: profile.roomTypeId,
+            roomDescription: profile.description,
+          })
+        }
+      })
+    })
+
+    const roomMaterialIds = Array.from(roomMaterialsMap.keys())
+
+    let roomLevelMaterials: any[] = []
+    if (roomMaterialIds.length > 0) {
+      const materialEntities = await prisma.material.findMany({
+        where: {
+          id: { in: roomMaterialIds },
+        },
+        include: {
+          category: true,
+          texture: {
+            select: {
+              id: true,
+              name: true,
+              imageUrl: true,
+            },
+          },
+        },
+      })
+
+      roomLevelMaterials = await Promise.all(
+        materialEntities.map(async (material) => {
+          const usageCount = await prisma.styleMaterial.count({
+            where: { materialId: material.id },
+          })
+          const roomUsages = roomMaterialsMap.get(material.id) || []
+
+          return {
+            id: material.id,
+            name: material.name,
+            sku: material.sku,
+            isAbstract: material.isAbstract,
+            aiDescription: material.aiDescription,
+            generationStatus: material.generationStatus,
+            category: material.category,
+            texture: material.texture,
+            assets: material.assets,
+            usageCount: Math.max(usageCount, 1),
+            // Include all room usages for this material
+            roomUsages: roomUsages.map(ru => ({
+              application: ru.application,
+              finish: ru.finish,
+              roomTypeId: ru.roomTypeId,
+              roomDescription: ru.roomDescription,
+            })),
+            // Primary application (first one found)
+            application: roomUsages[0]?.application,
+            finish: roomUsages[0]?.finish,
+          }
+        })
+      )
+    }
+
+    // Combine all materials (for backward compatibility)
+    const styleMaterialIds = new Set(styleLevelMaterials.map(m => m.id))
+    const allMaterials = [
+      ...styleLevelMaterials,
+      ...roomLevelMaterials.filter(m => !styleMaterialIds.has(m.id)),
+    ]
+
+    // Group by category
+    const groupedByCategory: Record<string, typeof allMaterials> = {}
+    allMaterials.forEach((material) => {
       const catName = material.category?.name?.en || 'Uncategorized'
       if (!groupedByCategory[catName]) {
         groupedByCategory[catName] = []
@@ -136,10 +176,16 @@ export async function GET(
     return NextResponse.json({
       success: true,
       data: {
-        materials,
+        // Separated by source
+        styleLevelMaterials,
+        roomLevelMaterials,
+        // Combined (for backward compatibility)
+        materials: allMaterials,
         groupedByCategory,
         counts: {
-          total: materials.length,
+          total: allMaterials.length,
+          styleLevel: styleLevelMaterials.length,
+          roomLevel: roomLevelMaterials.length,
           byCategory: Object.entries(groupedByCategory).map(([category, items]) => ({
             category,
             count: items.length,

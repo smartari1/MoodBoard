@@ -1,7 +1,7 @@
 'use client'
 
 import { Container, Stack, Text, Button, Group, Badge, SimpleGrid, Box } from '@mantine/core'
-import { IconTexture, IconSparkles } from '@tabler/icons-react'
+import { IconTexture } from '@tabler/icons-react'
 import { useQuery } from '@tanstack/react-query'
 import { usePathname, useParams } from 'next/navigation'
 import Link from 'next/link'
@@ -100,18 +100,7 @@ export default function TextureDetailPage() {
           { label: 'טקסטורות', href: `/${locale}/library/textures` },
           { label: texture.name[locale], href: `/${locale}/library/textures/${texture.id}` },
         ]}
-      >
-        <Button
-          component={Link}
-          href={`/${locale}/ai-studio?textureId=${texture.id}`}
-          variant="white"
-          size="md"
-          leftSection={<IconSparkles size={18} />}
-          style={{ boxShadow: '0 4px 12px rgba(0,0,0,0.2)' }}
-        >
-          צור סגנון עם טקסטורה זו
-        </Button>
-      </LibraryHero>
+      />
 
       <Container size="xl" py="xl">
         {/* Properties */}
@@ -189,10 +178,6 @@ export default function TextureDetailPage() {
             title="אין סגנונות"
             description="לא נמצאו סגנונות שמשתמשים בטקסטורה זו"
             icon={<IconTexture size={48} />}
-            action={{
-              label: 'צור סגנון חדש',
-              onClick: () => window.location.href = `/${locale}/ai-studio?textureId=${texture.id}`,
-            }}
           />
         ) : (
           <SimpleGrid cols={{ base: 2, sm: 3, lg: 4, xl: 5 }} spacing="md">

@@ -118,12 +118,17 @@ export default function StyleDetailPage() {
     return roomImages.filter(img => img.roomType === selectedRoomType)
   }, [roomImages, selectedRoomType])
 
-  // Material and texture data
+  // Material and texture data - separated by source
   const materialImages = materialImagesData?.data.images || []
-  const textures = texturesData?.data.textures || []
-  const texturesGrouped = texturesData?.data.groupedByCategory || {}
   const materials = materialsData?.data?.materials || []
+  const styleLevelMaterials = materialsData?.data?.styleLevelMaterials || []
+  const roomLevelMaterials = materialsData?.data?.roomLevelMaterials || []
   const materialsGrouped = materialsData?.data?.groupedByCategory || {}
+
+  const textures = texturesData?.data.textures || []
+  const styleLevelTextures = texturesData?.data?.styleLevelTextures || []
+  const roomLevelTextures = texturesData?.data?.roomLevelTextures || []
+  const texturesGrouped = texturesData?.data.groupedByCategory || {}
 
   if (isLoading) {
     return (
@@ -691,270 +696,212 @@ export default function StyleDetailPage() {
           {/* Materials & Textures Tab */}
           <Tabs.Panel value="materials" pt="xl">
             <Grid gutter="lg">
-              {/* Materials Column - Entity Data */}
+              {/* Materials Column */}
               <Grid.Col span={{ base: 12, md: 6 }}>
-                <Paper p="md" withBorder>
-                  <Group gap="xs" mb="md">
-                    <IconPhoto size={20} color="#df2538" />
-                    <Text fw={600}>{locale === 'he' ? 'חומרים' : 'Materials'}</Text>
-                    <Badge size="sm" variant="light">
-                      {materials.length}
-                    </Badge>
-                  </Group>
-
-                  {materials.length > 0 ? (
-                    <Stack gap="md">
-                      {materials.map((material) => (
-                        <Paper
-                          key={material.id}
-                          p="md"
-                          withBorder
-                          radius="md"
-                          style={{ cursor: 'pointer' }}
-                          onClick={() => {
-                            const imageUrl = material.assets?.thumbnail || material.assets?.images?.[0]
-                            if (imageUrl) {
-                              openImages([{
-                                url: imageUrl,
-                                title: locale === 'he' ? material.name.he : material.name.en,
-                                description: locale === 'he' ? material.category?.name?.he : material.category?.name?.en,
-                              }], 0)
-                            }
-                          }}
-                        >
-                          {/* Material Image */}
-                          {(material.assets?.thumbnail || material.assets?.images?.[0]) && (
-                            <Box
-                              style={{
-                                width: '100%',
-                                height: 200,
-                                overflow: 'hidden',
-                                borderRadius: 'var(--mantine-radius-md)',
-                                marginBottom: '0.5rem',
-                              }}
-                            >
-                              <ImageWithFallback
-                                src={material.assets?.thumbnail || material.assets?.images?.[0]}
-                                alt={locale === 'he' ? material.name.he : material.name.en}
-                                fit="cover"
-                                height={200}
-                                width="100%"
-                                maxRetries={3}
-                                retryDelay={1000}
-                              />
-                            </Box>
-                          )}
-
-                          {/* Material Name */}
-                          <Text size="sm" fw={500}>
-                            {locale === 'he' ? material.name.he : material.name.en}
-                          </Text>
-
-                          {/* Application Info (where this material is used) */}
-                          {(material as any).application && (
-                            <Text size="xs" c="dimmed" mt={2}>
-                              {locale === 'he'
-                                ? (material as any).application.he
-                                : (material as any).application.en}
-                              {(material as any).finish && ` • ${(material as any).finish}`}
-                            </Text>
-                          )}
-
-                          {/* Material Badges */}
-                          <Group gap="xs" mt="xs" wrap="wrap">
-                            {/* Category Badge */}
-                            {material.category && (
-                              <Badge size="xs" variant="light" color="blue">
-                                {locale === 'he' ? material.category.name?.he : material.category.name?.en}
-                              </Badge>
-                            )}
-
-                            {/* Finish Badge */}
-                            {(material as any).finish && (
-                              <Badge size="xs" variant="light" color="cyan">
-                                {(material as any).finish}
-                              </Badge>
-                            )}
-
-                            {/* SKU Badge (if not abstract) */}
-                            {material.sku && !material.isAbstract && (
-                              <Badge size="xs" variant="light" color="gray">
-                                SKU: {material.sku}
-                              </Badge>
-                            )}
-
-                            {/* AI Generated Badge */}
-                            {material.isAbstract && (
-                              <Badge size="xs" variant="filled" color="grape" leftSection={<IconSparkles size={10} />}>
-                                {locale === 'he' ? 'נוצר ע"י AI' : 'AI Generated'}
-                              </Badge>
-                            )}
-
-                            {/* Linked Texture Indicator */}
-                            {material.texture && (
-                              <Badge size="xs" variant="outline" color="teal" leftSection={<IconTexture size={10} />}>
-                                {locale === 'he' ? 'מקושר למרקם' : 'Has Texture'}
-                              </Badge>
-                            )}
-
-                            {/* Usage Count */}
-                            {material.usageCount > 1 && (
-                              <Badge size="xs" variant="light" color="orange">
-                                {locale === 'he'
-                                  ? `משמש ב-${material.usageCount} סגנונות`
-                                  : `Used in ${material.usageCount} styles`}
-                              </Badge>
-                            )}
-                          </Group>
-                        </Paper>
-                      ))}
-                    </Stack>
-                  ) : materialImages.length > 0 ? (
-                    // Fallback to material images if no entities
-                    <Stack gap="md">
-                      {materialImages.map((image, index) => (
-                        <Paper
-                          key={image.id}
-                          p="md"
-                          withBorder
-                          radius="md"
-                          style={{ cursor: 'pointer' }}
-                          onClick={() =>
-                            openImages(
-                              materialImages.map((img) => ({
-                                url: img.url,
-                                title: img.description || (locale === 'he' ? 'חומר' : 'Material'),
-                                description: style.name[currentLocale],
-                              })),
-                              index
-                            )
-                          }
-                        >
-                          <Box
-                            style={{
-                              width: '100%',
-                              height: 200,
-                              overflow: 'hidden',
-                              borderRadius: 'var(--mantine-radius-md)',
-                              marginBottom: '0.5rem',
+                <Stack gap="md">
+                  {/* Style-Level Materials */}
+                  {styleLevelMaterials.length > 0 && (
+                    <Paper p="md" withBorder>
+                      <Group gap="xs" mb="md">
+                        <IconPhoto size={20} color="#df2538" />
+                        <Text fw={600}>{locale === 'he' ? 'חומרים ברמת הסגנון' : 'Style-Level Materials'}</Text>
+                        <Badge size="sm" variant="filled" color="red">
+                          {styleLevelMaterials.length}
+                        </Badge>
+                      </Group>
+                      <Stack gap="md">
+                        {styleLevelMaterials.map((material: any) => (
+                          <Paper
+                            key={material.id}
+                            p="md"
+                            withBorder
+                            radius="md"
+                            style={{ cursor: material.assets?.thumbnail || material.assets?.images?.[0] ? 'pointer' : 'default' }}
+                            onClick={() => {
+                              const imageUrl = material.assets?.thumbnail || material.assets?.images?.[0]
+                              if (imageUrl) {
+                                openImages([{
+                                  url: imageUrl,
+                                  title: locale === 'he' ? material.name.he : material.name.en,
+                                  description: locale === 'he' ? material.category?.name?.he : material.category?.name?.en,
+                                }], 0)
+                              }
                             }}
                           >
-                            <ImageWithFallback
-                              src={image.url}
-                              alt={image.description || 'Material'}
-                              fit="cover"
-                              height={200}
-                              width="100%"
-                              maxRetries={3}
-                              retryDelay={1000}
-                            />
-                          </Box>
-                          {image.description && (
-                            <Text size="sm" fw={500}>
-                              {image.description}
-                            </Text>
-                          )}
-                          {image.tags && image.tags.length > 0 && (
-                            <Group gap="xs" mt="xs">
-                              {image.tags.map((tag, idx) => (
-                                <Badge key={idx} size="xs" variant="light">
-                                  {tag}
-                                </Badge>
-                              ))}
+                            {(material.assets?.thumbnail || material.assets?.images?.[0]) && (
+                              <Box style={{ width: '100%', height: 150, overflow: 'hidden', borderRadius: 'var(--mantine-radius-md)', marginBottom: '0.5rem' }}>
+                                <ImageWithFallback src={material.assets?.thumbnail || material.assets?.images?.[0]} alt={locale === 'he' ? material.name.he : material.name.en} fit="cover" height={150} width="100%" maxRetries={3} retryDelay={1000} />
+                              </Box>
+                            )}
+                            <Text size="sm" fw={500}>{locale === 'he' ? material.name.he : material.name.en}</Text>
+                            {material.aiDescription && <Text size="xs" c="dimmed" mt={2} lineClamp={2}>{material.aiDescription}</Text>}
+                            <Group gap="xs" mt="xs" wrap="wrap">
+                              {material.category && <Badge size="xs" variant="light" color="blue">{locale === 'he' ? material.category.name?.he : material.category.name?.en}</Badge>}
+                              {material.sku && <Badge size="xs" variant="light" color="gray">SKU: {material.sku}</Badge>}
+                              {material.texture && <Badge size="xs" variant="outline" color="teal" leftSection={<IconTexture size={10} />}>{locale === 'he' ? 'מקושר למרקם' : 'Has Texture'}</Badge>}
                             </Group>
-                          )}
-                        </Paper>
-                      ))}
-                    </Stack>
-                  ) : (
-                    <Paper p="xl" withBorder style={{ borderStyle: 'dashed' }}>
-                      <Stack align="center" gap="sm">
-                        <IconPhoto size={48} color="#ccc" />
-                        <Text size="sm" c="dimmed" ta="center">
-                          {locale === 'he' ? 'אין חומרים' : 'No materials'}
-                        </Text>
+                          </Paper>
+                        ))}
                       </Stack>
                     </Paper>
                   )}
-                </Paper>
+
+                  {/* Room-Level Materials */}
+                  <Paper p="md" withBorder>
+                    <Group gap="xs" mb="md">
+                      <IconDoor size={20} color="#df2538" />
+                      <Text fw={600}>{locale === 'he' ? 'חומרים ברמת החדר' : 'Room-Level Materials'}</Text>
+                      <Badge size="sm" variant="light">
+                        {roomLevelMaterials.length}
+                      </Badge>
+                    </Group>
+
+                    {roomLevelMaterials.length > 0 ? (
+                      <Stack gap="md">
+                        {roomLevelMaterials.map((material: any) => (
+                          <Paper
+                            key={material.id}
+                            p="md"
+                            withBorder
+                            radius="md"
+                            style={{ cursor: material.assets?.thumbnail || material.assets?.images?.[0] ? 'pointer' : 'default' }}
+                            onClick={() => {
+                              const imageUrl = material.assets?.thumbnail || material.assets?.images?.[0]
+                              if (imageUrl) {
+                                openImages([{
+                                  url: imageUrl,
+                                  title: locale === 'he' ? material.name.he : material.name.en,
+                                  description: locale === 'he' ? material.category?.name?.he : material.category?.name?.en,
+                                }], 0)
+                              }
+                            }}
+                          >
+                            {(material.assets?.thumbnail || material.assets?.images?.[0]) && (
+                              <Box style={{ width: '100%', height: 150, overflow: 'hidden', borderRadius: 'var(--mantine-radius-md)', marginBottom: '0.5rem' }}>
+                                <ImageWithFallback src={material.assets?.thumbnail || material.assets?.images?.[0]} alt={locale === 'he' ? material.name.he : material.name.en} fit="cover" height={150} width="100%" maxRetries={3} retryDelay={1000} />
+                              </Box>
+                            )}
+                            <Text size="sm" fw={500}>{locale === 'he' ? material.name.he : material.name.en}</Text>
+                            {material.application && (
+                              <Text size="xs" c="dimmed" mt={2}>
+                                {locale === 'he' ? material.application.he : material.application.en}
+                                {material.finish && ` • ${material.finish}`}
+                              </Text>
+                            )}
+                            {material.aiDescription && !material.application && <Text size="xs" c="dimmed" mt={2} lineClamp={2}>{material.aiDescription}</Text>}
+                            <Group gap="xs" mt="xs" wrap="wrap">
+                              {material.category && <Badge size="xs" variant="light" color="blue">{locale === 'he' ? material.category.name?.he : material.category.name?.en}</Badge>}
+                              {material.finish && <Badge size="xs" variant="light" color="cyan">{material.finish}</Badge>}
+                              {material.sku && !material.isAbstract && <Badge size="xs" variant="light" color="gray">SKU: {material.sku}</Badge>}
+                              {material.isAbstract && <Badge size="xs" variant="filled" color="grape" leftSection={<IconSparkles size={10} />}>{locale === 'he' ? 'נוצר ע"י AI' : 'AI Generated'}</Badge>}
+                              {material.texture && <Badge size="xs" variant="outline" color="teal" leftSection={<IconTexture size={10} />}>{locale === 'he' ? 'מקושר למרקם' : 'Has Texture'}</Badge>}
+                              {material.usageCount > 1 && <Badge size="xs" variant="light" color="orange">{locale === 'he' ? `משמש ב-${material.usageCount} סגנונות` : `Used in ${material.usageCount} styles`}</Badge>}
+                            </Group>
+                          </Paper>
+                        ))}
+                      </Stack>
+                    ) : (
+                      <Paper p="xl" withBorder style={{ borderStyle: 'dashed' }}>
+                        <Stack align="center" gap="sm">
+                          <IconPhoto size={48} color="#ccc" />
+                          <Text size="sm" c="dimmed" ta="center">
+                            {locale === 'he' ? 'אין חומרים ברמת החדר' : 'No room-level materials'}
+                          </Text>
+                        </Stack>
+                      </Paper>
+                    )}
+                  </Paper>
+                </Stack>
               </Grid.Col>
 
               {/* Textures Column */}
               <Grid.Col span={{ base: 12, md: 6 }}>
-                <Paper p="md" withBorder>
-                  <Group gap="xs" mb="md">
-                    <IconTexture size={20} color="#df2538" />
-                    <Text fw={600}>{locale === 'he' ? 'מרקמים' : 'Textures'}</Text>
-                    <Badge size="sm" variant="light">
-                      {textures.length}
-                    </Badge>
-                  </Group>
-
-                  {textures.length > 0 ? (
-                    <Stack gap="md">
-                      {textures.map((texture) => (
-                        <Paper
-                          key={texture.id}
-                          p="md"
-                          withBorder
-                          radius="md"
-                          style={{ cursor: 'pointer' }}
-                          onClick={() =>
-                            openImages([{
-                              url: texture.imageUrl,
-                              title: locale === 'he' ? texture.name.he : texture.name.en,
-                              description: locale === 'he' ? texture.category.name.he : texture.category.name.en,
-                            }], 0)
-                          }
-                        >
-                          <Box
-                            style={{
-                              width: '100%',
-                              height: 200,
-                              overflow: 'hidden',
-                              borderRadius: 'var(--mantine-radius-md)',
-                              marginBottom: '0.5rem',
-                            }}
+                <Stack gap="md">
+                  {/* Style-Level Textures */}
+                  {styleLevelTextures.length > 0 && (
+                    <Paper p="md" withBorder>
+                      <Group gap="xs" mb="md">
+                        <IconTexture size={20} color="#df2538" />
+                        <Text fw={600}>{locale === 'he' ? 'מרקמים ברמת הסגנון' : 'Style-Level Textures'}</Text>
+                        <Badge size="sm" variant="filled" color="red">
+                          {styleLevelTextures.length}
+                        </Badge>
+                      </Group>
+                      <Stack gap="md">
+                        {styleLevelTextures.map((texture: any) => (
+                          <Paper
+                            key={texture.id}
+                            p="md"
+                            withBorder
+                            radius="md"
+                            style={{ cursor: 'pointer' }}
+                            onClick={() => openImages([{ url: texture.imageUrl, title: locale === 'he' ? texture.name.he : texture.name.en, description: locale === 'he' ? texture.category?.name?.he : texture.category?.name?.en }], 0)}
                           >
-                            <Image
-                              src={texture.imageUrl}
-                              alt={locale === 'he' ? texture.name.he : texture.name.en}
-                              fit="cover"
-                              style={{ width: '100%', height: '100%' }}
-                            />
-                          </Box>
-                          <Text size="sm" fw={500}>
-                            {locale === 'he' ? texture.name.he : texture.name.en}
-                          </Text>
-                          <Group gap="xs" mt="xs" wrap="wrap">
-                            <Badge size="xs" variant="light" color="blue">
-                              {locale === 'he' ? texture.category.name.he : texture.category.name.en}
-                            </Badge>
-                            <Badge size="xs" variant="light" color="teal">
-                              {locale === 'he' ? texture.type.name.he : texture.type.name.en}
-                            </Badge>
-                            {texture.usageCount > 1 && (
-                              <Badge size="xs" variant="light" color="grape">
-                                {locale === 'he'
-                                  ? `משמש ב-${texture.usageCount} סגנונות`
-                                  : `Used in ${texture.usageCount} styles`}
-                              </Badge>
-                            )}
-                          </Group>
-                        </Paper>
-                      ))}
-                    </Stack>
-                  ) : (
-                    <Paper p="xl" withBorder style={{ borderStyle: 'dashed' }}>
-                      <Stack align="center" gap="sm">
-                        <IconTexture size={48} color="#ccc" />
-                        <Text size="sm" c="dimmed" ta="center">
-                          {locale === 'he' ? 'אין מרקמים' : 'No textures'}
-                        </Text>
+                            <Box style={{ width: '100%', height: 150, overflow: 'hidden', borderRadius: 'var(--mantine-radius-md)', marginBottom: '0.5rem' }}>
+                              <ImageWithFallback src={texture.imageUrl} alt={locale === 'he' ? texture.name.he : texture.name.en} fit="cover" height={150} width="100%" maxRetries={3} retryDelay={1000} />
+                            </Box>
+                            <Text size="sm" fw={500}>{locale === 'he' ? texture.name.he : texture.name.en}</Text>
+                            <Group gap="xs" mt="xs" wrap="wrap">
+                              {texture.category && <Badge size="xs" variant="light" color="blue">{locale === 'he' ? texture.category.name?.he : texture.category.name?.en}</Badge>}
+                              {texture.type && <Badge size="xs" variant="light" color="teal">{locale === 'he' ? texture.type.name?.he : texture.type.name?.en}</Badge>}
+                            </Group>
+                          </Paper>
+                        ))}
                       </Stack>
                     </Paper>
                   )}
-                </Paper>
+
+                  {/* Room-Level Textures (from materials) */}
+                  <Paper p="md" withBorder>
+                    <Group gap="xs" mb="md">
+                      <IconDoor size={20} color="#df2538" />
+                      <Text fw={600}>{locale === 'he' ? 'מרקמים ברמת החדר' : 'Room-Level Textures'}</Text>
+                      <Badge size="sm" variant="light">
+                        {roomLevelTextures.length}
+                      </Badge>
+                    </Group>
+
+                    {roomLevelTextures.length > 0 ? (
+                      <Stack gap="md">
+                        {roomLevelTextures.map((texture: any) => (
+                          <Paper
+                            key={texture.id}
+                            p="md"
+                            withBorder
+                            radius="md"
+                            style={{ cursor: 'pointer' }}
+                            onClick={() => openImages([{ url: texture.imageUrl, title: locale === 'he' ? texture.name.he : texture.name.en, description: locale === 'he' ? texture.category?.name?.he : texture.category?.name?.en }], 0)}
+                          >
+                            <Box style={{ width: '100%', height: 150, overflow: 'hidden', borderRadius: 'var(--mantine-radius-md)', marginBottom: '0.5rem' }}>
+                              <ImageWithFallback src={texture.imageUrl} alt={locale === 'he' ? texture.name.he : texture.name.en} fit="cover" height={150} width="100%" maxRetries={3} retryDelay={1000} />
+                            </Box>
+                            <Text size="sm" fw={500}>{locale === 'he' ? texture.name.he : texture.name.en}</Text>
+                            {texture.linkedMaterial && (
+                              <Text size="xs" c="dimmed" mt={2}>
+                                {locale === 'he' ? 'מקושר לחומר: ' : 'Linked to: '}
+                                {locale === 'he' ? texture.linkedMaterial.name?.he : texture.linkedMaterial.name?.en}
+                              </Text>
+                            )}
+                            <Group gap="xs" mt="xs" wrap="wrap">
+                              {texture.category && <Badge size="xs" variant="light" color="blue">{locale === 'he' ? texture.category.name?.he : texture.category.name?.en}</Badge>}
+                              {texture.type && <Badge size="xs" variant="light" color="teal">{locale === 'he' ? texture.type.name?.he : texture.type.name?.en}</Badge>}
+                              {texture.usageCount > 1 && <Badge size="xs" variant="light" color="grape">{locale === 'he' ? `משמש ב-${texture.usageCount} סגנונות` : `Used in ${texture.usageCount} styles`}</Badge>}
+                            </Group>
+                          </Paper>
+                        ))}
+                      </Stack>
+                    ) : (
+                      <Paper p="xl" withBorder style={{ borderStyle: 'dashed' }}>
+                        <Stack align="center" gap="sm">
+                          <IconTexture size={48} color="#ccc" />
+                          <Text size="sm" c="dimmed" ta="center">
+                            {locale === 'he' ? 'אין מרקמים ברמת החדר' : 'No room-level textures'}
+                          </Text>
+                        </Stack>
+                      </Paper>
+                    )}
+                  </Paper>
+                </Stack>
               </Grid.Col>
             </Grid>
           </Tabs.Panel>
@@ -963,43 +910,64 @@ export default function StyleDetailPage() {
           <Tabs.Panel value="images" pt="xl">
             {style.images && style.images.length > 0 ? (
               <SimpleGrid cols={{ base: 2, sm: 3, md: 4 }} spacing="md">
-                {style.images.map((image: string, index: number) => (
-                  <Paper
-                    key={index}
-                    p="xs"
-                    withBorder
-                    radius="md"
-                    style={{ overflow: 'hidden', cursor: 'pointer' }}
-                    onClick={() =>
-                      openImages(
-                        style.images.map((url: string, idx: number) => ({
-                          url,
-                          title: `${style.name[currentLocale]} - תמונה ${idx + 1}`,
-                          description: style.approach?.name?.[currentLocale] || '',
-                        })),
-                        index
-                      )
-                    }
-                  >
-                    <Box
-                      style={{
-                        aspectRatio: '1',
-                        overflow: 'hidden',
-                        borderRadius: 'var(--mantine-radius-sm)',
-                        transition: 'transform 0.2s ease',
-                      }}
-                      onMouseEnter={(e) => (e.currentTarget.style.transform = 'scale(1.05)')}
-                      onMouseLeave={(e) => (e.currentTarget.style.transform = 'scale(1)')}
+                {style.images.map((image: any, index: number) => {
+                  // Handle both StyleImage objects and legacy string URLs
+                  const imageUrl = typeof image === 'string' ? image : image?.url
+                  const imageCategory = typeof image === 'string' ? null : image?.imageCategory
+
+                  if (!imageUrl) return null
+
+                  return (
+                    <Paper
+                      key={image?.id || index}
+                      p="xs"
+                      withBorder
+                      radius="md"
+                      style={{ overflow: 'hidden', cursor: 'pointer' }}
+                      onClick={() =>
+                        openImages(
+                          style.images
+                            .map((img: any) => {
+                              const url = typeof img === 'string' ? img : img?.url
+                              return url ? {
+                                url,
+                                title: `${style.name[currentLocale]} - ${locale === 'he' ? 'תמונה' : 'Image'} ${style.images.indexOf(img) + 1}`,
+                                description: style.approach?.name?.[currentLocale] || '',
+                              } : null
+                            })
+                            .filter(Boolean),
+                          index
+                        )
+                      }
                     >
-                      <Image
-                        src={image}
-                        alt={`${style.name[currentLocale]} - Image ${index + 1}`}
-                        fit="cover"
-                        style={{ width: '100%', height: '100%' }}
-                      />
-                    </Box>
-                  </Paper>
-                ))}
+                      <Box
+                        style={{
+                          aspectRatio: '1',
+                          overflow: 'hidden',
+                          borderRadius: 'var(--mantine-radius-sm)',
+                          transition: 'transform 0.2s ease',
+                        }}
+                        onMouseEnter={(e) => (e.currentTarget.style.transform = 'scale(1.05)')}
+                        onMouseLeave={(e) => (e.currentTarget.style.transform = 'scale(1)')}
+                      >
+                        <ImageWithFallback
+                          src={imageUrl}
+                          alt={`${style.name[currentLocale]} - Image ${index + 1}`}
+                          fit="cover"
+                          height="100%"
+                          width="100%"
+                          maxRetries={3}
+                          retryDelay={1000}
+                        />
+                      </Box>
+                      {imageCategory && (
+                        <Text size="xs" mt="xs" c="dimmed" ta="center">
+                          {imageCategory}
+                        </Text>
+                      )}
+                    </Paper>
+                  )
+                })}
               </SimpleGrid>
             ) : (
               <Paper p="xl" withBorder style={{ borderStyle: 'dashed' }}>

@@ -13,7 +13,7 @@ import {
   ActionIcon,
   Tooltip,
 } from '@mantine/core'
-import { IconPalette, IconSparkles, IconCopy, IconCheck } from '@tabler/icons-react'
+import { IconPalette, IconCopy, IconCheck } from '@tabler/icons-react'
 import { useQuery } from '@tanstack/react-query'
 import { usePathname, useParams } from 'next/navigation'
 import Link from 'next/link'
@@ -118,18 +118,7 @@ export default function ColorDetailPage() {
           { label: 'צבעים', href: `/${locale}/library/colors` },
           { label: color.name[locale], href: `/${locale}/library/colors/${color.id}` },
         ]}
-      >
-        <Button
-          component={Link}
-          href={`/${locale}/ai-studio?colorId=${color.id}`}
-          variant="white"
-          size="md"
-          leftSection={<IconSparkles size={18} />}
-          style={{ boxShadow: '0 4px 12px rgba(0,0,0,0.2)' }}
-        >
-          צור סגנון עם צבע זה
-        </Button>
-      </LibraryHero>
+      />
 
       <Container size="xl" py="xl">
         {/* Color Info */}
@@ -228,10 +217,6 @@ export default function ColorDetailPage() {
             title="אין סגנונות"
             description="לא נמצאו סגנונות שמשתמשים בצבע זה"
             icon={<IconPalette size={48} />}
-            action={{
-              label: 'צור סגנון חדש',
-              onClick: () => window.location.href = `/${locale}/ai-studio?colorId=${color.id}`,
-            }}
           />
         ) : (
           <SimpleGrid cols={{ base: 2, sm: 3, lg: 4, xl: 5 }} spacing="md">

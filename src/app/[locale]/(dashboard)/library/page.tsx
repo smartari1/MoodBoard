@@ -150,7 +150,7 @@ export default function LibraryPage() {
                 <IconSparkles size={12} color="var(--mantine-color-brand-5)" />
               </ThemeIcon>
               <Text size="sm" c="rgba(255,255,255,0.8)">
-                התחילו מכל קולקציה והמשיכו ל-AI Studio
+                התחילו מכל קולקציה וגלו סגנונות עיצוב מרהיבים
               </Text>
             </Group>
           </Stack>
@@ -178,7 +178,7 @@ export default function LibraryPage() {
               מוכנים ליצור?
             </Title>
             <Text c="dimmed" ta="center" maw={500}>
-              בחרו מרכיבים מהספרייה והמשיכו ל-AI Studio ליצירת תמונות עיצוב מותאמות אישית
+              בחרו מרכיבים מהספרייה וגלו סגנונות עיצוב מותאמים אישית לפרויקטים שלכם
             </Text>
           </Stack>
         </Container>

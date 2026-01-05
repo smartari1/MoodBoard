@@ -10,7 +10,7 @@ import {
   SimpleGrid,
   Box,
 } from '@mantine/core'
-import { IconBox, IconSparkles } from '@tabler/icons-react'
+import { IconBox } from '@tabler/icons-react'
 import { useQuery } from '@tanstack/react-query'
 import { usePathname, useParams } from 'next/navigation'
 import Link from 'next/link'
@@ -146,18 +146,7 @@ export default function MaterialDetailPage() {
           { label: 'חומרים', href: `/${locale}/library/materials` },
           { label: material.name[locale], href: `/${locale}/library/materials/${material.id}` },
         ]}
-      >
-        <Button
-          component={Link}
-          href={`/${locale}/ai-studio?materialId=${material.id}`}
-          variant="white"
-          size="md"
-          leftSection={<IconSparkles size={18} />}
-          style={{ boxShadow: '0 4px 12px rgba(0,0,0,0.2)' }}
-        >
-          צור סגנון עם חומר זה
-        </Button>
-      </LibraryHero>
+      />
 
       <Container size="xl" py="xl">
         {/* Material Info */}
@@ -418,10 +407,6 @@ export default function MaterialDetailPage() {
             title="אין סגנונות"
             description="לא נמצאו סגנונות שמשתמשים בחומר זה"
             icon={<IconBox size={48} />}
-            action={{
-              label: 'צור סגנון חדש',
-              onClick: () => (window.location.href = `/${locale}/ai-studio?materialId=${material.id}`),
-            }}
           />
         ) : (
           <SimpleGrid cols={{ base: 2, sm: 3, lg: 4, xl: 5 }} spacing="md">

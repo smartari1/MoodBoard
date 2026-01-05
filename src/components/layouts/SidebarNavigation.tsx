@@ -10,7 +10,6 @@ import {
   IconCoins,
   IconBox,
   IconSettings,
-  IconSparkles,
   IconLibrary,
 } from '@tabler/icons-react'
 import { Divider, NavLink, Stack } from '@mantine/core'
@@ -75,19 +74,13 @@ export function SidebarNavigation() {
     },
   ]
 
-  // AI Studio items - separate section
-  const aiItems: NavItem[] = [
+  // Design Library items - separate section
+  const libraryItems: NavItem[] = [
     {
       label: 'ספריית עיצוב',
       icon: IconLibrary,
       href: '/library',
       translationKey: 'library',
-    },
-    {
-      label: 'AI Studio',
-      icon: IconSparkles,
-      href: '/ai-studio',
-      translationKey: 'ai-studio',
     },
   ]
 
@@ -115,9 +108,9 @@ export function SidebarNavigation() {
           )
         })}
 
-        <Divider my="sm" label="AI Studio" labelPosition="center" />
+        <Divider my="sm" label="ספריית עיצוב" labelPosition="center" />
 
-        {aiItems.map((item) => {
+        {libraryItems.map((item) => {
           const Icon = item.icon
           const fullHref = localizedHref(item.href)
           const active = isActive(item.href)

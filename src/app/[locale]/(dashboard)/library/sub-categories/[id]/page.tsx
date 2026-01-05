@@ -1,7 +1,7 @@
 'use client'
 
 import { Container, Stack, Text, Button, Group, Badge, SimpleGrid, Box } from '@mantine/core'
-import { IconCategory2, IconSparkles } from '@tabler/icons-react'
+import { IconCategory2 } from '@tabler/icons-react'
 import { useQuery } from '@tanstack/react-query'
 import { usePathname, useParams } from 'next/navigation'
 import Link from 'next/link'
@@ -105,18 +105,7 @@ export default function SubCategoryDetailPage() {
           },
           { label: subCategory.name[locale], href: `/${locale}/library/sub-categories/${subCategory.id}` },
         ]}
-      >
-        <Button
-          component={Link}
-          href={`/${locale}/ai-studio?subCategoryId=${subCategory.id}`}
-          variant="white"
-          size="md"
-          leftSection={<IconSparkles size={18} />}
-          style={{ boxShadow: '0 4px 12px rgba(0,0,0,0.2)' }}
-        >
-          צור סגנון עם AI
-        </Button>
-      </LibraryHero>
+      />
 
       <Container size="xl" py="xl">
         {/* Characteristics */}
@@ -150,10 +139,6 @@ export default function SubCategoryDetailPage() {
             title="אין סגנונות"
             description="לא נמצאו סגנונות בתת-קטגוריה זו"
             icon={<IconCategory2 size={48} />}
-            action={{
-              label: 'צור סגנון חדש',
-              onClick: () => window.location.href = `/${locale}/ai-studio?subCategoryId=${subCategory.id}`,
-            }}
           />
         ) : (
           <SimpleGrid cols={{ base: 1, sm: 2, lg: 3, xl: 4 }} spacing="lg">
