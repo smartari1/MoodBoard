@@ -6,7 +6,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Container, Title, Group, Stack, TextInput, Select, Pagination, ActionIcon, Menu, Text, Button, Badge, SimpleGrid, Image, Card } from '@mantine/core'
+import { Container, Title, Group, Stack, TextInput, Select, Pagination, ActionIcon, Menu, Text, Button, Badge, SimpleGrid, Card } from '@mantine/core'
 import { useTranslations } from 'next-intl'
 import { useRouter, useParams } from 'next/navigation'
 import { IconPlus, IconSearch, IconDots, IconEdit, IconTrash, IconEye, IconTag, IconPhoto } from '@tabler/icons-react'
@@ -16,6 +16,7 @@ import { IconPlus, IconSearch, IconDots, IconEdit, IconTrash, IconEye, IconTag, 
 import { MoodBCard } from '@/components/ui/Card'
 import { MoodBBadge } from '@/components/ui/Badge'
 import { EmptyState } from '@/components/ui/EmptyState'
+import { ImageWithFallback } from '@/components/ui/ImageWithFallback'
 import { LoadingState } from '@/components/ui/LoadingState'
 import { ErrorState } from '@/components/ui/ErrorState'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
@@ -189,7 +190,7 @@ export default function StylesPage() {
         ) : (
           <>
             <SimpleGrid cols={{ base: 1, sm: 2, md: 3, lg: 4 }} spacing="lg">
-              {data.data.map((style) => {
+              {data.data.map((style, index) => {
                 const metadata = style.metadata as any
                 const isGlobal = style.organizationId === null
                 const isPublic = metadata.isPublic && metadata.approvalStatus === 'approved'
@@ -206,6 +207,9 @@ export default function StylesPage() {
                   (style as any).anchorImageUrl ||
                   (style.gallery as any)?.[0]?.url ||
                   (style.roomProfiles as any)?.[0]?.views?.[0]?.url
+
+                // Priority load first 8 images (above the fold on most screens)
+                const isPriority = index < 8
 
                 return (
                   <Card
@@ -229,28 +233,17 @@ export default function StylesPage() {
                     }}
                     onClick={() => router.push(`/${locale}/styles/${style.id}`)}
                   >
-                    {/* Image */}
+                    {/* Image with priority loading for above-the-fold */}
                     <Card.Section>
-                      {firstImage ? (
-                        <Image
-                          src={firstImage}
-                          height={200}
-                          alt={style.name.he}
-                          fit="cover"
-                        />
-                      ) : (
-                        <div
-                          style={{
-                            height: 200,
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            backgroundColor: '#e0e0d8',
-                          }}
-                        >
-                          <IconPhoto size={48} color="#999" />
-                        </div>
-                      )}
+                      <ImageWithFallback
+                        src={firstImage}
+                        height={200}
+                        alt={style.name.he}
+                        fit="cover"
+                        priority={isPriority}
+                        maxRetries={3}
+                        retryDelay={1000}
+                      />
                     </Card.Section>
 
                     {/* Content */}

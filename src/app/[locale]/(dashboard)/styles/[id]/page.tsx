@@ -176,6 +176,7 @@ export default function StyleDetailPage() {
                 width="100%"
                 maxRetries={3}
                 retryDelay={1000}
+                priority={true}
               />
             </Box>
           </Paper>
@@ -287,6 +288,7 @@ export default function StyleDetailPage() {
                   width="100%"
                   maxRetries={3}
                   retryDelay={1000}
+                  priority={true}
                 />
               </Box>
             </Paper>

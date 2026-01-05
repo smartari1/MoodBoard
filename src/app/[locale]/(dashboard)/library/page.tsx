@@ -1,13 +1,12 @@
 'use client'
 
-import { Container, Title, Text, Stack, SimpleGrid, Box, Group, ThemeIcon } from '@mantine/core'
+import { Container, Title, Text, Stack, SimpleGrid, Box, ThemeIcon } from '@mantine/core'
 import {
   IconCategory,
   IconCategory2,
   IconTexture,
   IconPalette,
   IconBox,
-  IconSparkles,
   IconLibrary,
 } from '@tabler/icons-react'
 import { useQuery } from '@tanstack/react-query'
@@ -144,15 +143,6 @@ export default function LibraryPage() {
               גלו את כל מרכיבי העיצוב שלנו - קטגוריות, טקסטורות, צבעים וחומרים.
               בחרו את המרכיבים המושלמים ליצירת הסגנון שלכם.
             </Text>
-
-            <Group gap="xs" mt="sm">
-              <ThemeIcon size="sm" radius="xl" color="white" variant="filled">
-                <IconSparkles size={12} color="var(--mantine-color-brand-5)" />
-              </ThemeIcon>
-              <Text size="sm" c="rgba(255,255,255,0.8)">
-                התחילו מכל קולקציה וגלו סגנונות עיצוב מרהיבים
-              </Text>
-            </Group>
           </Stack>
         </Container>
       </Box>
@@ -169,20 +159,6 @@ export default function LibraryPage() {
           </SimpleGrid>
         )}
       </Container>
-
-      {/* Bottom CTA */}
-      <Box py={48} bg="gray.0">
-        <Container size="xl">
-          <Stack align="center" gap="md">
-            <Title order={2} ta="center">
-              מוכנים ליצור?
-            </Title>
-            <Text c="dimmed" ta="center" maw={500}>
-              בחרו מרכיבים מהספרייה וגלו סגנונות עיצוב מותאמים אישית לפרויקטים שלכם
-            </Text>
-          </Stack>
-        </Container>
-      </Box>
     </Stack>
   )
 }

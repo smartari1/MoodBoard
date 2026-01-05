@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { Image, Box, Skeleton, Text, Stack } from '@mantine/core'
 import { IconPhoto, IconRefresh } from '@tabler/icons-react'
 
@@ -17,6 +17,12 @@ interface ImageWithFallbackProps {
   retryDelay?: number
   showRetryButton?: boolean
   onClick?: () => void
+  /** Priority loading for above-the-fold images */
+  priority?: boolean
+  /** BlurHash string for LQIP placeholder */
+  blurHash?: string
+  /** CSS gradient placeholder (alternative to blurHash) */
+  blurDataURL?: string
 }
 
 /**
@@ -24,10 +30,12 @@ interface ImageWithFallbackProps {
  *
  * Features:
  * - Automatic retry with exponential backoff
- * - Loading skeleton state
+ * - Loading skeleton state or BlurHash placeholder
  * - Fallback placeholder on final failure
  * - Manual retry button option
  * - Handles QUIC protocol errors and network issues
+ * - Priority loading for above-the-fold images
+ * - BlurHash/LQIP support for instant placeholders
  */
 export function ImageWithFallback({
   src,
@@ -42,22 +50,43 @@ export function ImageWithFallback({
   retryDelay = 1000,
   showRetryButton = true,
   onClick,
+  priority = false,
+  blurHash,
+  blurDataURL,
 }: ImageWithFallbackProps) {
-  const [status, setStatus] = useState<'loading' | 'loaded' | 'error'>('loading')
+  const [status, setStatus] = useState<'loading' | 'loaded' | 'error'>(
+    priority ? 'loading' : 'loading'
+  )
   const [retryCount, setRetryCount] = useState(0)
   const [currentSrc, setCurrentSrc] = useState<string | null>(null)
+  const imgRef = useRef<HTMLImageElement>(null)
 
   // Reset state when src changes
   useEffect(() => {
     if (src) {
       setStatus('loading')
       setRetryCount(0)
-      // Add cache-busting param to force fresh load
       setCurrentSrc(src)
     } else {
       setStatus('error')
     }
   }, [src])
+
+  // Preload priority images
+  useEffect(() => {
+    if (priority && src) {
+      const link = document.createElement('link')
+      link.rel = 'preload'
+      link.as = 'image'
+      link.href = src
+      link.fetchPriority = 'high'
+      document.head.appendChild(link)
+
+      return () => {
+        document.head.removeChild(link)
+      }
+    }
+  }, [priority, src])
 
   const handleError = useCallback(() => {
     if (retryCount < maxRetries) {
@@ -89,6 +118,26 @@ export function ImageWithFallback({
     setStatus('loading')
   }, [src])
 
+  // Decode BlurHash to CSS gradient (simple approximation)
+  const getPlaceholderStyle = (): React.CSSProperties => {
+    if (blurDataURL) {
+      return {
+        backgroundImage: `url(${blurDataURL})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+      }
+    }
+    if (blurHash) {
+      // Simple gradient fallback - for full BlurHash decoding, use react-blurhash
+      return {
+        background: `linear-gradient(135deg, ${fallbackColor} 0%, #c0c0b8 100%)`,
+        filter: 'blur(20px)',
+        transform: 'scale(1.1)',
+      }
+    }
+    return { backgroundColor: fallbackColor }
+  }
+
   // No src provided
   if (!src) {
     return (
@@ -113,14 +162,41 @@ export function ImageWithFallback({
   // Loading state
   if (status === 'loading') {
     return (
-      <Box style={{ position: 'relative', height, width, ...style }} onClick={onClick}>
-        <Skeleton height={height} width={width} radius={radius} />
-        {/* Hidden image for loading */}
+      <Box
+        style={{
+          position: 'relative',
+          height,
+          width,
+          overflow: 'hidden',
+          borderRadius: radius,
+          ...style,
+        }}
+        onClick={onClick}
+      >
+        {/* BlurHash/Gradient placeholder or Skeleton */}
+        {blurHash || blurDataURL ? (
+          <Box
+            style={{
+              position: 'absolute',
+              inset: 0,
+              ...getPlaceholderStyle(),
+            }}
+          />
+        ) : (
+          <Skeleton height="100%" width="100%" radius={radius} />
+        )}
+
+        {/* Hidden image for loading - with priority attributes */}
         <img
+          ref={imgRef}
           src={currentSrc || src}
           alt={alt}
           onLoad={handleLoad}
           onError={handleError}
+          loading={priority ? 'eager' : 'lazy'}
+          decoding={priority ? 'sync' : 'async'}
+          // @ts-ignore - fetchPriority is valid but not in TS types
+          fetchpriority={priority ? 'high' : 'auto'}
           style={{
             position: 'absolute',
             width: 1,
@@ -129,6 +205,7 @@ export function ImageWithFallback({
             pointerEvents: 'none',
           }}
         />
+
         {retryCount > 0 && (
           <Box
             style={{
@@ -140,6 +217,7 @@ export function ImageWithFallback({
               padding: '2px 6px',
               borderRadius: 4,
               fontSize: 10,
+              zIndex: 1,
             }}
           >
             Retry {retryCount}/{maxRetries}
