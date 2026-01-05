@@ -18,18 +18,22 @@ import { v4 as uuidv4 } from 'uuid'
 // Force dynamic rendering
 export const dynamic = 'force-dynamic'
 
-interface RouteContext {
-  params: Promise<{ projectId: string }>
-}
-
 /**
  * POST /api/project-style/[projectId]/fork - Fork from existing style
  */
-export const POST = withAuth(async (req: NextRequest, auth, context: RouteContext) => {
+export const POST = withAuth(async (req: NextRequest, auth) => {
   try {
     requirePermission(auth, 'project:write')
 
-    const { projectId } = await context.params
+    // Get project ID from URL
+    const url = new URL(req.url)
+    const pathParts = url.pathname.split('/')
+    // URL is /api/project-style/[projectId]/fork, so projectId is second to last
+    const projectId = pathParts[pathParts.length - 2]
+
+    if (!projectId) {
+      return NextResponse.json({ error: 'Project ID is required' }, { status: 400 })
+    }
     const body = await validateRequest(req, forkStyleSchema)
 
     // Verify project exists and belongs to organization

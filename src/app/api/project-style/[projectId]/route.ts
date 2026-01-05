@@ -14,18 +14,28 @@ import { createProjectStyleSchema, updateProjectStyleSchema } from '@/lib/valida
 // Force dynamic rendering
 export const dynamic = 'force-dynamic'
 
-interface RouteContext {
-  params: Promise<{ projectId: string }>
+/**
+ * Helper to extract projectId from URL
+ */
+function getProjectIdFromUrl(url: string): string | null {
+  const urlObj = new URL(url)
+  const pathParts = urlObj.pathname.split('/')
+  // URL is /api/project-style/[projectId], so projectId is last
+  return pathParts[pathParts.length - 1] || null
 }
 
 /**
  * GET /api/project-style/[projectId] - Get project style
  */
-export const GET = withAuth(async (req: NextRequest, auth, context: RouteContext) => {
+export const GET = withAuth(async (req: NextRequest, auth) => {
   try {
     requirePermission(auth, 'project:read')
 
-    const { projectId } = await context.params
+    const projectId = getProjectIdFromUrl(req.url)
+
+    if (!projectId) {
+      return NextResponse.json({ error: 'Project ID is required' }, { status: 400 })
+    }
 
     // Verify project exists and belongs to organization
     const project = await prisma.project.findUnique({
@@ -119,11 +129,14 @@ export const GET = withAuth(async (req: NextRequest, auth, context: RouteContext
 /**
  * POST /api/project-style/[projectId] - Create project style
  */
-export const POST = withAuth(async (req: NextRequest, auth, context: RouteContext) => {
+export const POST = withAuth(async (req: NextRequest, auth) => {
   try {
     requirePermission(auth, 'project:write')
 
-    const { projectId } = await context.params
+    const projectId = getProjectIdFromUrl(req.url)
+    if (!projectId) {
+      return NextResponse.json({ error: 'Project ID is required' }, { status: 400 })
+    }
     const body = await validateRequest(req, createProjectStyleSchema)
 
     // Verify project exists and belongs to organization
@@ -185,11 +198,14 @@ export const POST = withAuth(async (req: NextRequest, auth, context: RouteContex
 /**
  * PUT /api/project-style/[projectId] - Update project style
  */
-export const PUT = withAuth(async (req: NextRequest, auth, context: RouteContext) => {
+export const PUT = withAuth(async (req: NextRequest, auth) => {
   try {
     requirePermission(auth, 'project:write')
 
-    const { projectId } = await context.params
+    const projectId = getProjectIdFromUrl(req.url)
+    if (!projectId) {
+      return NextResponse.json({ error: 'Project ID is required' }, { status: 400 })
+    }
     const body = await validateRequest(req, updateProjectStyleSchema)
 
     // Get existing project style
@@ -242,11 +258,14 @@ export const PUT = withAuth(async (req: NextRequest, auth, context: RouteContext
 /**
  * DELETE /api/project-style/[projectId] - Delete project style
  */
-export const DELETE = withAuth(async (req: NextRequest, auth, context: RouteContext) => {
+export const DELETE = withAuth(async (req: NextRequest, auth) => {
   try {
     requirePermission(auth, 'project:write')
 
-    const { projectId } = await context.params
+    const projectId = getProjectIdFromUrl(req.url)
+    if (!projectId) {
+      return NextResponse.json({ error: 'Project ID is required' }, { status: 400 })
+    }
 
     // Get existing project style
     const existingStyle = await prisma.projectStyle.findUnique({
