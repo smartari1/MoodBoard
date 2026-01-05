@@ -290,6 +290,13 @@ export default function ProjectStylePage() {
             ? addTexture
             : addMaterial
         }
+        onRemove={
+          activeModal === 'addColor'
+            ? removeColor
+            : activeModal === 'addTexture'
+            ? removeTexture
+            : removeMaterial
+        }
         existingIds={
           activeModal === 'addColor'
             ? style?.colorIds || []

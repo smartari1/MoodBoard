@@ -1634,6 +1634,8 @@
       "filterByCategory": "Filter by category",
       "noStyles": "No styles found",
       "select": "Select this style",
+      "selected": "Selected",
+      "cancel": "Cancel",
       "rooms": "Rooms",
       "free": "Free"
     },
@@ -1644,7 +1646,8 @@
       "searchPlaceholder": "Search...",
       "noResults": "No results found",
       "add": "Add",
-      "alreadyAdded": "Already added"
+      "alreadyAdded": "Already added",
+      "done": "Done"
     },
     "addRoom": {
       "title": "Add Room",
@@ -1654,7 +1657,8 @@
       "namePlaceholder": "e.g., Main Living Room",
       "customPrompt": "Custom Instructions (optional)",
       "customPromptPlaceholder": "Add additional details about the room...",
-      "add": "Add Room"
+      "add": "Add Room",
+      "cancel": "Cancel"
     },
     "generateRoom": {
       "title": "Generate Room Image",
@@ -1664,7 +1668,12 @@
       "overrideColors": "Override colors for this image",
       "creditBalance": "Credit Balance",
       "generate": "Generate Image (1 credit)",
-      "generating": "Generating image..."
+      "generating": "Generating image...",
+      "imagesGenerated": "images generated",
+      "usingColors": "Using colors",
+      "insufficientCreditsDescription": "You don't have enough credits to generate an image",
+      "available": "available",
+      "cancel": "Cancel"
     }
   },
   "styles": {

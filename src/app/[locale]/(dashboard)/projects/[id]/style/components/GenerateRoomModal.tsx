@@ -96,7 +96,7 @@ export function GenerateRoomModal({
       title={
         <Group gap="sm">
           <IconSparkles size={20} />
-          <Title order={3}>{t('generateRoom')}</Title>
+          <Title order={3}>{t('generateRoom.title')}</Title>
         </Group>
       }
       size="lg"
@@ -120,12 +120,12 @@ export function GenerateRoomModal({
               <Text fw={500}>{room?.name || room?.roomType}</Text>
               {room?.isForked && (
                 <Badge size="xs" color="blue">
-                  {t('forked')}
+                  {t('rooms.forked')}
                 </Badge>
               )}
               {room?.generatedImages && room.generatedImages.length > 0 && (
                 <Text size="xs" c="dimmed">
-                  {room.generatedImages.length} {t('imagesGenerated')}
+                  {room.generatedImages.length} {t('generateRoom.imagesGenerated')}
                 </Text>
               )}
             </Stack>
@@ -137,7 +137,7 @@ export function GenerateRoomModal({
           <Paper p="md" radius="md" withBorder>
             <Stack gap="sm">
               <Text size="sm" fw={500}>
-                {t('usingColors')}
+                {t('generateRoom.usingColors')}
               </Text>
               <Group gap="xs">
                 {colors.map((color) => (
@@ -155,8 +155,8 @@ export function GenerateRoomModal({
 
         {/* Custom Prompt */}
         <Textarea
-          label={t('additionalInstructions')}
-          placeholder={t('additionalInstructionsPlaceholder')}
+          label={t('generateRoom.customPrompt')}
+          placeholder={t('generateRoom.customPromptPlaceholder')}
           value={customPrompt}
           onChange={(e) => setCustomPrompt(e.target.value)}
           rows={3}
@@ -167,9 +167,9 @@ export function GenerateRoomModal({
           <Alert
             icon={<IconAlertCircle size={16} />}
             color="red"
-            title={t('insufficientCredits')}
+            title={t('messages.insufficientCredits')}
           >
-            {t('insufficientCreditsDescription')}
+            {t('generateRoom.insufficientCreditsDescription')}
           </Alert>
         )}
 
@@ -178,14 +178,14 @@ export function GenerateRoomModal({
           <Group justify="space-between">
             <Group gap="xs">
               <IconCoin size={16} />
-              <Text size="sm">{t('generationCost')}</Text>
+              <Text size="sm">{t('generateRoom.description')}</Text>
             </Group>
             <Group gap="xs">
               <Badge variant="light" color="brand">
-                1 {t('credit')}
+                1 {t('rooms.credit')}
               </Badge>
               <Text size="sm" c="dimmed">
-                ({creditBalance} {t('available')})
+                ({creditBalance} {t('generateRoom.available')})
               </Text>
             </Group>
           </Group>
@@ -194,7 +194,7 @@ export function GenerateRoomModal({
         {/* Actions */}
         <Group justify="flex-end">
           <Button variant="subtle" onClick={handleClose}>
-            {t('cancel')}
+            {t('generateRoom.cancel')}
           </Button>
           <Button
             leftSection={<IconSparkles size={16} />}
@@ -202,7 +202,7 @@ export function GenerateRoomModal({
             disabled={!hasEnoughCredits}
             loading={isGenerating}
           >
-            {latestImage ? t('regenerate') : t('generate')}
+            {latestImage ? t('rooms.regenerate') : t('rooms.generate')}
           </Button>
         </Group>
       </Stack>

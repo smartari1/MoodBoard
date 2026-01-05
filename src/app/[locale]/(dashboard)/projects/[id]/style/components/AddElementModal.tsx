@@ -54,6 +54,7 @@ interface AddElementModalProps {
   opened: boolean
   onClose: () => void
   onAdd: (id: string) => void | Promise<void>
+  onRemove?: (id: string) => void | Promise<void>
   existingIds: string[]
 }
 
@@ -92,6 +93,7 @@ export function AddElementModal({
   opened,
   onClose,
   onAdd,
+  onRemove,
   existingIds,
 }: AddElementModalProps) {
   const t = useTranslations('projectStyle')
@@ -129,11 +131,11 @@ export function AddElementModal({
   const getTitle = () => {
     switch (type) {
       case 'color':
-        return t('addColor')
+        return t('addElement.colorTitle')
       case 'texture':
-        return t('addTexture')
+        return t('addElement.textureTitle')
       case 'material':
-        return t('addMaterial')
+        return t('addElement.materialTitle')
     }
   }
 
@@ -143,6 +145,24 @@ export function AddElementModal({
       await onAdd(id)
     } finally {
       setIsAdding(false)
+    }
+  }
+
+  const handleRemove = async (id: string) => {
+    if (!onRemove) return
+    setIsAdding(true)
+    try {
+      await onRemove(id)
+    } finally {
+      setIsAdding(false)
+    }
+  }
+
+  const handleToggle = async (id: string, isSelected: boolean) => {
+    if (isSelected && onRemove) {
+      await handleRemove(id)
+    } else if (!isSelected) {
+      await handleAdd(id)
     }
   }
 
@@ -162,7 +182,7 @@ export function AddElementModal({
       <Stack gap="lg">
         {/* Search */}
         <TextInput
-          placeholder={t('search')}
+          placeholder={t('addElement.searchPlaceholder')}
           leftSection={<IconSearch size={16} />}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
@@ -187,8 +207,8 @@ export function AddElementModal({
                     color={isSelected ? 'brand' : 'gray'}
                     p={4}
                     h="auto"
-                    onClick={() => !isSelected && handleAdd(color.id)}
-                    disabled={isSelected || isAdding}
+                    onClick={() => handleToggle(color.id, isSelected)}
+                    disabled={isAdding}
                     style={{ width: '100%' }}
                   >
                     <Stack gap={4} align="center">
@@ -316,10 +336,21 @@ export function AddElementModal({
           </SimpleGrid>
         )}
 
+        {/* No Results */}
+        {!isLoading && (
+          (type === 'color' && (colorsData?.data || []).length === 0) ||
+          (type === 'texture' && (texturesData?.data || []).length === 0) ||
+          (type === 'material' && (materialsData?.data || []).length === 0)
+        ) && (
+          <Center py="xl">
+            <Text c="dimmed">{t('addElement.noResults')}</Text>
+          </Center>
+        )}
+
         {/* Close */}
         <Group justify="flex-end">
           <Button variant="subtle" onClick={handleClose}>
-            {t('done')}
+            {t('addElement.done')}
           </Button>
         </Group>
       </Stack>

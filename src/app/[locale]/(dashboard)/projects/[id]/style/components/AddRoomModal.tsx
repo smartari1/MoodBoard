@@ -95,15 +95,15 @@ export function AddRoomModal({
     <Modal
       opened={opened}
       onClose={handleClose}
-      title={<Title order={3}>{t('addRoom')}</Title>}
+      title={<Title order={3}>{t('addRoom.title')}</Title>}
       size="md"
       centered
     >
       <Stack gap="md">
         {/* Room Type */}
         <Select
-          label={t('roomType')}
-          placeholder={t('selectRoomType')}
+          label={t('addRoom.roomType')}
+          placeholder={t('addRoom.roomTypePlaceholder')}
           data={roomTypes.map((rt) => ({
             value: rt.id,
             label: getName(rt.name),
@@ -116,34 +116,32 @@ export function AddRoomModal({
 
         {/* Custom Name */}
         <TextInput
-          label={t('roomName')}
-          placeholder={t('roomNamePlaceholder')}
+          label={t('addRoom.name')}
+          placeholder={t('addRoom.namePlaceholder')}
           value={name}
           onChange={(e) => setName(e.target.value)}
-          description={t('roomNameDescription')}
         />
 
         {/* Custom Prompt */}
         <Textarea
-          label={t('customPrompt')}
-          placeholder={t('customPromptPlaceholder')}
+          label={t('addRoom.customPrompt')}
+          placeholder={t('addRoom.customPromptPlaceholder')}
           value={customPrompt}
           onChange={(e) => setCustomPrompt(e.target.value)}
-          description={t('customPromptDescription')}
           rows={3}
         />
 
         {/* Actions */}
         <Group justify="flex-end" mt="md">
           <Button variant="subtle" onClick={handleClose}>
-            {t('cancel')}
+            {t('addRoom.cancel')}
           </Button>
           <Button
             onClick={handleSubmit}
             disabled={!roomTypeId}
             loading={isLoading}
           >
-            {t('addRoom')}
+            {t('addRoom.add')}
           </Button>
         </Group>
       </Stack>

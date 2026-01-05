@@ -1549,6 +1549,8 @@
       "filterByCategory": "סנן לפי קטגוריה",
       "noStyles": "לא נמצאו סגנונות",
       "select": "בחר סגנון זה",
+      "selected": "נבחר",
+      "cancel": "ביטול",
       "rooms": "חדרים",
       "free": "בחינם"
     },
@@ -1559,7 +1561,8 @@
       "searchPlaceholder": "חפש...",
       "noResults": "לא נמצאו תוצאות",
       "add": "הוסף",
-      "alreadyAdded": "כבר נוסף"
+      "alreadyAdded": "כבר נוסף",
+      "done": "סיום"
     },
     "addRoom": {
       "title": "הוסף חדר",
@@ -1569,7 +1572,8 @@
       "namePlaceholder": "לדוגמה: סלון מרכזי",
       "customPrompt": "הנחיות מותאמות (אופציונלי)",
       "customPromptPlaceholder": "הוסף פרטים נוספים על החדר...",
-      "add": "הוסף חדר"
+      "add": "הוסף חדר",
+      "cancel": "ביטול"
     },
     "generateRoom": {
       "title": "צור תמונת חדר",
@@ -1579,7 +1583,12 @@
       "overrideColors": "שנה צבעים לתמונה זו",
       "creditBalance": "יתרת קרדיטים",
       "generate": "צור תמונה (1 קרדיט)",
-      "generating": "יוצר תמונה..."
+      "generating": "יוצר תמונה...",
+      "imagesGenerated": "תמונות נוצרו",
+      "usingColors": "צבעים בשימוש",
+      "insufficientCreditsDescription": "אין לך מספיק קרדיטים ליצירת תמונה",
+      "available": "זמינים",
+      "cancel": "ביטול"
     }
   },
   "styles": {

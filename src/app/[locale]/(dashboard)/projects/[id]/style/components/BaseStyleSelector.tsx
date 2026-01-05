@@ -94,14 +94,14 @@ export function BaseStyleSelector({
     <Modal
       opened={opened}
       onClose={handleClose}
-      title={<Title order={3}>{t('selectBaseStyle')}</Title>}
+      title={<Title order={3}>{t('selectStyle.title')}</Title>}
       size="xl"
       centered
     >
       <Stack gap="lg">
         {/* Search */}
         <TextInput
-          placeholder={t('searchStyles')}
+          placeholder={t('selectStyle.searchPlaceholder')}
           leftSection={<IconSearch size={16} />}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
@@ -117,7 +117,7 @@ export function BaseStyleSelector({
         {/* Empty */}
         {!isLoading && styles.length === 0 && (
           <Center py="xl">
-            <Text c="dimmed">{t('noStylesFound')}</Text>
+            <Text c="dimmed">{t('selectStyle.noStyles')}</Text>
           </Center>
         )}
 
@@ -153,7 +153,7 @@ export function BaseStyleSelector({
                       right={8}
                       leftSection={<IconCheck size={12} />}
                     >
-                      {t('selected')}
+                      {t('selectStyle.selected')}
                     </Badge>
                   )}
                 </Card.Section>
@@ -175,14 +175,14 @@ export function BaseStyleSelector({
         {/* Actions */}
         <Group justify="flex-end" mt="md">
           <Button variant="subtle" onClick={handleClose}>
-            {t('cancel')}
+            {t('selectStyle.cancel')}
           </Button>
           <Button
             onClick={handleSelect}
             disabled={!selectedId}
             loading={isSelecting}
           >
-            {t('useThisStyle')}
+            {t('selectStyle.select')}
           </Button>
         </Group>
       </Stack>
