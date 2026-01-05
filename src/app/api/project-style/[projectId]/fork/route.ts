@@ -115,6 +115,7 @@ export const POST = withAuth(async (req: NextRequest, auth) => {
     }
 
     // Create project style
+    console.log('[Fork] Creating project style for project:', projectId)
     const projectStyle = await prisma.projectStyle.create({
       data: {
         projectId,
@@ -128,50 +129,58 @@ export const POST = withAuth(async (req: NextRequest, auth) => {
         createdBy: auth.userId,
       },
     })
+    console.log('[Fork] Project style created:', projectStyle.id)
 
     // Create ProjectRooms from roomProfiles (copy all rooms with their images FREE)
     const projectRooms = []
+    console.log('[Fork] Processing', roomProfiles.length, 'room profiles')
+
     for (const room of roomProfiles) {
-      // Get all views (images) from the room
-      const views = room.views || []
+      try {
+        // Get all views (images) from the room
+        const views = room.views || []
 
-      // Convert views to GeneratedImages for ProjectRoom
-      const generatedImages = views
-        .filter((view: any) => view.url && view.status === 'COMPLETED')
-        .map((view: any) => ({
-          id: uuidv4(),
-          url: view.url,
-          prompt: view.prompt || '',
-          createdAt: view.createdAt || new Date(),
-          isForked: true, // Mark as forked
-        }))
+        // Convert views to GeneratedImages for ProjectRoom
+        const generatedImages = views
+          .filter((view: any) => view.url && view.status === 'COMPLETED')
+          .map((view: any) => ({
+            id: uuidv4(),
+            url: view.url,
+            prompt: view.prompt || '',
+            createdAt: view.createdAt ? new Date(view.createdAt) : new Date(),
+            isForked: true,
+          }))
 
-      // Create ProjectRoom
-      const projectRoom = await prisma.projectRoom.create({
-        data: {
-          projectStyleId: projectStyle.id,
-          roomType: room.roomTypeId || 'unknown',
-          roomTypeId: room.roomTypeId,
-          name: room.description?.he || room.description?.en || null,
-          // Override with room-specific colors if available
-          overrideColorIds: [
-            ...(room.colorPalette?.primaryId ? [room.colorPalette.primaryId] : []),
-            ...(room.colorPalette?.secondaryIds || []),
-            ...(room.colorPalette?.accentIds || []),
-          ],
-          overrideTextureIds: [],
-          overrideMaterialIds: room.materials?.map((m: any) => m.materialId).filter(Boolean) || [],
-          customPrompt: null,
-          generatedImages,
-          status: generatedImages.length > 0 ? 'completed' : 'pending',
-          isForked: true, // Mark room as forked (free)
-          forkedFromView: views[0]?.id || null,
-          creditsUsed: 0, // Forked rooms are free
-        },
-      })
+        // Create ProjectRoom
+        const projectRoom = await prisma.projectRoom.create({
+          data: {
+            projectStyleId: projectStyle.id,
+            roomType: room.roomTypeId || 'unknown',
+            roomTypeId: room.roomTypeId || null,
+            name: room.description?.he || room.description?.en || null,
+            overrideColorIds: [
+              ...(room.colorPalette?.primaryId ? [room.colorPalette.primaryId] : []),
+              ...(room.colorPalette?.secondaryIds || []),
+              ...(room.colorPalette?.accentIds || []),
+            ],
+            overrideTextureIds: [],
+            overrideMaterialIds: room.materials?.map((m: any) => m.materialId).filter(Boolean) || [],
+            customPrompt: null,
+            generatedImages,
+            status: generatedImages.length > 0 ? 'completed' : 'pending',
+            isForked: true,
+            forkedFromView: views[0]?.id || null,
+            creditsUsed: 0,
+          },
+        })
 
-      projectRooms.push(projectRoom)
+        projectRooms.push(projectRoom)
+      } catch (roomError) {
+        console.error('[Fork] Error creating room:', roomError)
+        // Continue with other rooms even if one fails
+      }
     }
+    console.log('[Fork] Created', projectRooms.length, 'rooms')
 
     // Fetch the complete project style with rooms
     const completeProjectStyle = await prisma.projectStyle.findUnique({
