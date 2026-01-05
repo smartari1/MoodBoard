@@ -49,8 +49,12 @@ export const POST = withAuth(async (req: NextRequest, auth) => {
     await verifyOrganizationAccess(project.organizationId, auth.organizationId)
 
     // Get source style with all related data
+    // Support both ID and slug for sourceStyleId
+    const isObjectId = /^[a-f\d]{24}$/i.test(body.sourceStyleId)
     const sourceStyle = await prisma.style.findUnique({
-      where: { id: body.sourceStyleId },
+      where: isObjectId
+        ? { id: body.sourceStyleId }
+        : { slug: body.sourceStyleId },
       include: {
         textureLinks: {
           include: {
@@ -120,7 +124,7 @@ export const POST = withAuth(async (req: NextRequest, auth) => {
       data: {
         projectId,
         organizationId: auth.organizationId,
-        baseStyleId: body.sourceStyleId,
+        baseStyleId: sourceStyle.id, // Use actual ID, not slug
         categoryId: sourceStyle.categoryId,
         subCategoryId: sourceStyle.subCategoryId,
         colorIds,
