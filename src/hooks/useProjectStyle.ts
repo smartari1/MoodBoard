@@ -55,11 +55,20 @@ export interface ProjectRoom {
   updatedAt: Date | string
 }
 
+export interface BaseStyle {
+  id: string
+  name: LocalizedString
+  slug: string
+  images?: Array<{ id: string; url: string; imageCategory?: string }>
+  category?: { id: string; name: LocalizedString; slug: string }
+  subCategory?: { id: string; name: LocalizedString; slug: string }
+}
+
 export interface ProjectStyle {
   id: string
   projectId: string
   organizationId: string
-  baseStyleId?: string
+  baseStyleIds: string[]  // Multiple base styles
   categoryId?: string
   subCategoryId?: string
   colorIds: string[]
@@ -70,12 +79,7 @@ export interface ProjectStyle {
   updatedAt: Date | string
   createdBy: string
   // Populated fields
-  baseStyle?: {
-    id: string
-    name: LocalizedString
-    slug: string
-    images?: string[]
-  }
+  baseStyles?: BaseStyle[]  // Multiple base styles (populated)
   rooms: ProjectRoom[]
   project?: {
     id: string
@@ -85,7 +89,7 @@ export interface ProjectStyle {
       name: string
     }
   }
-  // Fetched entities
+  // Fetched entities (current selections)
   colors?: Array<{
     id: string
     name: LocalizedString
@@ -106,6 +110,21 @@ export interface ProjectStyle {
       images?: string[]
     }
   }>
+  // Available from base styles (for studio)
+  availableTextures?: Array<{
+    id: string
+    name: LocalizedString
+    imageUrl?: string
+    thumbnailUrl?: string
+  }>
+  availableMaterials?: Array<{
+    id: string
+    name: LocalizedString
+    assets?: {
+      thumbnail?: string
+      images?: string[]
+    }
+  }>
 }
 
 export interface ProjectStyleResponse {
@@ -117,7 +136,7 @@ export interface ProjectStyleResponse {
   }
   // Full ProjectStyle fields if exists
   id?: string
-  baseStyleId?: string
+  baseStyleIds?: string[]
   colorIds?: string[]
   textureIds?: string[]
   materialIds?: string[]
@@ -125,10 +144,12 @@ export interface ProjectStyleResponse {
   colors?: ProjectStyle['colors']
   textures?: ProjectStyle['textures']
   materials?: ProjectStyle['materials']
-  baseStyle?: ProjectStyle['baseStyle']
+  baseStyles?: ProjectStyle['baseStyles']
+  availableTextures?: ProjectStyle['availableTextures']
+  availableMaterials?: ProjectStyle['availableMaterials']
 }
 
-export type ModalType = 'none' | 'selectStyle' | 'addColor' | 'addTexture' | 'addMaterial' | 'generateRoom' | 'addRoom'
+export type ModalType = 'none' | 'selectStyle' | 'addBaseStyle' | 'addColor' | 'addTexture' | 'addMaterial' | 'generateRoom' | 'addRoom' | 'roomStudio'
 
 // ============================================
 // Zustand Store - Local UI State
@@ -191,7 +212,7 @@ async function fetchProjectStyle(projectId: string): Promise<ProjectStyleRespons
 async function createProjectStyle(
   projectId: string,
   data: {
-    baseStyleId?: string
+    baseStyleIds?: string[]
     categoryId?: string
     subCategoryId?: string
     colorIds?: string[]
@@ -214,7 +235,7 @@ async function createProjectStyle(
 async function updateProjectStyle(
   projectId: string,
   data: Partial<{
-    baseStyleId: string | null
+    baseStyleIds: string[]
     categoryId: string | null
     subCategoryId: string | null
     colorIds: string[]
@@ -231,6 +252,32 @@ async function updateProjectStyle(
   if (!response.ok) {
     const error = await response.json()
     throw new Error(error.error || 'Failed to update project style')
+  }
+  return response.json()
+}
+
+async function addBaseStyle(projectId: string, styleId: string): Promise<ProjectStyle> {
+  const response = await fetch(`/api/project-style/${projectId}/base-styles`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ styleId }),
+  })
+  if (!response.ok) {
+    const error = await response.json()
+    throw new Error(error.error || 'Failed to add base style')
+  }
+  return response.json()
+}
+
+async function removeBaseStyle(projectId: string, styleId: string): Promise<ProjectStyle> {
+  const response = await fetch(`/api/project-style/${projectId}/base-styles`, {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ styleId }),
+  })
+  if (!response.ok) {
+    const error = await response.json()
+    throw new Error(error.error || 'Failed to remove base style')
   }
   return response.json()
 }
@@ -410,6 +457,40 @@ export function useForkFromStyle() {
 }
 
 /**
+ * Hook to add base style
+ */
+export function useAddBaseStyle() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ projectId, styleId }: {
+      projectId: string
+      styleId: string
+    }) => addBaseStyle(projectId, styleId),
+    onSuccess: (_, { projectId }) => {
+      queryClient.invalidateQueries({ queryKey: [PROJECT_STYLE_KEY, projectId] })
+    },
+  })
+}
+
+/**
+ * Hook to remove base style
+ */
+export function useRemoveBaseStyle() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ projectId, styleId }: {
+      projectId: string
+      styleId: string
+    }) => removeBaseStyle(projectId, styleId),
+    onSuccess: (_, { projectId }) => {
+      queryClient.invalidateQueries({ queryKey: [PROJECT_STYLE_KEY, projectId] })
+    },
+  })
+}
+
+/**
  * Hook to delete project style
  */
 export function useDeleteProjectStyle() {
@@ -512,6 +593,8 @@ export function useProjectStyleWithUI(projectId: string) {
   const createMutation = useCreateProjectStyle()
   const updateMutation = useUpdateProjectStyle()
   const forkMutation = useForkFromStyle()
+  const addBaseStyleMutation = useAddBaseStyle()
+  const removeBaseStyleMutation = useRemoveBaseStyle()
   const deleteMutation = useDeleteProjectStyle()
   const addRoomMutation = useAddRoom()
   const updateRoomMutation = useUpdateRoom()
@@ -534,7 +617,12 @@ export function useProjectStyleWithUI(projectId: string) {
     colors: data?.colors || [],
     textures: data?.textures || [],
     materials: data?.materials || [],
-    baseStyle: data?.baseStyle,
+    // Multi-style support
+    baseStyles: data?.baseStyles || [],
+    baseStyleIds: data?.baseStyleIds || [],
+    // Available from base styles (for studio)
+    availableTextures: data?.availableTextures || [],
+    availableMaterials: data?.availableMaterials || [],
     project: data?.project,
 
     // Loading states
@@ -550,6 +638,12 @@ export function useProjectStyleWithUI(projectId: string) {
     forkStyle: (sourceStyleId: string) =>
       forkMutation.mutateAsync({ projectId, sourceStyleId }),
     deleteStyle: () => deleteMutation.mutateAsync(projectId),
+
+    // Mutations - Base styles
+    addBaseStyle: (styleId: string) =>
+      addBaseStyleMutation.mutateAsync({ projectId, styleId }),
+    removeBaseStyle: (styleId: string) =>
+      removeBaseStyleMutation.mutateAsync({ projectId, styleId }),
 
     // Mutations - Update style
     updateStyle: (styleData: Parameters<typeof updateProjectStyle>[1]) =>
@@ -620,6 +714,8 @@ export function useProjectStyleWithUI(projectId: string) {
     isCreating: createMutation.isPending,
     isUpdating: updateMutation.isPending,
     isForking: forkMutation.isPending,
+    isAddingBaseStyle: addBaseStyleMutation.isPending,
+    isRemovingBaseStyle: removeBaseStyleMutation.isPending,
     isDeleting: deleteMutation.isPending,
     isAddingRoom: addRoomMutation.isPending,
     isUpdatingRoom: updateRoomMutation.isPending,

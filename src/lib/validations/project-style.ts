@@ -22,7 +22,7 @@ export const generatedImageSchema = z.object({
 
 // Create project style schema
 export const createProjectStyleSchema = z.object({
-  baseStyleId: z.string().optional(),
+  baseStyleIds: z.array(z.string()).default([]),  // Multiple base styles
   categoryId: z.string().optional(),
   subCategoryId: z.string().optional(),
   colorIds: z.array(z.string()).default([]),
@@ -33,13 +33,23 @@ export const createProjectStyleSchema = z.object({
 
 // Update project style schema
 export const updateProjectStyleSchema = z.object({
-  baseStyleId: z.string().nullable().optional(),
+  baseStyleIds: z.array(z.string()).optional(),  // Multiple base styles
   categoryId: z.string().nullable().optional(),
   subCategoryId: z.string().nullable().optional(),
   colorIds: z.array(z.string()).optional(),
   textureIds: z.array(z.string()).optional(),
   materialIds: z.array(z.string()).optional(),
   customPrompt: z.string().nullable().optional(),
+})
+
+// Add base style schema
+export const addBaseStyleSchema = z.object({
+  styleId: z.string().min(1, 'Style ID is required'),
+})
+
+// Remove base style schema
+export const removeBaseStyleSchema = z.object({
+  styleId: z.string().min(1, 'Style ID is required'),
 })
 
 // Fork from style schema
@@ -84,6 +94,8 @@ export const generateRoomSchema = z.object({
 export type CreateProjectStyleInput = z.infer<typeof createProjectStyleSchema>
 export type UpdateProjectStyleInput = z.infer<typeof updateProjectStyleSchema>
 export type ForkStyleInput = z.infer<typeof forkStyleSchema>
+export type AddBaseStyleInput = z.infer<typeof addBaseStyleSchema>
+export type RemoveBaseStyleInput = z.infer<typeof removeBaseStyleSchema>
 export type CreateProjectRoomInput = z.infer<typeof createProjectRoomSchema>
 export type UpdateProjectRoomInput = z.infer<typeof updateProjectRoomSchema>
 export type GenerateRoomInput = z.infer<typeof generateRoomSchema>

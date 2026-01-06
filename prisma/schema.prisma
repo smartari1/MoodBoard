@@ -585,8 +585,7 @@ model Style {
   textureLinks  StyleTexture[]  // New: Many-to-many with textures (join model)
   materialLinks StyleMaterial[] // New: Many-to-many with materials (join model)
 
-  // Project style forks (styles forked from this base style)
-  forkedProjectStyles ProjectStyle[] @relation("ForkedFromStyle")
+  // Note: Project styles now use baseStyleIds[] array, no direct relation needed
 
   metadata StyleMetadata
 
@@ -1637,8 +1636,8 @@ model ProjectStyle {
   projectId      String   @unique @db.ObjectId  // One style per project
   organizationId String   @db.ObjectId
 
-  // Base style reference (optional - null if custom/from scratch)
-  baseStyleId    String?  @db.ObjectId
+  // Base style references (multiple styles can be combined)
+  baseStyleIds   String[] @db.ObjectId
 
   // Category/SubCategory (optional - from base style or manually selected)
   categoryId     String?  @db.ObjectId
@@ -1660,11 +1659,10 @@ model ProjectStyle {
   // Relations
   project        Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  baseStyle      Style?       @relation("ForkedFromStyle", fields: [baseStyleId], references: [id])
+  // Note: baseStyleIds is an array, so we fetch base styles manually in API
   rooms          ProjectRoom[]
 
   @@index([organizationId])
-  @@index([baseStyleId])
   @@map("project_styles")
 }
 

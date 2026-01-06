@@ -53,16 +53,6 @@ export const GET = withAuth(async (req: NextRequest, auth) => {
     const projectStyle = await prisma.projectStyle.findUnique({
       where: { projectId },
       include: {
-        baseStyle: {
-          select: {
-            id: true,
-            name: true,
-            slug: true,
-            images: true,
-            category: { select: { id: true, name: true, slug: true } },
-            subCategory: { select: { id: true, name: true, slug: true } },
-          },
-        },
         rooms: {
           orderBy: { createdAt: 'asc' },
         },
@@ -92,7 +82,29 @@ export const GET = withAuth(async (req: NextRequest, auth) => {
       })
     }
 
-    // Fetch related entities for display
+    // Fetch base styles (multiple) with their ingredients
+    const baseStyles = projectStyle.baseStyleIds.length > 0
+      ? await prisma.style.findMany({
+          where: { id: { in: projectStyle.baseStyleIds } },
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            images: true,
+            category: { select: { id: true, name: true, slug: true } },
+            subCategory: { select: { id: true, name: true, slug: true } },
+            // For ingredient aggregation
+            textureLinks: { select: { textureId: true } },
+            materialLinks: { select: { materialId: true } },
+          },
+        })
+      : []
+
+    // Aggregate available ingredients from all base styles
+    const aggregatedTextureIds = [...new Set(baseStyles.flatMap(s => s.textureLinks.map(l => l.textureId)))]
+    const aggregatedMaterialIds = [...new Set(baseStyles.flatMap(s => s.materialLinks.map(l => l.materialId)))]
+
+    // Fetch related entities for display (project-level selections)
     const [colors, textures, materials] = await Promise.all([
       projectStyle.colorIds.length > 0
         ? prisma.color.findMany({
@@ -114,12 +126,41 @@ export const GET = withAuth(async (req: NextRequest, auth) => {
         : [],
     ])
 
+    // Fetch available ingredients from base styles (for studio)
+    const [availableTextures, availableMaterials] = await Promise.all([
+      aggregatedTextureIds.length > 0
+        ? prisma.texture.findMany({
+            where: { id: { in: aggregatedTextureIds } },
+            select: { id: true, name: true, imageUrl: true, thumbnailUrl: true },
+          })
+        : [],
+      aggregatedMaterialIds.length > 0
+        ? prisma.material.findMany({
+            where: { id: { in: aggregatedMaterialIds } },
+            select: { id: true, name: true, assets: true },
+          })
+        : [],
+    ])
+
     return NextResponse.json({
       exists: true,
       ...projectStyle,
+      // Current selections
       colors,
       textures,
       materials,
+      // Base styles (multiple)
+      baseStyles: baseStyles.map(s => ({
+        id: s.id,
+        name: s.name,
+        slug: s.slug,
+        images: s.images,
+        category: s.category,
+        subCategory: s.subCategory,
+      })),
+      // Available from base styles (for studio ingredient selection)
+      availableTextures,
+      availableMaterials,
     })
   } catch (error) {
     return handleError(error)
@@ -168,7 +209,7 @@ export const POST = withAuth(async (req: NextRequest, auth) => {
       data: {
         projectId,
         organizationId: auth.organizationId,
-        baseStyleId: body.baseStyleId,
+        baseStyleIds: body.baseStyleIds,
         categoryId: body.categoryId,
         subCategoryId: body.subCategoryId,
         colorIds: body.colorIds,
@@ -178,18 +219,19 @@ export const POST = withAuth(async (req: NextRequest, auth) => {
         createdBy: auth.userId,
       },
       include: {
-        baseStyle: {
-          select: {
-            id: true,
-            name: true,
-            slug: true,
-          },
-        },
         rooms: true,
       },
     })
 
-    return NextResponse.json(projectStyle, { status: 201 })
+    // Fetch base styles if any
+    const baseStyles = projectStyle.baseStyleIds.length > 0
+      ? await prisma.style.findMany({
+          where: { id: { in: projectStyle.baseStyleIds } },
+          select: { id: true, name: true, slug: true },
+        })
+      : []
+
+    return NextResponse.json({ ...projectStyle, baseStyles }, { status: 201 })
   } catch (error) {
     return handleError(error)
   }
@@ -225,7 +267,7 @@ export const PUT = withAuth(async (req: NextRequest, auth) => {
       updatedAt: new Date(),
     }
 
-    if (body.baseStyleId !== undefined) updateData.baseStyleId = body.baseStyleId
+    if (body.baseStyleIds !== undefined) updateData.baseStyleIds = body.baseStyleIds
     if (body.categoryId !== undefined) updateData.categoryId = body.categoryId
     if (body.subCategoryId !== undefined) updateData.subCategoryId = body.subCategoryId
     if (body.colorIds !== undefined) updateData.colorIds = body.colorIds
@@ -238,18 +280,19 @@ export const PUT = withAuth(async (req: NextRequest, auth) => {
       where: { id: existingStyle.id },
       data: updateData,
       include: {
-        baseStyle: {
-          select: {
-            id: true,
-            name: true,
-            slug: true,
-          },
-        },
         rooms: true,
       },
     })
 
-    return NextResponse.json(projectStyle)
+    // Fetch base styles if any
+    const baseStyles = projectStyle.baseStyleIds.length > 0
+      ? await prisma.style.findMany({
+          where: { id: { in: projectStyle.baseStyleIds } },
+          select: { id: true, name: true, slug: true },
+        })
+      : []
+
+    return NextResponse.json({ ...projectStyle, baseStyles })
   } catch (error) {
     return handleError(error)
   }

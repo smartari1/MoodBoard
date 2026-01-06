@@ -124,7 +124,7 @@ export const POST = withAuth(async (req: NextRequest, auth) => {
       data: {
         projectId,
         organizationId: auth.organizationId,
-        baseStyleId: sourceStyle.id, // Use actual ID, not slug
+        baseStyleIds: [sourceStyle.id], // Use actual ID in array format
         categoryId: sourceStyle.categoryId,
         subCategoryId: sourceStyle.subCategoryId,
         colorIds,
@@ -190,18 +190,6 @@ export const POST = withAuth(async (req: NextRequest, auth) => {
     const completeProjectStyle = await prisma.projectStyle.findUnique({
       where: { id: projectStyle.id },
       include: {
-        baseStyle: {
-          select: {
-            id: true,
-            name: true,
-            slug: true,
-            images: {
-              select: { id: true, url: true, imageCategory: true },
-              orderBy: { displayOrder: 'asc' },
-              take: 5,
-            },
-          },
-        },
         rooms: {
           orderBy: { createdAt: 'asc' },
         },
@@ -210,6 +198,21 @@ export const POST = withAuth(async (req: NextRequest, auth) => {
             id: true,
             name: true,
           },
+        },
+      },
+    })
+
+    // Fetch base styles (it's an array now)
+    const baseStyles = await prisma.style.findMany({
+      where: { id: { in: [sourceStyle.id] } },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        images: {
+          select: { id: true, url: true, imageCategory: true },
+          orderBy: { displayOrder: 'asc' },
+          take: 5,
         },
       },
     })
@@ -238,6 +241,7 @@ export const POST = withAuth(async (req: NextRequest, auth) => {
 
     return NextResponse.json({
       ...completeProjectStyle,
+      baseStyles,
       colors,
       textures,
       materials,
