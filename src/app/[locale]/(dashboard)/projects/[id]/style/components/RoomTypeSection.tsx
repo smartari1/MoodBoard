@@ -33,6 +33,7 @@ interface RoomTypeSectionProps {
   room: ProjectRoom | null  // The single room for this type (or null if none)
   onCreateRoom: () => void  // Create room if doesn't exist, then open studio
   onOpenStudio: (roomId: string) => void  // Open studio for existing room
+  onImageClick?: (room: ProjectRoom, image: GeneratedImage) => void  // Click on existing image
   isGenerating?: boolean
   locale: string
 }
@@ -42,6 +43,7 @@ export function RoomTypeSection({
   room,
   onCreateRoom,
   onOpenStudio,
+  onImageClick,
   isGenerating,
   locale,
 }: RoomTypeSectionProps) {
@@ -85,7 +87,17 @@ export function RoomTypeSection({
                 overflow: 'hidden',
                 aspectRatio: '4/3',
               }}
-              onClick={() => room && onOpenStudio(room.id)}
+              onClick={() => {
+                if (room) {
+                  // If onImageClick is provided, open preview modal
+                  // Otherwise fall back to opening studio
+                  if (onImageClick) {
+                    onImageClick(room, img)
+                  } else {
+                    onOpenStudio(room.id)
+                  }
+                }
+              }}
             >
               <Image
                 src={img.url}

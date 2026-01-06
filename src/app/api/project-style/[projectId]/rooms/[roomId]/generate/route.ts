@@ -15,7 +15,7 @@ import { prisma } from '@/lib/db'
 import { withAuth, handleError, requirePermission, validateRequest, verifyOrganizationAccess } from '@/lib/api/middleware'
 import { generateRoomSchema } from '@/lib/validations/project-style'
 import * as creditService from '@/lib/services/credit-service'
-import { generateImages } from '@/lib/ai/image-generation-ai-sdk'
+import { generateAndUploadImages } from '@/lib/ai/image-generation-ai-sdk'
 import { v4 as uuidv4 } from 'uuid'
 
 // Force dynamic rendering
@@ -137,8 +137,8 @@ export const POST = withAuth(async (req: NextRequest, auth, context: RouteContex
       // Determine room type name
       const roomTypeName = roomType?.name?.en || room.name || room.roomType
 
-      // Generate image
-      const result = await generateImages({
+      // Generate image and upload to storage
+      const imageUrls = await generateAndUploadImages({
         entityType: 'style-room',
         entityName: {
           he: room.name || room.roomType,
@@ -159,19 +159,45 @@ export const POST = withAuth(async (req: NextRequest, auth, context: RouteContex
         variationType: 'main',
       })
 
-      if (!result.success || result.images.length === 0) {
-        throw new Error(result.error || 'Image generation failed')
+      if (imageUrls.length === 0) {
+        throw new Error('Image generation failed - no images returned')
       }
 
       // Create generated image object
       const newImage = {
         id: uuidv4(),
-        url: result.images[0],
+        url: imageUrls[0],
         prompt: body.customPrompt || `${roomTypeName} in ${styleName} style`,
-        createdAt: new Date(),
+        createdAt: new Date().toISOString(),
       }
 
-      // Update room with new image
+      // Get updated credit balance
+      const balance = await creditService.getBalance(auth.organizationId)
+
+      // Preview mode: return image without saving to room.generatedImages
+      // User must explicitly approve to persist the image
+      const isPreviewMode = body.preview !== false // Default to preview mode
+
+      if (isPreviewMode) {
+        // Update room status but don't save the image yet
+        await prisma.projectRoom.update({
+          where: { id: roomId },
+          data: {
+            status: 'completed',
+            creditsUsed: room.creditsUsed + CREDITS_PER_GENERATION,
+          },
+        })
+
+        return NextResponse.json({
+          success: true,
+          preview: true,
+          previewImage: newImage,
+          creditsUsed: CREDITS_PER_GENERATION,
+          creditsRemaining: balance.balance,
+        })
+      }
+
+      // Non-preview mode: save image immediately (backwards compatible)
       const existingImages = (room.generatedImages as any[]) || []
       const updatedRoom = await prisma.projectRoom.update({
         where: { id: roomId },
@@ -182,11 +208,9 @@ export const POST = withAuth(async (req: NextRequest, auth, context: RouteContex
         },
       })
 
-      // Get updated credit balance
-      const balance = await creditService.getBalance(auth.organizationId)
-
       return NextResponse.json({
         success: true,
+        preview: false,
         room: updatedRoom,
         generatedImage: newImage,
         creditsUsed: CREDITS_PER_GENERATION,

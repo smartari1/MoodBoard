@@ -1732,6 +1732,18 @@
       "existingVariants": "existing variants",
       "reference": "ref",
       "image": "Image",
+      "previousGeneration": "Previous generation",
+      "imageGenerated": "Image generated!",
+      "done": "Done",
+      "regenerate": "Regenerate",
+      "preview": "Preview",
+      "discard": "Discard",
+      "approveAndSave": "Approve & Save",
+      "generatingPreview": "Generating preview...",
+      "previewReady": "Preview ready! Review and approve to save, or discard to try again.",
+      "imageReplaced": "Previous preview replaced",
+      "imageApproved": "Image approved and saved!",
+      "imageDiscarded": "Image discarded",
       "roomParts": {
         "general": "General",
         "ceiling": "Ceiling",
@@ -1770,6 +1782,16 @@
         "emptyState": "Send a message to start creating"
       },
       "insufficientCredits": "Not enough credits"
+    },
+    "imagePreview": {
+      "untitledRoom": "Untitled Room",
+      "createdOn": "Created on {date}",
+      "generatedImage": "Generated image",
+      "delete": "Delete",
+      "openInStudio": "Open in Studio",
+      "confirmDelete": "Are you sure you want to delete this image?",
+      "deleteSuccess": "Image deleted successfully",
+      "deleteError": "Error deleting image"
     }
   },
   "styles": {

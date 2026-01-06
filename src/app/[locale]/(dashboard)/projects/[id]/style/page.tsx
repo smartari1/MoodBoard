@@ -1,5 +1,6 @@
 'use client'
 
+import { useState, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import {
@@ -34,7 +35,8 @@ import { AddElementModal } from './components/AddElementModal'
 import { GenerateRoomModal } from './components/GenerateRoomModal'
 import { AddRoomModal } from './components/AddRoomModal'
 import { SourcedStylesSection } from './components/SourcedStylesSection'
-import { RoomStudio } from '@/components/features/room-studio'
+import { RoomStudio, ImagePreviewModal } from '@/components/features/room-studio'
+import type { ProjectRoom, GeneratedImage } from '@/hooks/useProjectStyle'
 
 export default function ProjectStylePage() {
   const params = useParams()
@@ -80,6 +82,8 @@ export default function ProjectStylePage() {
     addRoom,
     deleteRoom,
     generateRoomImage,
+    deleteRoomImage,
+    approvePreviewImage,
     addBaseStyle,
     removeBaseStyle,
     // Loading states
@@ -88,6 +92,8 @@ export default function ProjectStylePage() {
     isUpdating,
     isAddingRoom,
     isGenerating,
+    isDeletingRoomImage,
+    isApprovingPreview,
     isAddingBaseStyle,
     isRemovingBaseStyle,
   } = useProjectStyleWithUI(projectId)
@@ -109,6 +115,42 @@ export default function ProjectStylePage() {
   // Get localized name helper
   const getName = (name: { he: string; en: string }) =>
     locale === 'he' ? name.he : name.en
+
+  // Image preview modal state
+  const [previewImage, setPreviewImage] = useState<GeneratedImage | null>(null)
+  const [previewRoom, setPreviewRoom] = useState<ProjectRoom | null>(null)
+
+  // Handle image click - opens preview modal
+  const handleImageClick = useCallback((room: ProjectRoom, image: GeneratedImage) => {
+    setPreviewRoom(room)
+    setPreviewImage(image)
+  }, [])
+
+  // Close preview modal
+  const handleClosePreview = useCallback(() => {
+    setPreviewImage(null)
+    setPreviewRoom(null)
+  }, [])
+
+  // Open room in studio from preview
+  const handleOpenInStudio = useCallback(() => {
+    if (previewRoom) {
+      openModal('roomStudio', { roomId: previewRoom.id })
+      handleClosePreview()
+    }
+  }, [previewRoom, openModal, handleClosePreview])
+
+  // Delete image from room
+  const handleDeleteImage = useCallback(async () => {
+    if (!previewRoom || !previewImage) return
+
+    try {
+      await deleteRoomImage(previewRoom.id, previewImage.id)
+      handleClosePreview()
+    } catch (error) {
+      console.error('Delete failed:', error)
+    }
+  }, [previewRoom, previewImage, deleteRoomImage, handleClosePreview])
 
   // Navigate back to project
   const handleBack = () => {
@@ -187,6 +229,7 @@ export default function ProjectStylePage() {
   }
 
   // Handle room studio generation (new full studio)
+  // Returns the generated preview image (not saved to DB yet)
   const handleRoomStudioGenerate = async (
     roomId: string,
     options: {
@@ -196,18 +239,32 @@ export default function ProjectStylePage() {
       textureIds: string[]
       materialIds: string[]
       customPrompt?: string
+      preview?: boolean
     }
   ) => {
     try {
-      await generateRoomImage(roomId, {
+      const result = await generateRoomImage(roomId, {
         customPrompt: options.customPrompt,
         overrideColorIds: options.colorIds,
         overrideTextureIds: options.textureIds,
         overrideMaterialIds: options.materialIds,
+        preview: options.preview ?? true, // Default to preview mode
       })
-      closeModal()
+      // Don't close modal - let RoomStudio display the preview image
+      // Return the preview image for display in canvas
+      return result.previewImage || result.generatedImage
     } catch (error) {
       console.error('Generate failed:', error)
+      throw error
+    }
+  }
+
+  // Handle approving a preview image (save to DB)
+  const handleApprovePreviewImage = async (roomId: string, image: ProjectRoom['generatedImages'][0]) => {
+    try {
+      await approvePreviewImage(roomId, image)
+    } catch (error) {
+      console.error('Approve failed:', error)
       throw error
     }
   }
@@ -331,6 +388,7 @@ export default function ProjectStylePage() {
               onGenerateRoom={(roomId) => openModal('roomStudio', { roomId })}
               onOpenStudioForType={handleOpenStudioForType}
               onDeleteRoom={deleteRoom}
+              onImageClick={handleImageClick}
               isGenerating={isGenerating}
               isLoadingRoomTypes={isLoadingRoomTypes}
               locale={locale}
@@ -429,9 +487,22 @@ export default function ProjectStylePage() {
           slug: sc.slug,
           categoryId: sc.categoryId,
         }))}
-        // Generation
+        // Generation and approval
         onGenerate={handleRoomStudioGenerate}
+        onApprove={handleApprovePreviewImage}
         isGenerating={isGenerating}
+      />
+
+      {/* Image Preview Modal - for viewing existing images */}
+      <ImagePreviewModal
+        opened={!!previewImage}
+        onClose={handleClosePreview}
+        image={previewImage}
+        room={previewRoom}
+        onOpenInStudio={handleOpenInStudio}
+        onDelete={handleDeleteImage}
+        isDeleting={isDeletingRoomImage}
+        locale={locale}
       />
     </Container>
   )

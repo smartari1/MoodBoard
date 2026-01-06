@@ -1647,6 +1647,18 @@
       "existingVariants": "גרסאות קיימות",
       "reference": "קיים",
       "image": "תמונה",
+      "previousGeneration": "יצירה קודמת",
+      "imageGenerated": "התמונה נוצרה!",
+      "done": "סיום",
+      "regenerate": "צור מחדש",
+      "preview": "תצוגה מקדימה",
+      "discard": "מחיקה",
+      "approveAndSave": "אישור ושמירה",
+      "generatingPreview": "יוצר תצוגה מקדימה...",
+      "previewReady": "התצוגה המקדימה מוכנה! בדוק ואשר לשמירה, או מחק ונסה שוב.",
+      "imageReplaced": "תצוגה מקדימה קודמת הוחלפה",
+      "imageApproved": "התמונה אושרה ונשמרה!",
+      "imageDiscarded": "התמונה נמחקה",
       "roomParts": {
         "general": "כללי",
         "ceiling": "תקרה",
@@ -1685,6 +1697,16 @@
         "emptyState": "שלח הודעה כדי להתחיל ליצור"
       },
       "insufficientCredits": "אין מספיק קרדיטים"
+    },
+    "imagePreview": {
+      "untitledRoom": "חדר ללא שם",
+      "createdOn": "נוצר ב-{date}",
+      "generatedImage": "תמונה שנוצרה",
+      "delete": "מחק",
+      "openInStudio": "פתח בסטודיו",
+      "confirmDelete": "האם אתה בטוח שברצונך למחוק תמונה זו?",
+      "deleteSuccess": "התמונה נמחקה בהצלחה",
+      "deleteError": "שגיאה במחיקת התמונה"
     }
   },
   "styles": {

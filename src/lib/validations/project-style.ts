@@ -88,6 +88,9 @@ export const generateRoomSchema = z.object({
   overrideColorIds: z.array(z.string()).optional(),
   overrideTextureIds: z.array(z.string()).optional(),
   overrideMaterialIds: z.array(z.string()).optional(),
+  // Preview mode: generate and upload to GCP but don't save to room.generatedImages
+  // User must explicitly approve to save the image
+  preview: z.boolean().optional().default(true),
 })
 
 // Types

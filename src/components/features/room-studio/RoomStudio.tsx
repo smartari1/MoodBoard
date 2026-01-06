@@ -6,7 +6,7 @@
 
 'use client'
 
-import { useEffect, useCallback, useState } from 'react'
+import { useEffect, useCallback, useState, useRef } from 'react'
 import { Modal, Flex, Box } from '@mantine/core'
 import { useTranslations } from 'next-intl'
 import { useParams } from 'next/navigation'
@@ -25,6 +25,7 @@ import type {
   CategoryItem,
   SubCategoryItem,
   ProjectRoom,
+  GeneratedImage,
 } from './types'
 
 // Message type for chat
@@ -36,6 +37,8 @@ interface Message {
   attachments?: { url: string; type: 'image' }[]
   metadata?: {
     generatedImageUrl?: string
+    imageId?: string
+    status?: 'approved' | 'discarded' | 'replaced'
   }
 }
 
@@ -58,7 +61,7 @@ interface RoomStudioProps {
   // Category options
   categories: CategoryItem[]
   subCategories: SubCategoryItem[]
-  // Generation handler
+  // Generation handler - returns the preview image (not saved to DB yet)
   onGenerate: (
     roomId: string,
     options: {
@@ -68,9 +71,11 @@ interface RoomStudioProps {
       textureIds: string[]
       materialIds: string[]
       customPrompt?: string
-      roomPart?: string
+      preview?: boolean
     }
-  ) => Promise<void>
+  ) => Promise<GeneratedImage | undefined>
+  // Approve handler - saves the preview image to DB
+  onApprove?: (roomId: string, image: GeneratedImage) => Promise<void>
   isGenerating?: boolean
   // Modals handlers
   onAddFromLibrary?: (type: 'color' | 'texture' | 'material') => void
@@ -88,6 +93,7 @@ export function RoomStudio({
   categories,
   subCategories,
   onGenerate,
+  onApprove,
   isGenerating = false,
   onAddFromLibrary,
   onCreateCustom,
@@ -127,27 +133,46 @@ export function RoomStudio({
     setError,
   } = useRoomStudio()
 
-  // Room part state
-  const [selectedRoomPart, setSelectedRoomPart] = useState<string | null>(null)
-
   // Chat state
   const [chatMessages, setChatMessages] = useState<Message[]>([])
   const [chatInput, setChatInput] = useState('')
   const [attachedImages, setAttachedImages] = useState<File[]>([])
 
+  // Preview image (not saved to DB yet - pending approval)
+  const [previewImage, setPreviewImage] = useState<GeneratedImage | null>(null)
+  // Whether we're approving (saving) the preview image
+  const [isApproving, setIsApproving] = useState(false)
+
+  // Track if we're in an active session (prevents state reset on room data refresh)
+  const isSessionActiveRef = useRef(false)
+
   // Initialize studio when opened with room data
   useEffect(() => {
     if (opened && room) {
-      openStudio({
-        roomId: room.id,
-        roomName: room.name || room.roomType,
-        colorIds: room.overrideColorIds,
-        textureIds: room.overrideTextureIds,
-        materialIds: room.overrideMaterialIds,
-        customPrompt: room.customPrompt || undefined,
-      })
+      // Only initialize if this is a NEW session (not a data refresh)
+      if (!isSessionActiveRef.current) {
+        isSessionActiveRef.current = true
+        openStudio({
+          roomId: room.id,
+          roomName: room.name || room.roomType,
+          colorIds: room.overrideColorIds,
+          textureIds: room.overrideTextureIds,
+          materialIds: room.overrideMaterialIds,
+          customPrompt: room.customPrompt || undefined,
+        })
+        // Reset chat and canvas state for new session
+        setChatMessages([])
+        setPreviewImage(null)
+        setIsApproving(false)
+      }
     } else if (!opened) {
+      // Modal closed - reset session flag
+      isSessionActiveRef.current = false
       closeStudio()
+      // Clear state when closing
+      setChatMessages([])
+      setPreviewImage(null)
+      setIsApproving(false)
     }
   }, [opened, room, openStudio, closeStudio])
 
@@ -199,21 +224,70 @@ export function RoomStudio({
     setGenerating(true)
     setError(null)
 
+    // Add system message for generating
+    const generatingMsgId = uuidv4()
+    setChatMessages((prev) => [
+      ...prev,
+      {
+        id: generatingMsgId,
+        role: 'system' as const,
+        content: t('generatingPreview'),
+        createdAt: new Date().toISOString(),
+      },
+    ])
+
     try {
-      await onGenerate(room.id, {
+      // Generate image with preview mode (don't save to DB yet)
+      const generatedImage = await onGenerate(room.id, {
         categoryId: selectedCategoryId || undefined,
         subCategoryId: selectedSubCategoryId || undefined,
         colorIds: selectedColorIds,
         textureIds: selectedTextureIds,
         materialIds: selectedMaterialIds,
         customPrompt: promptText,
-        roomPart: selectedRoomPart || undefined,
+        preview: true, // Preview mode - don't save to DB
       })
       setProgress(100)
 
-      // TODO: Add assistant message with generated image
-      // This will be handled when we integrate with conversation API
+      // Remove the "generating" system message
+      setChatMessages((prev) => prev.filter((m) => m.id !== generatingMsgId))
+
+      if (generatedImage) {
+        // If there was a previous preview image, move it to chat as "discarded"
+        if (previewImage) {
+          setChatMessages((prev) => [
+            ...prev,
+            {
+              id: uuidv4(),
+              role: 'assistant' as const,
+              content: t('imageReplaced'),
+              createdAt: new Date().toISOString(),
+              metadata: {
+                generatedImageUrl: previewImage.url,
+                imageId: previewImage.id,
+                status: 'replaced',
+              },
+            },
+          ])
+        }
+
+        // Set new image as preview (pending approval)
+        setPreviewImage(generatedImage)
+
+        // Add system message about preview ready
+        setChatMessages((prev) => [
+          ...prev,
+          {
+            id: uuidv4(),
+            role: 'system' as const,
+            content: t('previewReady'),
+            createdAt: new Date().toISOString(),
+          },
+        ])
+      }
     } catch (error) {
+      // Remove the "generating" system message on error
+      setChatMessages((prev) => prev.filter((m) => m.id !== generatingMsgId))
       setError(error instanceof Error ? error.message : 'Generation failed')
     } finally {
       setGenerating(false)
@@ -227,13 +301,71 @@ export function RoomStudio({
     selectedColorIds,
     selectedTextureIds,
     selectedMaterialIds,
-    selectedRoomPart,
     onGenerate,
     setCustomPrompt,
     setGenerating,
     setError,
     setProgress,
+    previewImage,
+    t,
   ])
+
+  // Handle approve preview image (save to DB)
+  const handleApprove = useCallback(async () => {
+    if (!room || !previewImage || !onApprove) return
+
+    setIsApproving(true)
+    try {
+      await onApprove(room.id, previewImage)
+
+      // Add success message to chat
+      setChatMessages((prev) => [
+        ...prev,
+        {
+          id: uuidv4(),
+          role: 'assistant' as const,
+          content: t('imageApproved'),
+          createdAt: new Date().toISOString(),
+          metadata: {
+            generatedImageUrl: previewImage.url,
+            imageId: previewImage.id,
+            status: 'approved',
+          },
+        },
+      ])
+
+      // Clear preview
+      setPreviewImage(null)
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Failed to save image')
+    } finally {
+      setIsApproving(false)
+    }
+  }, [room, previewImage, onApprove, t, setError])
+
+  // Handle discard preview image (don't save, keep in chat history)
+  const handleDiscard = useCallback(() => {
+    if (!previewImage) return
+
+    // Add discarded message to chat (image URL remains valid from GCP)
+    setChatMessages((prev) => [
+      ...prev,
+      {
+        id: uuidv4(),
+        role: 'assistant' as const,
+        content: t('imageDiscarded'),
+        createdAt: new Date().toISOString(),
+        metadata: {
+          generatedImageUrl: previewImage.url,
+          imageId: previewImage.id,
+          status: 'discarded',
+        },
+      },
+    ])
+
+    // Clear preview
+    setPreviewImage(null)
+  }, [previewImage, t])
 
   // Handle close
   const handleClose = useCallback(() => {
@@ -319,15 +451,14 @@ export function RoomStudio({
           {/* CENTER - Canvas */}
           <StudioCanvas
             room={room}
-            roomType={preSelectedRoomType || room?.roomType}
             isGenerating={isGenerating}
             progress={generationProgress}
             error={generationError}
-            customPrompt={customPrompt}
-            onCustomPromptChange={setCustomPrompt}
-            selectedRoomPart={selectedRoomPart}
-            onRoomPartChange={setSelectedRoomPart}
-            locale={locale}
+            previewImage={previewImage}
+            isApproving={isApproving}
+            onApprove={handleApprove}
+            onDiscard={handleDiscard}
+            onDone={handleClose}
           />
 
           {/* RIGHT - Ingredients Sidebar */}

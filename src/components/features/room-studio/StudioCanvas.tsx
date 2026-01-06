@@ -1,7 +1,7 @@
 /**
  * StudioCanvas Component
  * Center area for new image generation display
- * Note: Prompt input is now in ChatPanel (left side)
+ * Shows: Empty state | Generating state | Generated image preview
  */
 
 'use client'
@@ -13,57 +13,57 @@ import {
   Paper,
   Progress,
   Alert,
-  Group,
   Badge,
   Loader,
-  SegmentedControl,
+  Image,
+  Button,
+  Group,
 } from '@mantine/core'
 import {
   IconSparkles,
   IconAlertCircle,
+  IconRefresh,
+  IconCheck,
+  IconX,
 } from '@tabler/icons-react'
 import { useTranslations } from 'next-intl'
-import type { ProjectRoom } from './types'
-import { QuickActionPrompts } from './QuickActionPrompts'
-
-// Room parts that can be generated
-const ROOM_PARTS = [
-  { value: 'general', labelKey: 'roomParts.general' },
-  { value: 'ceiling', labelKey: 'roomParts.ceiling' },
-  { value: 'floor', labelKey: 'roomParts.floor' },
-  { value: 'walls', labelKey: 'roomParts.walls' },
-  { value: 'lighting', labelKey: 'roomParts.lighting' },
-] as const
+import type { ProjectRoom, GeneratedImage } from './types'
 
 interface StudioCanvasProps {
   room?: ProjectRoom
-  roomType?: string | null  // Room type slug for quick action prompts
   isGenerating?: boolean
   progress?: number
   error?: string | null
-  customPrompt?: string  // For display only (from chat)
-  onCustomPromptChange?: (prompt: string) => void  // For quick action prompts
-  selectedRoomPart: string | null
-  onRoomPartChange: (part: string | null) => void
-  locale: string
+  // Preview image (not yet saved to DB - pending approval)
+  previewImage?: GeneratedImage | null
+  // Whether the preview is being approved (saving to DB)
+  isApproving?: boolean
+  // Handlers for preview workflow
+  onApprove?: () => void
+  onDiscard?: () => void
+  onDone?: () => void
 }
 
 export function StudioCanvas({
   room,
-  roomType,
   isGenerating = false,
   progress = 0,
   error,
-  customPrompt = '',
-  onCustomPromptChange,
-  selectedRoomPart,
-  onRoomPartChange,
-  locale,
+  previewImage,
+  isApproving = false,
+  onApprove,
+  onDiscard,
+  onDone,
 }: StudioCanvasProps) {
   const t = useTranslations('projectStyle.studio')
 
   // Count of existing images for badge
   const existingCount = room?.generatedImages?.length || 0
+
+  // Determine which state to show
+  const showGenerating = isGenerating
+  const showPreview = !isGenerating && previewImage
+  const showEmpty = !isGenerating && !previewImage
 
   return (
     <Box
@@ -75,40 +75,20 @@ export function StudioCanvas({
         backgroundColor: 'var(--mantine-color-gray-1)',
       }}
     >
-      {/* Room Part Selector */}
-      <Box p="md" style={{ backgroundColor: 'var(--mantine-color-white)' }}>
-        <Stack gap="md">
-          <Group justify="center">
-            <SegmentedControl
-              value={selectedRoomPart || 'general'}
-              onChange={(value) => onRoomPartChange(value === 'general' ? null : value)}
-              data={ROOM_PARTS.map((part) => ({
-                value: part.value,
-                label: t(part.labelKey),
-              }))}
-              size="sm"
-            />
-          </Group>
-
-          {/* Quick Action Prompts */}
-          {onCustomPromptChange && (
-            <QuickActionPrompts
-              roomType={roomType || room?.roomType || null}
-              onSelectPrompt={(promptText) => {
-                const newPrompt = customPrompt
-                  ? `${customPrompt}. ${promptText}`
-                  : promptText
-                onCustomPromptChange(newPrompt)
-              }}
-              locale={locale}
-            />
-          )}
-        </Stack>
-      </Box>
-
-      {/* Main Canvas Area - For New Generation */}
-      <Box flex={1} p="xl" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16 }}>
-        {isGenerating ? (
+      {/* Main Canvas Area */}
+      <Box
+        flex={1}
+        p="xl"
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 16,
+          overflow: 'auto',
+        }}
+      >
+        {showGenerating && (
           // Generating State
           <Paper p="xl" radius="lg" withBorder shadow="sm" w={400}>
             <Stack align="center" gap="md">
@@ -126,7 +106,64 @@ export function StudioCanvas({
               </Text>
             </Stack>
           </Paper>
-        ) : (
+        )}
+
+        {showPreview && (
+          // Preview Image - Pending Approval
+          <Stack align="center" gap="lg" w="100%" maw={800}>
+            {/* Preview Badge */}
+            <Badge variant="light" color="yellow" size="lg">
+              {t('preview')}
+            </Badge>
+
+            <Paper
+              radius="lg"
+              withBorder
+              shadow="md"
+              style={{ overflow: 'hidden', width: '100%' }}
+            >
+              <Image
+                src={previewImage.url}
+                alt={previewImage.prompt || 'Generated image'}
+                fit="contain"
+                style={{ maxHeight: 'calc(100vh - 350px)' }}
+              />
+            </Paper>
+
+            {/* Preview Action Buttons: Discard | Approve & Save */}
+            <Group justify="center" gap="md">
+              <Button
+                variant="light"
+                color="red"
+                leftSection={<IconX size={18} />}
+                size="md"
+                onClick={onDiscard}
+                disabled={isApproving}
+              >
+                {t('discard')}
+              </Button>
+              <Button
+                variant="filled"
+                color="green"
+                leftSection={<IconCheck size={18} />}
+                size="md"
+                onClick={onApprove}
+                loading={isApproving}
+              >
+                {t('approveAndSave')}
+              </Button>
+            </Group>
+
+            {/* Image count badge */}
+            {existingCount > 0 && (
+              <Badge variant="light" color="gray" size="sm">
+                {existingCount} {t('existingVariants')}
+              </Badge>
+            )}
+          </Stack>
+        )}
+
+        {showEmpty && (
           // Empty State - Ready for generation
           <Paper p="xl" radius="lg" withBorder style={{ maxWidth: 500 }}>
             <Stack align="center" gap="md">

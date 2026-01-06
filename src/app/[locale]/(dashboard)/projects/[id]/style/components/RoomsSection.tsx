@@ -12,7 +12,7 @@ import {
 } from '@mantine/core'
 import { IconPlus, IconHome, IconPhoto } from '@tabler/icons-react'
 import { useTranslations } from 'next-intl'
-import type { ProjectRoom } from '@/hooks/useProjectStyle'
+import type { ProjectRoom, GeneratedImage } from '@/hooks/useProjectStyle'
 import { RoomTypeSection } from './RoomTypeSection'
 
 interface LocalizedString {
@@ -34,6 +34,7 @@ interface RoomsSectionProps {
   onGenerateRoom: (roomId: string) => void
   onOpenStudioForType: (roomTypeId: string, roomType: string) => void
   onDeleteRoom: (roomId: string) => void
+  onImageClick?: (room: ProjectRoom, image: GeneratedImage) => void
   isGenerating?: boolean
   isLoadingRoomTypes?: boolean
   locale: string
@@ -69,6 +70,7 @@ export function RoomsSection({
   onGenerateRoom,
   onOpenStudioForType,
   onDeleteRoom,
+  onImageClick,
   isGenerating,
   isLoadingRoomTypes,
   locale,
@@ -154,6 +156,7 @@ export function RoomsSection({
               room={room}
               onCreateRoom={() => onAddRoom(roomType.id)}
               onOpenStudio={(roomId) => onGenerateRoom(roomId)}
+              onImageClick={onImageClick}
               isGenerating={isGenerating}
               locale={locale}
             />

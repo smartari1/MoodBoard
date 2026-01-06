@@ -365,11 +365,14 @@ async function generateRoomImage(
     overrideColorIds?: string[]
     overrideTextureIds?: string[]
     overrideMaterialIds?: string[]
+    preview?: boolean  // Preview mode - returns image without saving to DB
   }
 ): Promise<{
   success: boolean
-  room: ProjectRoom
-  generatedImage: GeneratedImage
+  preview?: boolean
+  room?: ProjectRoom
+  generatedImage?: GeneratedImage
+  previewImage?: GeneratedImage  // Returned when preview: true
   creditsUsed: number
   creditsRemaining: number
 }> {
@@ -381,6 +384,42 @@ async function generateRoomImage(
   if (!response.ok) {
     const error = await response.json()
     throw new Error(error.error || 'Failed to generate room image')
+  }
+  return response.json()
+}
+
+async function deleteRoomImage(
+  projectId: string,
+  roomId: string,
+  imageId: string
+): Promise<{ message: string; deletedImageId: string }> {
+  const response = await fetch(
+    `/api/project-style/${projectId}/rooms/${roomId}/images/${imageId}`,
+    { method: 'DELETE' }
+  )
+  if (!response.ok) {
+    const error = await response.json()
+    throw new Error(error.error || 'Failed to delete image')
+  }
+  return response.json()
+}
+
+async function approvePreviewImage(
+  projectId: string,
+  roomId: string,
+  image: GeneratedImage
+): Promise<{ success: boolean; savedImage: GeneratedImage }> {
+  const response = await fetch(
+    `/api/project-style/${projectId}/rooms/${roomId}/images/approve`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ image }),
+    }
+  )
+  if (!response.ok) {
+    const error = await response.json()
+    throw new Error(error.error || 'Failed to approve image')
   }
   return response.json()
 }
@@ -579,6 +618,42 @@ export function useGenerateRoomImage() {
   })
 }
 
+/**
+ * Hook to delete room image
+ */
+export function useDeleteRoomImage() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ projectId, roomId, imageId }: {
+      projectId: string
+      roomId: string
+      imageId: string
+    }) => deleteRoomImage(projectId, roomId, imageId),
+    onSuccess: (_, { projectId }) => {
+      queryClient.invalidateQueries({ queryKey: [PROJECT_STYLE_KEY, projectId] })
+    },
+  })
+}
+
+/**
+ * Hook to approve a preview image (save it to room.generatedImages)
+ */
+export function useApprovePreviewImage() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ projectId, roomId, image }: {
+      projectId: string
+      roomId: string
+      image: GeneratedImage
+    }) => approvePreviewImage(projectId, roomId, image),
+    onSuccess: (_, { projectId }) => {
+      queryClient.invalidateQueries({ queryKey: [PROJECT_STYLE_KEY, projectId] })
+    },
+  })
+}
+
 // ============================================
 // Combined Hook
 // ============================================
@@ -600,6 +675,8 @@ export function useProjectStyleWithUI(projectId: string) {
   const updateRoomMutation = useUpdateRoom()
   const deleteRoomMutation = useDeleteRoom()
   const generateMutation = useGenerateRoomImage()
+  const deleteRoomImageMutation = useDeleteRoomImage()
+  const approvePreviewImageMutation = useApprovePreviewImage()
 
   // Get selected room
   const selectedRoom = data?.rooms?.find(r => r.id === uiState.selectedRoomId) || null
@@ -709,6 +786,10 @@ export function useProjectStyleWithUI(projectId: string) {
       deleteRoomMutation.mutateAsync({ projectId, roomId }),
     generateRoomImage: (roomId: string, options?: Parameters<typeof generateRoomImage>[2]) =>
       generateMutation.mutateAsync({ projectId, roomId, data: options }),
+    deleteRoomImage: (roomId: string, imageId: string) =>
+      deleteRoomImageMutation.mutateAsync({ projectId, roomId, imageId }),
+    approvePreviewImage: (roomId: string, image: GeneratedImage) =>
+      approvePreviewImageMutation.mutateAsync({ projectId, roomId, image }),
 
     // Mutation states
     isCreating: createMutation.isPending,
@@ -721,6 +802,8 @@ export function useProjectStyleWithUI(projectId: string) {
     isUpdatingRoom: updateRoomMutation.isPending,
     isDeletingRoom: deleteRoomMutation.isPending,
     isGenerating: generateMutation.isPending,
+    isDeletingRoomImage: deleteRoomImageMutation.isPending,
+    isApprovingPreview: approvePreviewImageMutation.isPending,
 
     // Refetch
     refetch,
