@@ -26,9 +26,11 @@ import {
   IconBuildingStore,
   IconSparkles,
   IconInfoCircle,
+  IconX,
 } from '@tabler/icons-react'
 import { useProjectStyleWithUI } from '@/hooks/useProjectStyle'
 import { useCreditBalance } from '@/hooks/useCredits'
+import { useCategories, useSubCategories } from '@/hooks/useCategories'
 import { CreditBalance } from '@/components/ui/CreditBalance'
 
 // Components (to be created)
@@ -40,6 +42,7 @@ import { BaseStyleSelector } from './components/BaseStyleSelector'
 import { AddElementModal } from './components/AddElementModal'
 import { GenerateRoomModal } from './components/GenerateRoomModal'
 import { AddRoomModal } from './components/AddRoomModal'
+import { RoomStudio } from '@/components/features/room-studio'
 
 export default function ProjectStylePage() {
   const params = useParams()
@@ -47,8 +50,8 @@ export default function ProjectStylePage() {
   const t = useTranslations('projectStyle')
   const tCommon = useTranslations('common')
 
-  const projectId = params.id as string
-  const locale = params.locale as string
+  const projectId = params?.id as string
+  const locale = (params?.locale as string) || 'he'
 
   // Project style state
   const {
@@ -59,7 +62,11 @@ export default function ProjectStylePage() {
     colors,
     textures,
     materials,
-    baseStyle,
+    // Multi-style support
+    baseStyles,
+    baseStyleIds,
+    availableTextures,
+    availableMaterials,
     project,
     isLoading,
     error,
@@ -81,16 +88,31 @@ export default function ProjectStylePage() {
     addRoom,
     deleteRoom,
     generateRoomImage,
+    addBaseStyle,
+    removeBaseStyle,
     // Loading states
     isCreating,
     isForking,
     isUpdating,
     isAddingRoom,
     isGenerating,
+    isAddingBaseStyle,
+    isRemovingBaseStyle,
   } = useProjectStyleWithUI(projectId)
 
   // Credit balance
   const { data: credits } = useCreditBalance()
+
+  // Categories for RoomStudio
+  const { data: categoriesData } = useCategories()
+  const { data: subCategoriesData } = useSubCategories()
+
+  const categories = categoriesData?.data || []
+  const subCategories = subCategoriesData?.data || []
+
+  // Get localized name helper
+  const getName = (name: { he: string; en: string }) =>
+    locale === 'he' ? name.he : name.en
 
   // Navigate back to project
   const handleBack = () => {
@@ -132,7 +154,7 @@ export default function ProjectStylePage() {
     }
   }
 
-  // Handle generating room image
+  // Handle generating room image (from GenerateRoomModal - deprecated)
   const handleGenerateRoom = async (roomId: string, options?: {
     customPrompt?: string
     overrideColorIds?: string[]
@@ -142,6 +164,41 @@ export default function ProjectStylePage() {
       closeModal()
     } catch (error) {
       console.error('Generate failed:', error)
+    }
+  }
+
+  // Handle room studio generation (new full studio)
+  const handleRoomStudioGenerate = async (
+    roomId: string,
+    options: {
+      categoryId?: string
+      subCategoryId?: string
+      colorIds: string[]
+      textureIds: string[]
+      materialIds: string[]
+      customPrompt?: string
+    }
+  ) => {
+    try {
+      await generateRoomImage(roomId, {
+        customPrompt: options.customPrompt,
+        overrideColorIds: options.colorIds,
+        overrideTextureIds: options.textureIds,
+        overrideMaterialIds: options.materialIds,
+      })
+      closeModal()
+    } catch (error) {
+      console.error('Generate failed:', error)
+      throw error
+    }
+  }
+
+  // Handle removing a base style
+  const handleRemoveBaseStyle = async (styleId: string) => {
+    try {
+      await removeBaseStyle(styleId)
+    } catch (error) {
+      console.error('Remove base style failed:', error)
     }
   }
 
@@ -184,7 +241,7 @@ export default function ProjectStylePage() {
               </Title>
               <Text c="dimmed" size="sm">
                 {project?.name || t('untitledProject')}
-                {project?.client && ` • ${project.client.name}`}
+                {(project as { client?: { name: string } })?.client && ` • ${(project as { client?: { name: string } }).client?.name}`}
               </Text>
             </Stack>
           </Group>
@@ -224,23 +281,45 @@ export default function ProjectStylePage() {
         {/* Style Exists - Show Content */}
         {styleExists && style && (
           <>
-            {/* Base Style Info */}
-            {baseStyle && (
+            {/* Base Styles Info - Multiple Styles */}
+            {baseStyles && baseStyles.length > 0 && (
               <Paper p="md" radius="md" withBorder>
                 <Group justify="space-between">
                   <Group gap="sm">
                     <IconPalette size={20} />
                     <Text fw={500}>{t('basedOn')}</Text>
-                    <Badge variant="light" size="lg">
-                      {baseStyle.name?.he || baseStyle.name?.en}
-                    </Badge>
+                    <Group gap="xs">
+                      {baseStyles.map((style) => (
+                        <Badge
+                          key={style.id}
+                          variant="light"
+                          size="lg"
+                          rightSection={
+                            baseStyles.length > 1 && (
+                              <ActionIcon
+                                size="xs"
+                                variant="transparent"
+                                onClick={() => handleRemoveBaseStyle(style.id)}
+                                loading={isRemovingBaseStyle}
+                              >
+                                <IconX size={10} />
+                              </ActionIcon>
+                            )
+                          }
+                        >
+                          {getName(style.name)}
+                        </Badge>
+                      ))}
+                    </Group>
                   </Group>
                   <Button
                     variant="subtle"
                     size="xs"
-                    onClick={() => openModal('selectStyle')}
+                    leftSection={<IconPlus size={14} />}
+                    onClick={() => openModal('addBaseStyle')}
+                    loading={isAddingBaseStyle}
                   >
-                    {t('changeBase')}
+                    {t('addStyle')}
                   </Button>
                 </Group>
               </Paper>
@@ -263,7 +342,7 @@ export default function ProjectStylePage() {
             <RoomsSection
               rooms={rooms}
               onAddRoom={() => openModal('addRoom')}
-              onGenerateRoom={(roomId) => openModal('generateRoom', { roomId })}
+              onGenerateRoom={(roomId) => openModal('roomStudio', { roomId })}
               onDeleteRoom={deleteRoom}
               isGenerating={isGenerating}
             />
@@ -279,23 +358,35 @@ export default function ProjectStylePage() {
         isLoading={isForking}
       />
 
+      {/* Add Base Style Modal - uses same selector */}
+      <BaseStyleSelector
+        opened={activeModal === 'addBaseStyle'}
+        onClose={closeModal}
+        onSelect={async (styleId) => {
+          await addBaseStyle(styleId)
+          closeModal()
+        }}
+        isLoading={isAddingBaseStyle}
+        excludeIds={baseStyleIds}
+      />
+
       <AddElementModal
         type={activeModal === 'addColor' ? 'color' : activeModal === 'addTexture' ? 'texture' : 'material'}
         opened={activeModal === 'addColor' || activeModal === 'addTexture' || activeModal === 'addMaterial'}
         onClose={closeModal}
         onAdd={
           activeModal === 'addColor'
-            ? addColor
+            ? async (id: string) => { await addColor(id) }
             : activeModal === 'addTexture'
-            ? addTexture
-            : addMaterial
+            ? async (id: string) => { await addTexture(id) }
+            : async (id: string) => { await addMaterial(id) }
         }
         onRemove={
           activeModal === 'addColor'
-            ? removeColor
+            ? async (id: string) => { await removeColor(id) }
             : activeModal === 'addTexture'
-            ? removeTexture
-            : removeMaterial
+            ? async (id: string) => { await removeTexture(id) }
+            : async (id: string) => { await removeMaterial(id) }
         }
         existingIds={
           activeModal === 'addColor'
@@ -313,6 +404,7 @@ export default function ProjectStylePage() {
         isLoading={isAddingRoom}
       />
 
+      {/* Legacy - kept for backwards compatibility */}
       <GenerateRoomModal
         opened={activeModal === 'generateRoom'}
         onClose={closeModal}
@@ -322,6 +414,32 @@ export default function ProjectStylePage() {
         onGenerate={handleGenerateRoom}
         isGenerating={isGenerating}
         creditBalance={credits?.balance || 0}
+      />
+
+      {/* Room Studio - Full screen ingredient selection and generation */}
+      <RoomStudio
+        opened={activeModal === 'roomStudio'}
+        onClose={closeModal}
+        room={rooms.find(r => r.id === modalData.roomId)}
+        // Available ingredients from project style
+        availableColors={colors}
+        availableTextures={availableTextures}
+        availableMaterials={availableMaterials}
+        // Category options
+        categories={categories.map(c => ({
+          id: c.id,
+          name: c.name,
+          slug: c.slug,
+        }))}
+        subCategories={subCategories.map(sc => ({
+          id: sc.id,
+          name: sc.name,
+          slug: sc.slug,
+          categoryId: sc.categoryId,
+        }))}
+        // Generation
+        onGenerate={handleRoomStudioGenerate}
+        isGenerating={isGenerating}
       />
     </Container>
   )

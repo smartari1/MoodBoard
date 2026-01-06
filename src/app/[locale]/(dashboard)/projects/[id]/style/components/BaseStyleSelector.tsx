@@ -40,6 +40,7 @@ interface BaseStyleSelectorProps {
   onClose: () => void
   onSelect: (styleId: string) => void
   isLoading?: boolean
+  excludeIds?: string[]
 }
 
 async function fetchStyles(search?: string): Promise<{ data: Style[] }> {
@@ -57,6 +58,7 @@ export function BaseStyleSelector({
   onClose,
   onSelect,
   isLoading: isSelecting,
+  excludeIds = [],
 }: BaseStyleSelectorProps) {
   const t = useTranslations('projectStyle')
   const params = useParams()
@@ -73,7 +75,10 @@ export function BaseStyleSelector({
     enabled: opened,
   })
 
-  const styles = data?.data || []
+  // Filter out excluded styles
+  const styles = (data?.data || []).filter(
+    (style) => !excludeIds.includes(style.id)
+  )
 
   const getName = (name: { he: string; en: string }) =>
     locale === 'he' ? name.he : name.en
