@@ -1619,7 +1619,14 @@
       "versions": "גרסאות",
       "lastGenerated": "נוצר לאחרונה",
       "customPromptPlaceholder": "הוסף הנחיות מותאמות אישית...",
-      "remove": "הסר"
+      "remove": "הסר",
+      "roomParts": {
+        "general": "כללי",
+        "ceiling": "תקרה",
+        "floor": "רצפה",
+        "walls": "קירות",
+        "lighting": "תאורה"
+      }
     }
   },
   "styles": {

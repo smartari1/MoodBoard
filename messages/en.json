@@ -1704,7 +1704,14 @@
       "versions": "versions",
       "lastGenerated": "Last generated",
       "customPromptPlaceholder": "Add custom instructions...",
-      "remove": "Remove"
+      "remove": "Remove",
+      "roomParts": {
+        "general": "General",
+        "ceiling": "Ceiling",
+        "floor": "Floor",
+        "walls": "Walls",
+        "lighting": "Lighting"
+      }
     }
   },
   "styles": {

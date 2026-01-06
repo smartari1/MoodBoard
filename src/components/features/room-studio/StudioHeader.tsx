@@ -1,16 +1,17 @@
 /**
  * StudioHeader Component
- * Header with room name, close button, and generate action
+ * Header with room type, original style, close button, and generate action
  */
 
 'use client'
 
-import { Group, Title, Button, ActionIcon, Badge, Box } from '@mantine/core'
-import { IconX, IconSparkles, IconCoin } from '@tabler/icons-react'
+import { Group, Title, Text, Button, ActionIcon, Badge, Box, Stack } from '@mantine/core'
+import { IconX, IconSparkles, IconCoin, IconPalette } from '@tabler/icons-react'
 import { useTranslations } from 'next-intl'
 
 interface StudioHeaderProps {
-  roomName: string
+  roomType: string
+  originalStyleName?: string | null
   onClose: () => void
   onGenerate: () => void
   isGenerating?: boolean
@@ -19,7 +20,8 @@ interface StudioHeaderProps {
 }
 
 export function StudioHeader({
-  roomName,
+  roomType,
+  originalStyleName,
   onClose,
   onGenerate,
   isGenerating = false,
@@ -49,7 +51,17 @@ export function StudioHeader({
           >
             <IconX size={20} />
           </ActionIcon>
-          <Title order={3}>{roomName}</Title>
+          <Stack gap={2}>
+            <Title order={3}>{roomType}</Title>
+            {originalStyleName && (
+              <Group gap="xs">
+                <IconPalette size={14} color="var(--mantine-color-dimmed)" />
+                <Text size="sm" c="dimmed">
+                  {originalStyleName}
+                </Text>
+              </Group>
+            )}
+          </Stack>
         </Group>
 
         {/* Right: Credits and Generate */}

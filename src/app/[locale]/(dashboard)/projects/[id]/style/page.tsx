@@ -421,10 +421,12 @@ export default function ProjectStylePage() {
         opened={activeModal === 'roomStudio'}
         onClose={closeModal}
         room={rooms.find(r => r.id === modalData.roomId)}
-        // Available ingredients from project style
+        // Base styles for showing original style name
+        baseStyles={baseStyles}
+        // Available ingredients from project style (use project-level + base style aggregated)
         availableColors={colors}
-        availableTextures={availableTextures}
-        availableMaterials={availableMaterials}
+        availableTextures={[...textures, ...availableTextures.filter(at => !textures.some(t => t.id === at.id))]}
+        availableMaterials={[...materials, ...availableMaterials.filter(am => !materials.some(m => m.id === am.id))]}
         // Category options
         categories={categories.map(c => ({
           id: c.id,

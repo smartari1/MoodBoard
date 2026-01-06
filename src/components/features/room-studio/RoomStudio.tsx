@@ -5,7 +5,7 @@
 
 'use client'
 
-import { useEffect, useCallback } from 'react'
+import { useEffect, useCallback, useState } from 'react'
 import { Modal, Flex, Box, LoadingOverlay } from '@mantine/core'
 import { useTranslations } from 'next-intl'
 import { useParams } from 'next/navigation'
@@ -24,10 +24,18 @@ import type {
   ProjectRoom,
 } from './types'
 
+interface BaseStyle {
+  id: string
+  name: { he: string; en: string }
+  slug: string
+}
+
 interface RoomStudioProps {
   opened: boolean
   onClose: () => void
   room?: ProjectRoom
+  // Base styles (for showing original style name)
+  baseStyles?: BaseStyle[]
   // Available ingredients from project style
   availableColors: ColorItem[]
   availableTextures: TextureItem[]
@@ -45,6 +53,7 @@ interface RoomStudioProps {
       textureIds: string[]
       materialIds: string[]
       customPrompt?: string
+      roomPart?: string
     }
   ) => Promise<void>
   isGenerating?: boolean
@@ -57,6 +66,7 @@ export function RoomStudio({
   opened,
   onClose,
   room,
+  baseStyles = [],
   availableColors,
   availableTextures,
   availableMaterials,
@@ -101,6 +111,9 @@ export function RoomStudio({
     setError,
   } = useRoomStudio()
 
+  // Room part state
+  const [selectedRoomPart, setSelectedRoomPart] = useState<string | null>(null)
+
   // Initialize studio when opened with room data
   useEffect(() => {
     if (opened && room) {
@@ -123,6 +136,9 @@ export function RoomStudio({
     [locale]
   )
 
+  // Get first base style name (original style)
+  const originalStyleName = baseStyles.length > 0 ? getName(baseStyles[0].name) : null
+
   // Handle generate
   const handleGenerate = useCallback(async () => {
     if (!room || !canGenerate) return
@@ -138,6 +154,7 @@ export function RoomStudio({
         textureIds: selectedTextureIds,
         materialIds: selectedMaterialIds,
         customPrompt: customPrompt || undefined,
+        roomPart: selectedRoomPart || undefined,
       })
       setProgress(100)
     } catch (error) {
@@ -154,6 +171,7 @@ export function RoomStudio({
     selectedTextureIds,
     selectedMaterialIds,
     customPrompt,
+    selectedRoomPart,
     onGenerate,
     setGenerating,
     setError,
@@ -200,10 +218,6 @@ export function RoomStudio({
     ? subCategories.filter((sc) => sc.categoryId === selectedCategoryId)
     : subCategories
 
-  // Get latest image for canvas
-  const latestImage =
-    room?.generatedImages?.[room.generatedImages.length - 1] || null
-
   return (
     <Modal
       opened={opened}
@@ -229,7 +243,8 @@ export function RoomStudio({
       <Flex direction="column" h="100vh">
         {/* Header */}
         <StudioHeader
-          roomName={room?.name || room?.roomType || t('untitledRoom')}
+          roomType={room?.roomType || t('untitledRoom')}
+          originalStyleName={originalStyleName}
           onClose={handleClose}
           onGenerate={handleGenerate}
           isGenerating={isGenerating}
@@ -270,12 +285,13 @@ export function RoomStudio({
           {/* Center - Canvas */}
           <StudioCanvas
             room={room}
-            latestImage={latestImage}
             isGenerating={isGenerating}
             progress={generationProgress}
             error={generationError}
             customPrompt={customPrompt}
             onCustomPromptChange={setCustomPrompt}
+            selectedRoomPart={selectedRoomPart}
+            onRoomPartChange={setSelectedRoomPart}
             locale={locale}
           />
         </Flex>
