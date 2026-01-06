@@ -45,6 +45,14 @@ export interface MaterialItem {
   }
 }
 
+export interface GeneratedImage {
+  id: string
+  url: string
+  prompt?: string
+  createdAt: Date | string
+  isForked?: boolean
+}
+
 export interface RoomStudioInitialState {
   roomId: string
   roomName?: string
@@ -56,6 +64,14 @@ export interface RoomStudioInitialState {
   customPrompt?: string
 }
 
+export interface RoomTypeStudioInitialState {
+  roomTypeId: string
+  roomType: string  // slug
+  referenceImages?: GeneratedImage[]
+  suggestedCategoryId?: string | null
+  suggestedSubCategoryId?: string | null
+}
+
 // ============================================
 // Store Interface
 // ============================================
@@ -65,6 +81,11 @@ interface RoomStudioState {
   isOpen: boolean
   roomId: string | null
   roomName: string | null
+
+  // Room type pre-population state
+  preSelectedRoomTypeId: string | null
+  preSelectedRoomType: string | null  // slug
+  referenceImages: GeneratedImage[]
 
   // Category/SubCategory selection
   selectedCategoryId: string | null
@@ -85,6 +106,7 @@ interface RoomStudioState {
 
   // Actions - Studio control
   openStudio: (initialState: RoomStudioInitialState) => void
+  openStudioForRoomType: (initialState: RoomTypeStudioInitialState) => void
   closeStudio: () => void
 
   // Actions - Category
@@ -127,6 +149,9 @@ const initialState = {
   isOpen: false,
   roomId: null,
   roomName: null,
+  preSelectedRoomTypeId: null,
+  preSelectedRoomType: null,
+  referenceImages: [],
   selectedCategoryId: null,
   selectedSubCategoryId: null,
   selectedColorIds: [],
@@ -149,12 +174,34 @@ export const useRoomStudioStore = create<RoomStudioState>()(
           isOpen: true,
           roomId: initialState.roomId,
           roomName: initialState.roomName || null,
+          preSelectedRoomTypeId: null,
+          preSelectedRoomType: null,
+          referenceImages: [],
           selectedCategoryId: initialState.categoryId || null,
           selectedSubCategoryId: initialState.subCategoryId || null,
           selectedColorIds: initialState.colorIds || [],
           selectedTextureIds: initialState.textureIds || [],
           selectedMaterialIds: initialState.materialIds || [],
           customPrompt: initialState.customPrompt || '',
+          isGenerating: false,
+          generationProgress: 0,
+          generationError: null,
+        }),
+
+      openStudioForRoomType: (initialState) =>
+        set({
+          isOpen: true,
+          roomId: null,  // No specific room when opening for room type
+          roomName: null,
+          preSelectedRoomTypeId: initialState.roomTypeId,
+          preSelectedRoomType: initialState.roomType,
+          referenceImages: initialState.referenceImages || [],
+          selectedCategoryId: initialState.suggestedCategoryId || null,
+          selectedSubCategoryId: initialState.suggestedSubCategoryId || null,
+          selectedColorIds: [],
+          selectedTextureIds: [],
+          selectedMaterialIds: [],
+          customPrompt: '',
           isGenerating: false,
           generationProgress: 0,
           generationError: null,

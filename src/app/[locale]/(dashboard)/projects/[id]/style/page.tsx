@@ -9,28 +9,19 @@ import {
   Button,
   Stack,
   Text,
-  Paper,
   ActionIcon,
-  Badge,
   Skeleton,
   Alert,
-  Center,
-  Box,
 } from '@mantine/core'
 import {
   IconArrowLeft,
-  IconPalette,
   IconShare,
   IconDownload,
-  IconPlus,
-  IconBuildingStore,
-  IconSparkles,
-  IconInfoCircle,
-  IconX,
 } from '@tabler/icons-react'
 import { useProjectStyleWithUI } from '@/hooks/useProjectStyle'
 import { useCreditBalance } from '@/hooks/useCredits'
 import { useCategories, useSubCategories } from '@/hooks/useCategories'
+import { useRoomTypes } from '@/hooks/useRoomTypes'
 import { CreditBalance } from '@/components/ui/CreditBalance'
 
 // Components (to be created)
@@ -42,6 +33,7 @@ import { BaseStyleSelector } from './components/BaseStyleSelector'
 import { AddElementModal } from './components/AddElementModal'
 import { GenerateRoomModal } from './components/GenerateRoomModal'
 import { AddRoomModal } from './components/AddRoomModal'
+import { SourcedStylesSection } from './components/SourcedStylesSection'
 import { RoomStudio } from '@/components/features/room-studio'
 
 export default function ProjectStylePage() {
@@ -110,6 +102,10 @@ export default function ProjectStylePage() {
   const categories = categoriesData?.data || []
   const subCategories = subCategoriesData?.data || []
 
+  // Room types for grouping
+  const { data: roomTypesData, isLoading: isLoadingRoomTypes } = useRoomTypes()
+  const roomTypes = roomTypesData?.data || []
+
   // Get localized name helper
   const getName = (name: { he: string; en: string }) =>
     locale === 'he' ? name.he : name.en
@@ -165,6 +161,29 @@ export default function ProjectStylePage() {
     } catch (error) {
       console.error('Generate failed:', error)
     }
+  }
+
+  // Handle opening studio for a room type (with pre-population)
+  const handleOpenStudioForType = (roomTypeId: string, roomType: string) => {
+    // Collect reference images from all rooms of this type
+    const roomsOfType = rooms.filter(
+      (r) => r.roomTypeId === roomTypeId || r.roomType === roomType
+    )
+    const referenceImages = roomsOfType.flatMap((r) => r.generatedImages || [])
+
+    // Get suggested category/subcategory from first base style
+    const firstBaseStyle = baseStyles?.[0]
+    const suggestedCategoryId = firstBaseStyle?.category?.id || null
+    const suggestedSubCategoryId = firstBaseStyle?.subCategory?.id || null
+
+    // Use roomStudio modal with additional type context
+    openModal('roomStudio', {
+      roomTypeId,
+      roomType,
+      referenceImages,
+      suggestedCategoryId,
+      suggestedSubCategoryId,
+    })
   }
 
   // Handle room studio generation (new full studio)
@@ -281,49 +300,15 @@ export default function ProjectStylePage() {
         {/* Style Exists - Show Content */}
         {styleExists && style && (
           <>
-            {/* Base Styles Info - Multiple Styles */}
-            {baseStyles && baseStyles.length > 0 && (
-              <Paper p="md" radius="md" withBorder>
-                <Group justify="space-between">
-                  <Group gap="sm">
-                    <IconPalette size={20} />
-                    <Text fw={500}>{t('basedOn')}</Text>
-                    <Group gap="xs">
-                      {baseStyles.map((style) => (
-                        <Badge
-                          key={style.id}
-                          variant="light"
-                          size="lg"
-                          rightSection={
-                            baseStyles.length > 1 && (
-                              <ActionIcon
-                                size="xs"
-                                variant="transparent"
-                                onClick={() => handleRemoveBaseStyle(style.id)}
-                                loading={isRemovingBaseStyle}
-                              >
-                                <IconX size={10} />
-                              </ActionIcon>
-                            )
-                          }
-                        >
-                          {getName(style.name)}
-                        </Badge>
-                      ))}
-                    </Group>
-                  </Group>
-                  <Button
-                    variant="subtle"
-                    size="xs"
-                    leftSection={<IconPlus size={14} />}
-                    onClick={() => openModal('addBaseStyle')}
-                    loading={isAddingBaseStyle}
-                  >
-                    {t('addStyle')}
-                  </Button>
-                </Group>
-              </Paper>
-            )}
+            {/* Sourced Styles Section - Visual Cards */}
+            <SourcedStylesSection
+              styles={baseStyles || []}
+              locale={locale}
+              onRemove={handleRemoveBaseStyle}
+              onAddStyle={() => openModal('addBaseStyle')}
+              isRemoving={isRemovingBaseStyle}
+              isAdding={isAddingBaseStyle}
+            />
 
             {/* Design Elements */}
             <ElementsSection
@@ -341,10 +326,14 @@ export default function ProjectStylePage() {
             {/* Rooms */}
             <RoomsSection
               rooms={rooms}
-              onAddRoom={() => openModal('addRoom')}
+              roomTypes={roomTypes}
+              onAddRoom={(roomTypeId) => openModal('addRoom', { roomTypeId })}
               onGenerateRoom={(roomId) => openModal('roomStudio', { roomId })}
+              onOpenStudioForType={handleOpenStudioForType}
               onDeleteRoom={deleteRoom}
               isGenerating={isGenerating}
+              isLoadingRoomTypes={isLoadingRoomTypes}
+              locale={locale}
             />
           </>
         )}
@@ -402,6 +391,7 @@ export default function ProjectStylePage() {
         onClose={closeModal}
         onAdd={handleAddRoom}
         isLoading={isAddingRoom}
+        preSelectedRoomTypeId={modalData.roomTypeId as string | undefined}
       />
 
       {/* Legacy - kept for backwards compatibility */}

@@ -1661,6 +1661,7 @@ model ProjectStyle {
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   // Note: baseStyleIds is an array, so we fetch base styles manually in API
   rooms          ProjectRoom[]
+  conversations  StudioConversation[]
 
   @@index([organizationId])
   @@map("project_styles")
@@ -1697,6 +1698,7 @@ model ProjectRoom {
   updatedAt       DateTime @updatedAt
 
   projectStyle    ProjectStyle @relation(fields: [projectStyleId], references: [id], onDelete: Cascade)
+  conversations   StudioConversation[]
 
   @@index([projectStyleId])
   @@index([roomType])
@@ -1716,4 +1718,37 @@ type ProjectGeneratedImage {
   prompt    String?
   isForked  Boolean  @default(false)  // True if copied from base style (no credit cost)
   createdAt DateTime @default(now())
+}
+
+// Studio conversation history for chat interface
+model StudioConversation {
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  roomId          String   @db.ObjectId
+  projectStyleId  String   @db.ObjectId
+
+  // Chat messages (UIMessage format from Vercel AI SDK)
+  messages        Json[]
+
+  // Studio state snapshot (saved when conversation is created/updated)
+  // Contains: selectedColorIds, selectedTextureIds, selectedMaterialIds,
+  // categoryId, subCategoryId, roomPart, attachedImageUrls
+  studioState     Json
+
+  // Generated image URL (filled after successful generation)
+  generatedImageUrl String?
+
+  // Status of the conversation/generation
+  status          String   @default("pending") // pending | generating | completed | failed
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  room            ProjectRoom   @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  projectStyle    ProjectStyle  @relation(fields: [projectStyleId], references: [id], onDelete: Cascade)
+
+  @@index([roomId])
+  @@index([projectStyleId])
+  @@index([createdAt])
+  @@map("studio_conversations")
 }

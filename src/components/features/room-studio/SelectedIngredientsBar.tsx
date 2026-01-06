@@ -1,20 +1,21 @@
 /**
  * SelectedIngredientsBar Component
- * Bottom bar showing selected ingredients as chips
+ * Bottom bar showing selected ingredients and reference images as chips
  */
 
 'use client'
 
-import { Box, ScrollArea, Group, Text } from '@mantine/core'
+import { Box, ScrollArea, Group, Text, Image, Paper, Badge } from '@mantine/core'
 import { IconCheck } from '@tabler/icons-react'
 import { useTranslations } from 'next-intl'
 import { SelectedChip } from './SelectedChip'
-import type { ColorItem, TextureItem, MaterialItem } from './types'
+import type { ColorItem, TextureItem, MaterialItem, GeneratedImage } from './types'
 
 interface SelectedIngredientsBarProps {
   colors: ColorItem[]
   textures: TextureItem[]
   materials: MaterialItem[]
+  referenceImages?: GeneratedImage[]
   onRemove: (type: 'color' | 'texture' | 'material', id: string) => void
   locale: string
 }
@@ -23,14 +24,16 @@ export function SelectedIngredientsBar({
   colors,
   textures,
   materials,
+  referenceImages = [],
   onRemove,
   locale,
 }: SelectedIngredientsBarProps) {
   const t = useTranslations('projectStyle.studio')
 
   const totalCount = colors.length + textures.length + materials.length
+  const hasReferenceImages = referenceImages.length > 0
 
-  if (totalCount === 0) {
+  if (totalCount === 0 && !hasReferenceImages) {
     return (
       <Box
         p="md"
@@ -73,6 +76,39 @@ export function SelectedIngredientsBar({
         style={{ direction: 'rtl' }}
       >
         <Group gap="xs" wrap="nowrap">
+          {/* Reference Images - same style as other chips */}
+          {referenceImages.map((img, index) => (
+            <Paper
+              key={img.id || `ref-${index}`}
+              p="xs"
+              radius="md"
+              withBorder
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 'var(--mantine-spacing-xs)',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              <Image
+                src={img.url}
+                alt={`Reference ${index + 1}`}
+                w={24}
+                h={24}
+                radius="xs"
+                fit="cover"
+              />
+              <Box>
+                <Text size="sm" fw={500} lh={1.2}>
+                  {t('image')} {index + 1}
+                </Text>
+                <Badge size="xs" variant="light" color="blue">
+                  {t('reference')}
+                </Badge>
+              </Box>
+            </Paper>
+          ))}
+
           {/* Colors */}
           {colors.map((color) => (
             <SelectedChip

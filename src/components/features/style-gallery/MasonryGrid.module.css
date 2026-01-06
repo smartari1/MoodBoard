@@ -1,0 +1,48 @@
+.masonryGrid {
+  column-count: 4;
+  column-gap: 16px;
+}
+
+@media (max-width: 1200px) {
+  .masonryGrid {
+    column-count: 3;
+  }
+}
+
+@media (max-width: 768px) {
+  .masonryGrid {
+    column-count: 2;
+  }
+}
+
+@media (max-width: 480px) {
+  .masonryGrid {
+    column-count: 1;
+  }
+}
+
+.masonryItem {
+  break-inside: avoid;
+  margin-block-end: 16px;
+  border-radius: 12px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.masonryItem:hover {
+  transform: scale(1.02);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+}
+
+.masonryItem:focus-visible {
+  outline: 2px solid var(--mantine-color-brand-5);
+  outline-offset: 2px;
+}
+
+.masonryImage {
+  width: 100%;
+  height: auto;
+  display: block;
+  border-radius: 12px;
+}

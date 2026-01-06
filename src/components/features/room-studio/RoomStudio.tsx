@@ -1,6 +1,7 @@
 /**
  * RoomStudio Component
- * Full-screen modal for Kive-style room generation with ingredient selection
+ * Full-screen modal for Kive-style room generation with chat interface
+ * Layout: ChatPanel (LEFT) | StudioCanvas (CENTER) | IngredientSidebar (RIGHT)
  */
 
 'use client'
@@ -9,12 +10,14 @@ import { useEffect, useCallback, useState } from 'react'
 import { Modal, Flex, Box, LoadingOverlay } from '@mantine/core'
 import { useTranslations } from 'next-intl'
 import { useParams } from 'next/navigation'
+import { v4 as uuidv4 } from 'uuid'
 import { useRoomStudio, useRoomStudioStore } from '@/hooks/useRoomStudio'
 import { useCreditBalance } from '@/hooks/useCredits'
 import { StudioHeader } from './StudioHeader'
 import { IngredientSidebar } from './IngredientSidebar'
 import { StudioCanvas } from './StudioCanvas'
 import { SelectedIngredientsBar } from './SelectedIngredientsBar'
+import { ChatPanel } from './ChatPanel'
 import type {
   ColorItem,
   TextureItem,
@@ -23,6 +26,18 @@ import type {
   SubCategoryItem,
   ProjectRoom,
 } from './types'
+
+// Message type for chat
+interface Message {
+  id: string
+  role: 'user' | 'assistant' | 'system'
+  content: string
+  createdAt?: Date | string
+  attachments?: { url: string; type: 'image' }[]
+  metadata?: {
+    generatedImageUrl?: string
+  }
+}
 
 interface BaseStyle {
   id: string
@@ -88,6 +103,7 @@ export function RoomStudio({
   const {
     isOpen,
     roomId,
+    preSelectedRoomType,
     selectedCategoryId,
     selectedSubCategoryId,
     selectedColorIds,
@@ -114,6 +130,11 @@ export function RoomStudio({
   // Room part state
   const [selectedRoomPart, setSelectedRoomPart] = useState<string | null>(null)
 
+  // Chat state
+  const [chatMessages, setChatMessages] = useState<Message[]>([])
+  const [chatInput, setChatInput] = useState('')
+  const [attachedImages, setAttachedImages] = useState<File[]>([])
+
   // Initialize studio when opened with room data
   useEffect(() => {
     if (opened && room) {
@@ -139,10 +160,42 @@ export function RoomStudio({
   // Get first base style name (original style)
   const originalStyleName = baseStyles.length > 0 ? getName(baseStyles[0].name) : null
 
-  // Handle generate
-  const handleGenerate = useCallback(async () => {
-    if (!room || !canGenerate) return
+  // Handle attach images
+  const handleAttachImages = useCallback((files: File[]) => {
+    setAttachedImages((prev) => [...prev, ...files])
+  }, [])
 
+  // Handle remove attached image
+  const handleRemoveAttachedImage = useCallback((index: number) => {
+    setAttachedImages((prev) => prev.filter((_, i) => i !== index))
+  }, [])
+
+  // Handle send message (triggers generation)
+  const handleSendMessage = useCallback(async () => {
+    if (!room || !canGenerate || !chatInput.trim()) return
+
+    // Create user message
+    const userMessage: Message = {
+      id: uuidv4(),
+      role: 'user',
+      content: chatInput.trim(),
+      createdAt: new Date().toISOString(),
+      // TODO: Upload attached images and add URLs here
+      attachments: [],
+    }
+
+    // Add user message to chat
+    setChatMessages((prev) => [...prev, userMessage])
+
+    // Clear input
+    const promptText = chatInput.trim()
+    setChatInput('')
+    setAttachedImages([])
+
+    // Update customPrompt in studio state for compatibility
+    setCustomPrompt(promptText)
+
+    // Start generation
     setGenerating(true)
     setError(null)
 
@@ -153,10 +206,13 @@ export function RoomStudio({
         colorIds: selectedColorIds,
         textureIds: selectedTextureIds,
         materialIds: selectedMaterialIds,
-        customPrompt: customPrompt || undefined,
+        customPrompt: promptText,
         roomPart: selectedRoomPart || undefined,
       })
       setProgress(100)
+
+      // TODO: Add assistant message with generated image
+      // This will be handled when we integrate with conversation API
     } catch (error) {
       setError(error instanceof Error ? error.message : 'Generation failed')
     } finally {
@@ -165,14 +221,15 @@ export function RoomStudio({
   }, [
     room,
     canGenerate,
+    chatInput,
     selectedCategoryId,
     selectedSubCategoryId,
     selectedColorIds,
     selectedTextureIds,
     selectedMaterialIds,
-    customPrompt,
     selectedRoomPart,
     onGenerate,
+    setCustomPrompt,
     setGenerating,
     setError,
     setProgress,
@@ -241,20 +298,46 @@ export function RoomStudio({
       />
 
       <Flex direction="column" h="100vh">
-        {/* Header */}
+        {/* Header - Without Generate Button */}
         <StudioHeader
           roomType={room?.roomType || t('untitledRoom')}
           originalStyleName={originalStyleName}
           onClose={handleClose}
-          onGenerate={handleGenerate}
-          isGenerating={isGenerating}
-          canGenerate={canGenerate}
           creditBalance={credits?.balance || 0}
         />
 
-        {/* Main Content */}
+        {/* Main Content - 3 columns: Chat | Canvas | Ingredients */}
         <Flex flex={1} style={{ overflow: 'hidden' }}>
-          {/* Left Sidebar - Ingredients */}
+          {/* LEFT - Chat Panel */}
+          <ChatPanel
+            messages={chatMessages}
+            input={chatInput}
+            onInputChange={setChatInput}
+            onSend={handleSendMessage}
+            attachedImages={attachedImages}
+            onAttachImages={handleAttachImages}
+            onRemoveImage={handleRemoveAttachedImage}
+            isGenerating={isGenerating}
+            canGenerate={canGenerate}
+            error={generationError}
+            locale={locale}
+          />
+
+          {/* CENTER - Canvas */}
+          <StudioCanvas
+            room={room}
+            roomType={preSelectedRoomType || room?.roomType}
+            isGenerating={isGenerating}
+            progress={generationProgress}
+            error={generationError}
+            customPrompt={customPrompt}
+            onCustomPromptChange={setCustomPrompt}
+            selectedRoomPart={selectedRoomPart}
+            onRoomPartChange={setSelectedRoomPart}
+            locale={locale}
+          />
+
+          {/* RIGHT - Ingredients Sidebar */}
           <IngredientSidebar
             // Category
             categories={categories}
@@ -281,26 +364,14 @@ export function RoomStudio({
             // Locale
             locale={locale}
           />
-
-          {/* Center - Canvas */}
-          <StudioCanvas
-            room={room}
-            isGenerating={isGenerating}
-            progress={generationProgress}
-            error={generationError}
-            customPrompt={customPrompt}
-            onCustomPromptChange={setCustomPrompt}
-            selectedRoomPart={selectedRoomPart}
-            onRoomPartChange={setSelectedRoomPart}
-            locale={locale}
-          />
         </Flex>
 
-        {/* Bottom Bar - Selected Ingredients */}
+        {/* Bottom Bar - Selected Ingredients + Reference Images */}
         <SelectedIngredientsBar
           colors={selectedColors}
           textures={selectedTextures}
           materials={selectedMaterials}
+          referenceImages={room?.generatedImages || []}
           onRemove={handleRemoveIngredient}
           locale={locale}
         />

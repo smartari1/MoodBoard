@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   Modal,
   Stack,
@@ -33,6 +33,7 @@ interface AddRoomModalProps {
     customPrompt?: string
   }) => void | Promise<void>
   isLoading?: boolean
+  preSelectedRoomTypeId?: string  // New: pre-select room type when opening from room type section
 }
 
 async function fetchRoomTypes(): Promise<{ data: RoomType[] }> {
@@ -46,6 +47,7 @@ export function AddRoomModal({
   onClose,
   onAdd,
   isLoading,
+  preSelectedRoomTypeId,
 }: AddRoomModalProps) {
   const t = useTranslations('projectStyle')
   const params = useParams()
@@ -61,6 +63,13 @@ export function AddRoomModal({
     queryFn: fetchRoomTypes,
     enabled: opened,
   })
+
+  // Pre-select room type when opened with preSelectedRoomTypeId
+  useEffect(() => {
+    if (opened && preSelectedRoomTypeId) {
+      setRoomTypeId(preSelectedRoomTypeId)
+    }
+  }, [opened, preSelectedRoomTypeId])
 
   const roomTypes = roomTypesData?.data || []
 

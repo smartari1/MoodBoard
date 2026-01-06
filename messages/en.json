@@ -1573,6 +1573,13 @@
     "export": "Export",
     "basedOn": "Based on:",
     "changeBase": "Change Base",
+    "addStyle": "Add Style",
+    "sourcedStyles": {
+      "title": "Source Styles",
+      "addStyle": "Add Style",
+      "removeStyle": "Remove Style",
+      "empty": "No source styles selected. Add a style to get started."
+    },
     "messages": {
       "loadError": "Error loading project style",
       "createError": "Error creating project style",
@@ -1619,13 +1626,26 @@
       "completed": "Completed",
       "failed": "Failed",
       "forked": "Copied",
-      "images": "Images",
+      "images": "images",
       "noImages": "No images yet",
       "noImage": "No image",
       "delete": "Delete",
       "creditsUsed": "credits used",
       "credit": "credit",
-      "costPerGeneration": "1 credit per image generation"
+      "costPerGeneration": "1 credit per image generation",
+      "roomsCount": "rooms",
+      "roomTypeSection": {
+        "addRoom": "Add room",
+        "emptySection": "No rooms yet",
+        "addFirst": "Add first room",
+        "generateForType": "Generate",
+        "allImages": "All images",
+        "addVariant": "Add variant",
+        "clickToGenerate": "Click + to generate new images"
+      },
+      "card": {
+        "addVariation": "Add variation"
+      }
     },
     "selectStyle": {
       "title": "Select Base Style",
@@ -1705,13 +1725,51 @@
       "lastGenerated": "Last generated",
       "customPromptPlaceholder": "Add custom instructions...",
       "remove": "Remove",
+      "referenceImages": "Existing images",
+      "referenceImageTooltip": "Existing image for reference",
+      "readyToGenerate": "Ready to generate",
+      "readyToGenerateDescription": "Select colors, textures and materials from the sidebar, then click Generate Image",
+      "existingVariants": "existing variants",
+      "reference": "ref",
+      "image": "Image",
       "roomParts": {
         "general": "General",
         "ceiling": "Ceiling",
         "floor": "Floor",
         "walls": "Walls",
         "lighting": "Lighting"
-      }
+      },
+      "quickActions": {
+        "title": "Quick suggestions",
+        "addAccentWall": "Add an accent wall",
+        "brightenSpace": "Brighten the space",
+        "addTexture": "Add texture and depth",
+        "changeFlooring": "Change the flooring style",
+        "updateLighting": "Update the lighting",
+        "addGreenery": "Add plants and greenery",
+        "createCoziness": "Create a cozy atmosphere",
+        "updateBedding": "Update the bedding style",
+        "addAmbientLight": "Add ambient lighting",
+        "addWalkInCloset": "Add walk-in closet",
+        "updateBacksplash": "Update the backsplash",
+        "changeCountertop": "Change the countertop",
+        "modernizeCabinets": "Modernize the cabinets",
+        "addIsland": "Add a kitchen island",
+        "updateTiles": "Update the tiles",
+        "addStorage": "Add storage solutions",
+        "improveVanity": "Improve the vanity",
+        "addMirrorWall": "Add a mirror wall",
+        "addPlayArea": "Add a play area"
+      },
+      "chat": {
+        "title": "Creation Chat",
+        "placeholder": "Describe what you want to create...",
+        "send": "Send",
+        "attachImage": "Attach image",
+        "attachedImages": "Attached images",
+        "emptyState": "Send a message to start creating"
+      },
+      "insufficientCredits": "Not enough credits"
     }
   },
   "styles": {

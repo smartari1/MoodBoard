@@ -21,6 +21,19 @@ interface LibraryHeroProps {
   icon?: React.ReactNode
   children?: React.ReactNode
   color?: string
+  /** Force dark text (for light backgrounds) - auto-calculated from color if not specified */
+  textDark?: boolean
+}
+
+// Calculate if a hex color is light or dark
+const isLightColor = (hex: string): boolean => {
+  const c = hex.replace('#', '')
+  const rgb = parseInt(c, 16)
+  const r = (rgb >> 16) & 0xff
+  const g = (rgb >> 8) & 0xff
+  const b = (rgb >> 0) & 0xff
+  const luma = 0.2126 * r + 0.7152 * g + 0.0722 * b
+  return luma > 128
 }
 
 export function LibraryHero({
@@ -34,8 +47,20 @@ export function LibraryHero({
   icon,
   children,
   color,
+  textDark,
 }: LibraryHeroProps) {
   const hasImage = !!imageUrl && imageUrl.length > 0
+
+  // Auto-calculate if text should be dark based on color
+  const useDarkText = textDark ?? (color ? isLightColor(color) : false)
+
+  // Text colors based on background
+  const textColor = useDarkText ? '#1a1a1a' : 'white'
+  const textMuted = useDarkText ? 'rgba(0, 0, 0, 0.7)' : 'rgba(255,255,255,0.85)'
+  const textSubtle = useDarkText ? 'rgba(0, 0, 0, 0.5)' : 'rgba(255,255,255,0.6)'
+  const iconBg = useDarkText ? 'rgba(0, 0, 0, 0.08)' : 'rgba(255,255,255,0.15)'
+  const iconBorder = useDarkText ? 'rgba(0, 0, 0, 0.1)' : 'rgba(255,255,255,0.2)'
+
   // Use custom color for solid backgrounds, or brand gradient
   // When there's an image, use dark background as fallback while image loads
   const bgStyle = hasImage
@@ -96,14 +121,14 @@ export function LibraryHero({
         {breadcrumbs && breadcrumbs.length > 0 && (
           <Breadcrumbs
             mb="lg"
-            separator={<IconChevronLeft size={14} color="rgba(255,255,255,0.6)" />}
+            separator={<IconChevronLeft size={14} color={textSubtle} />}
           >
             {breadcrumbs.map((item, index) => (
               <Anchor
                 key={index}
                 component={Link}
                 href={item.href}
-                c="rgba(255,255,255,0.85)"
+                c={textMuted}
                 size="sm"
                 fw={500}
                 style={{ textDecoration: 'none' }}
@@ -123,23 +148,23 @@ export function LibraryHero({
                     width: 56,
                     height: 56,
                     borderRadius: 'var(--mantine-radius-lg)',
-                    backgroundColor: 'rgba(255,255,255,0.15)',
+                    backgroundColor: iconBg,
                     backdropFilter: 'blur(8px)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    border: '1px solid rgba(255,255,255,0.2)',
+                    border: `1px solid ${iconBorder}`,
                   }}
                 >
-                  <Box c="white">{icon}</Box>
+                  <Box c={textColor}>{icon}</Box>
                 </Box>
               )}
               <div>
-                <Title order={1} c="white" size="2.5rem" fw={700}>
+                <Title order={1} c={textColor} size="2.5rem" fw={700}>
                   {title}
                 </Title>
                 {subtitle && (
-                  <Text size="lg" c="rgba(255,255,255,0.9)" mt={4} fw={500}>
+                  <Text size="lg" c={textMuted} mt={4} fw={500}>
                     {subtitle}
                   </Text>
                 )}
@@ -147,7 +172,7 @@ export function LibraryHero({
             </Group>
 
             {description && (
-              <Text size="md" c="rgba(255,255,255,0.85)" maw={700} mt="xs" lh={1.6}>
+              <Text size="md" c={textMuted} maw={700} mt="xs" lh={1.6}>
                 {description}
               </Text>
             )}
@@ -158,11 +183,11 @@ export function LibraryHero({
               size="xl"
               radius="md"
               variant="white"
-              c="dark"
               px="lg"
               py="sm"
               style={{
-                backgroundColor: 'rgba(255,255,255,0.95)',
+                backgroundColor: useDarkText ? 'rgba(0, 0, 0, 0.08)' : 'rgba(255,255,255,0.95)',
+                color: useDarkText ? '#1a1a1a' : '#1a1a1a',
                 fontSize: '1rem',
                 fontWeight: 600,
               }}

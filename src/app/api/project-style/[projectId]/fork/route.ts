@@ -214,6 +214,8 @@ export const POST = withAuth(async (req: NextRequest, auth) => {
           orderBy: { displayOrder: 'asc' },
           take: 5,
         },
+        category: { select: { id: true, name: true, slug: true } },
+        subCategory: { select: { id: true, name: true, slug: true } },
       },
     })
 

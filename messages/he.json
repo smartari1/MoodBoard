@@ -1488,6 +1488,13 @@
     "export": "ייצא",
     "basedOn": "מבוסס על:",
     "changeBase": "שנה בסיס",
+    "addStyle": "הוסף סגנון",
+    "sourcedStyles": {
+      "title": "סגנונות מקור",
+      "addStyle": "הוסף סגנון",
+      "removeStyle": "הסר סגנון",
+      "empty": "לא נבחרו סגנונות מקור. הוסף סגנון כדי להתחיל."
+    },
     "messages": {
       "loadError": "שגיאה בטעינת סגנון הפרויקט",
       "createError": "שגיאה ביצירת סגנון הפרויקט",
@@ -1540,7 +1547,20 @@
       "delete": "מחק",
       "creditsUsed": "קרדיטים בשימוש",
       "credit": "קרדיט",
-      "costPerGeneration": "1 קרדיט ליצירת תמונה"
+      "costPerGeneration": "1 קרדיט ליצירת תמונה",
+      "roomsCount": "חדרים",
+      "roomTypeSection": {
+        "addRoom": "הוסף חדר",
+        "emptySection": "אין חדרים עדיין",
+        "addFirst": "הוסף חדר ראשון",
+        "generateForType": "יצירה",
+        "allImages": "כל התמונות",
+        "addVariant": "הוסף וריאציה",
+        "clickToGenerate": "לחץ על + ליצירת תמונות חדשות"
+      },
+      "card": {
+        "addVariation": "הוסף וריאציה"
+      }
     },
     "selectStyle": {
       "title": "בחר סגנון בסיס",
@@ -1620,13 +1640,51 @@
       "lastGenerated": "נוצר לאחרונה",
       "customPromptPlaceholder": "הוסף הנחיות מותאמות אישית...",
       "remove": "הסר",
+      "referenceImages": "תמונות קיימות",
+      "referenceImageTooltip": "תמונה קיימת לעיון",
+      "readyToGenerate": "מוכן ליצירה",
+      "readyToGenerateDescription": "בחר צבעים, טקסטורות וחומרים מהתפריט בצד, ולחץ על צור תמונה",
+      "existingVariants": "גרסאות קיימות",
+      "reference": "קיים",
+      "image": "תמונה",
       "roomParts": {
         "general": "כללי",
         "ceiling": "תקרה",
         "floor": "רצפה",
         "walls": "קירות",
         "lighting": "תאורה"
-      }
+      },
+      "quickActions": {
+        "title": "הצעות מהירות",
+        "addAccentWall": "הוסף קיר אקסנט",
+        "brightenSpace": "הבהר את החלל",
+        "addTexture": "הוסף טקסטורה ועומק",
+        "changeFlooring": "שנה סגנון ריצוף",
+        "updateLighting": "עדכן תאורה",
+        "addGreenery": "הוסף צמחים",
+        "createCoziness": "צור אווירה נעימה",
+        "updateBedding": "עדכן סגנון מצעים",
+        "addAmbientLight": "הוסף תאורת אווירה",
+        "addWalkInCloset": "הוסף ארון קיר",
+        "updateBacksplash": "עדכן חיפוי",
+        "changeCountertop": "שנה משטח עבודה",
+        "modernizeCabinets": "מודרניזציה של ארונות",
+        "addIsland": "הוסף אי מטבח",
+        "updateTiles": "עדכן אריחים",
+        "addStorage": "הוסף אחסון",
+        "improveVanity": "שפר ארון כיור",
+        "addMirrorWall": "הוסף קיר מראות",
+        "addPlayArea": "הוסף פינת משחק"
+      },
+      "chat": {
+        "title": "צ׳אט יצירה",
+        "placeholder": "תאר מה תרצה ליצור...",
+        "send": "שלח",
+        "attachImage": "צרף תמונה",
+        "attachedImages": "תמונות מצורפות",
+        "emptyState": "שלח הודעה כדי להתחיל ליצור"
+      },
+      "insufficientCredits": "אין מספיק קרדיטים"
     }
   },
   "styles": {
