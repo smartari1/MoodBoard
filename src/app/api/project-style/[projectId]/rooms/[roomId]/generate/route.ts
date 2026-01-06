@@ -37,11 +37,20 @@ export const POST = withAuth(async (req: NextRequest, auth, context: RouteContex
     const { projectId, roomId } = await context.params
     const body = await validateRequest(req, generateRoomSchema)
 
-    // Get project style and room
+    // Get project style
     const projectStyle = await prisma.projectStyle.findUnique({
       where: { projectId },
-      include: {
-        baseStyle: {
+    })
+
+    if (!projectStyle) {
+      return NextResponse.json({ error: 'Project style not found' }, { status: 404 })
+    }
+
+    // Get base style if available (baseStyleIds is an array)
+    const baseStyleId = projectStyle.baseStyleIds?.[0]
+    const baseStyle = baseStyleId
+      ? await prisma.style.findUnique({
+          where: { id: baseStyleId },
           select: {
             id: true,
             name: true,
@@ -51,13 +60,8 @@ export const POST = withAuth(async (req: NextRequest, auth, context: RouteContex
             approach: { select: { name: true } },
             color: { select: { name: true, hex: true } },
           },
-        },
-      },
-    })
-
-    if (!projectStyle) {
-      return NextResponse.json({ error: 'Project style not found' }, { status: 404 })
-    }
+        })
+      : null
 
     await verifyOrganizationAccess(projectStyle.organizationId, auth.organizationId)
 
@@ -123,10 +127,10 @@ export const POST = withAuth(async (req: NextRequest, auth, context: RouteContex
         : null
 
       // Build generation context
-      const styleName = projectStyle.baseStyle?.name?.en || 'Custom'
-      const subCategoryName = projectStyle.baseStyle?.subCategory?.name?.en || styleName
-      const approachName = projectStyle.baseStyle?.approach?.name?.en || 'Modern'
-      const primaryColor = colors[0] || projectStyle.baseStyle?.color || { name: { en: 'Neutral' }, hex: '#888888' }
+      const styleName = baseStyle?.name?.en || 'Custom'
+      const subCategoryName = baseStyle?.subCategory?.name?.en || styleName
+      const approachName = baseStyle?.approach?.name?.en || 'Modern'
+      const primaryColor = colors[0] || baseStyle?.color || { name: { en: 'Neutral' }, hex: '#888888' }
       const colorName = typeof primaryColor.name === 'object' ? primaryColor.name.en : primaryColor.name
       const colorHex = primaryColor.hex
 
