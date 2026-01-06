@@ -345,10 +345,9 @@ export function ChatPanel({
                 direction: 'rtl',
                 border: 'none',
                 padding: 0,
-                minHeight: 'auto',
-                '&:focus': {
-                  border: 'none',
-                },
+              },
+              wrapper: {
+                border: 'none',
               },
             }}
           />
