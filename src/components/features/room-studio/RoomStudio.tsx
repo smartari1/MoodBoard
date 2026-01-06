@@ -7,7 +7,7 @@
 'use client'
 
 import { useEffect, useCallback, useState } from 'react'
-import { Modal, Flex, Box, LoadingOverlay } from '@mantine/core'
+import { Modal, Flex, Box } from '@mantine/core'
 import { useTranslations } from 'next-intl'
 import { useParams } from 'next/navigation'
 import { v4 as uuidv4 } from 'uuid'
@@ -290,13 +290,6 @@ export function RoomStudio({
         },
       }}
     >
-      <LoadingOverlay
-        visible={isGenerating}
-        zIndex={1000}
-        overlayProps={{ blur: 2 }}
-        loaderProps={{ type: 'bars' }}
-      />
-
       <Flex direction="column" h="100vh">
         {/* Header - Without Generate Button */}
         <StudioHeader
