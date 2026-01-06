@@ -491,6 +491,8 @@ export function RoomStudio({
         </Flex>
 
         {/* Bottom Bar - Selected Ingredients + Reference Images */}
+        {/* Colors: shown to user, hex code in prompt (no image to AI) */}
+        {/* Textures/Materials: shown to user, images sent to AI as references */}
         <SelectedIngredientsBar
           colors={selectedColors}
           textures={selectedTextures}

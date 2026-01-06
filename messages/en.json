@@ -1717,7 +1717,7 @@
       "addFromLibrary": "Add from Library",
       "createCustom": "Create Custom",
       "selectedIngredients": "Selected Ingredients",
-      "noSelection": "Select at least one color to generate",
+      "noSelection": "Select colors, textures or materials",
       "noImage": "No image",
       "noImageDescription": "Select ingredients and click Generate Image",
       "forked": "Copied",

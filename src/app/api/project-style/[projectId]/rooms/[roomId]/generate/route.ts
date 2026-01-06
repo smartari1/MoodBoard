@@ -118,6 +118,34 @@ export const POST = withAuth(async (req: NextRequest, auth, context: RouteContex
           })
         : []
 
+      // Get textures for reference images
+      const textureIds = body.overrideTextureIds?.length
+        ? body.overrideTextureIds
+        : room.overrideTextureIds.length
+        ? room.overrideTextureIds
+        : projectStyle.textureIds
+
+      const textures = textureIds.length > 0
+        ? await prisma.texture.findMany({
+            where: { id: { in: textureIds } },
+            select: { name: true, imageUrl: true },
+          })
+        : []
+
+      // Get materials for reference images
+      const materialIds = body.overrideMaterialIds?.length
+        ? body.overrideMaterialIds
+        : room.overrideMaterialIds.length
+        ? room.overrideMaterialIds
+        : projectStyle.materialIds
+
+      const materials = materialIds.length > 0
+        ? await prisma.material.findMany({
+            where: { id: { in: materialIds } },
+            select: { name: true, assets: true },
+          })
+        : []
+
       // Get room type info
       const roomType = room.roomTypeId
         ? await prisma.roomType.findUnique({
@@ -136,6 +164,68 @@ export const POST = withAuth(async (req: NextRequest, auth, context: RouteContex
 
       // Determine room type name
       const roomTypeName = roomType?.name?.en || room.name || room.roomType
+
+      // Collect reference images (up to 8 for better context)
+      // These are visual references that help the AI understand desired textures, materials, and style
+      const MAX_REFERENCE_IMAGES = 8
+      const referenceImages: string[] = []
+
+      // Add ALL texture images (primary visual references)
+      for (const texture of textures) {
+        if (referenceImages.length >= MAX_REFERENCE_IMAGES) break
+        if (texture.imageUrl) {
+          referenceImages.push(texture.imageUrl)
+        }
+      }
+
+      // Add ALL material images
+      for (const material of materials) {
+        if (referenceImages.length >= MAX_REFERENCE_IMAGES) break
+        const assets = material.assets as { thumbnail?: string; images?: string[] } | null
+        if (assets?.thumbnail) {
+          referenceImages.push(assets.thumbnail)
+        } else if (assets?.images?.[0]) {
+          referenceImages.push(assets.images[0])
+        }
+      }
+
+      // Add existing room images as reference (for style consistency)
+      const existingImages = (room.generatedImages as Array<{ url: string }>) || []
+      for (const existingImg of existingImages) {
+        if (referenceImages.length >= MAX_REFERENCE_IMAGES) break
+        if (existingImg?.url) {
+          referenceImages.push(existingImg.url)
+        }
+      }
+
+      // Build material guidance for the prompt
+      const textureNames = textures.map(t =>
+        typeof t.name === 'object' ? (t.name as any).en : t.name
+      ).filter(Boolean)
+      const materialNames = materials.map(m =>
+        typeof m.name === 'object' ? (m.name as any).en : m.name
+      ).filter(Boolean)
+
+      // Build visual context with texture/material guidance
+      const visualContext: {
+        characteristics?: string[]
+        materialGuidance?: string
+      } = {}
+
+      if (textureNames.length > 0 || materialNames.length > 0) {
+        const guidance: string[] = []
+        if (textureNames.length > 0) {
+          guidance.push(`Textures: ${textureNames.join(', ')}`)
+        }
+        if (materialNames.length > 0) {
+          guidance.push(`Materials: ${materialNames.join(', ')}`)
+        }
+        visualContext.materialGuidance = guidance.join('. ')
+      }
+
+      console.log(`[Generate] Reference images: ${referenceImages.length}`)
+      console.log(`[Generate] Textures: ${textureNames.join(', ') || 'none'}`)
+      console.log(`[Generate] Materials: ${materialNames.join(', ') || 'none'}`)
 
       // Generate image and upload to storage
       const imageUrls = await generateAndUploadImages({
@@ -156,6 +246,8 @@ export const POST = withAuth(async (req: NextRequest, auth, context: RouteContex
           styleName,
           colorHex,
         },
+        visualContext: Object.keys(visualContext).length > 0 ? visualContext : undefined,
+        referenceImages: referenceImages.length > 0 ? referenceImages : undefined,
         variationType: 'main',
       })
 

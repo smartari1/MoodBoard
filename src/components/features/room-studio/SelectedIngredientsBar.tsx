@@ -1,6 +1,9 @@
 /**
  * SelectedIngredientsBar Component
  * Bottom bar showing selected ingredients and reference images as chips
+ *
+ * NOTE: Colors are shown for user reference but only hex codes go to AI prompt (no image).
+ * Textures and materials with images are sent as visual references to the AI.
  */
 
 'use client'
@@ -10,6 +13,9 @@ import { IconCheck } from '@tabler/icons-react'
 import { useTranslations } from 'next-intl'
 import { SelectedChip } from './SelectedChip'
 import type { ColorItem, TextureItem, MaterialItem, GeneratedImage } from './types'
+
+// Maximum reference images that can be sent to the AI (textures + materials + room images)
+export const MAX_REFERENCE_IMAGES = 8
 
 interface SelectedIngredientsBarProps {
   colors: ColorItem[]
@@ -29,6 +35,11 @@ export function SelectedIngredientsBar({
   locale,
 }: SelectedIngredientsBarProps) {
   const t = useTranslations('projectStyle.studio')
+
+  // Count items with images that will be sent to AI (NOT colors - they only use hex code)
+  const texturesWithImages = textures.filter(t => t.imageUrl || t.thumbnailUrl)
+  const materialsWithImages = materials.filter(m => m.assets?.thumbnail || m.assets?.images?.[0])
+  const totalImageCount = texturesWithImages.length + materialsWithImages.length + referenceImages.length
 
   const totalCount = colors.length + textures.length + materials.length
   const hasReferenceImages = referenceImages.length > 0
@@ -65,6 +76,11 @@ export function SelectedIngredientsBar({
           <Text size="xs" c="dimmed">
             ({totalCount})
           </Text>
+          {totalImageCount > 0 && (
+            <Badge size="xs" variant="light" color="blue">
+              {totalImageCount}/{MAX_REFERENCE_IMAGES} {t('referenceImages')}
+            </Badge>
+          )}
         </Group>
       </Box>
 
@@ -76,7 +92,7 @@ export function SelectedIngredientsBar({
         style={{ direction: 'rtl' }}
       >
         <Group gap="xs" wrap="nowrap">
-          {/* Reference Images - same style as other chips */}
+          {/* Reference Images - existing room generations */}
           {referenceImages.map((img, index) => (
             <Paper
               key={img.id || `ref-${index}`}
@@ -109,7 +125,7 @@ export function SelectedIngredientsBar({
             </Paper>
           ))}
 
-          {/* Colors */}
+          {/* Colors - shown to user, but only hex code sent to AI (no image) */}
           {colors.map((color) => (
             <SelectedChip
               key={`color-${color.id}`}
@@ -120,7 +136,7 @@ export function SelectedIngredientsBar({
             />
           ))}
 
-          {/* Textures */}
+          {/* Textures - images sent to AI as references */}
           {textures.map((texture) => (
             <SelectedChip
               key={`texture-${texture.id}`}
@@ -131,7 +147,7 @@ export function SelectedIngredientsBar({
             />
           ))}
 
-          {/* Materials */}
+          {/* Materials - images sent to AI as references */}
           {materials.map((material) => (
             <SelectedChip
               key={`material-${material.id}`}
