@@ -38,7 +38,7 @@ interface Message {
   metadata?: {
     generatedImageUrl?: string
     imageId?: string
-    status?: 'approved' | 'discarded' | 'replaced'
+    status?: 'generated' | 'approved'
   }
 }
 
@@ -253,35 +253,22 @@ export function RoomStudio({
       setChatMessages((prev) => prev.filter((m) => m.id !== generatingMsgId))
 
       if (generatedImage) {
-        // If there was a previous preview image, move it to chat as "discarded"
-        if (previewImage) {
-          setChatMessages((prev) => [
-            ...prev,
-            {
-              id: uuidv4(),
-              role: 'assistant' as const,
-              content: t('imageReplaced'),
-              createdAt: new Date().toISOString(),
-              metadata: {
-                generatedImageUrl: previewImage.url,
-                imageId: previewImage.id,
-                status: 'replaced',
-              },
-            },
-          ])
-        }
-
-        // Set new image as preview (pending approval)
+        // Set as current preview (shown in canvas)
         setPreviewImage(generatedImage)
 
-        // Add system message about preview ready
+        // Add image to chat history immediately (always visible in chat)
         setChatMessages((prev) => [
           ...prev,
           {
             id: uuidv4(),
-            role: 'system' as const,
-            content: t('previewReady'),
+            role: 'assistant' as const,
+            content: t('imageGenerated'),
             createdAt: new Date().toISOString(),
+            metadata: {
+              generatedImageUrl: generatedImage.url,
+              imageId: generatedImage.id,
+              status: 'generated',
+            },
           },
         ])
       }
@@ -310,7 +297,13 @@ export function RoomStudio({
     t,
   ])
 
-  // Handle approve preview image (save to DB)
+  // Handle close
+  const handleClose = useCallback(() => {
+    closeStudio()
+    onClose()
+  }, [closeStudio, onClose])
+
+  // Handle approve: save to DB and close modal
   const handleApprove = useCallback(async () => {
     if (!room || !previewImage || !onApprove) return
 
@@ -318,60 +311,14 @@ export function RoomStudio({
     try {
       await onApprove(room.id, previewImage)
 
-      // Add success message to chat
-      setChatMessages((prev) => [
-        ...prev,
-        {
-          id: uuidv4(),
-          role: 'assistant' as const,
-          content: t('imageApproved'),
-          createdAt: new Date().toISOString(),
-          metadata: {
-            generatedImageUrl: previewImage.url,
-            imageId: previewImage.id,
-            status: 'approved',
-          },
-        },
-      ])
-
-      // Clear preview
+      // Clear preview and close modal
       setPreviewImage(null)
+      handleClose()
     } catch (error) {
       setError(error instanceof Error ? error.message : 'Failed to save image')
-    } finally {
       setIsApproving(false)
     }
-  }, [room, previewImage, onApprove, t, setError])
-
-  // Handle discard preview image (don't save, keep in chat history)
-  const handleDiscard = useCallback(() => {
-    if (!previewImage) return
-
-    // Add discarded message to chat (image URL remains valid from GCP)
-    setChatMessages((prev) => [
-      ...prev,
-      {
-        id: uuidv4(),
-        role: 'assistant' as const,
-        content: t('imageDiscarded'),
-        createdAt: new Date().toISOString(),
-        metadata: {
-          generatedImageUrl: previewImage.url,
-          imageId: previewImage.id,
-          status: 'discarded',
-        },
-      },
-    ])
-
-    // Clear preview
-    setPreviewImage(null)
-  }, [previewImage, t])
-
-  // Handle close
-  const handleClose = useCallback(() => {
-    closeStudio()
-    onClose()
-  }, [closeStudio, onClose])
+  }, [room, previewImage, onApprove, setError, handleClose])
 
   // Remove ingredient
   const handleRemoveIngredient = useCallback(
@@ -457,8 +404,6 @@ export function RoomStudio({
             previewImage={previewImage}
             isApproving={isApproving}
             onApprove={handleApprove}
-            onDiscard={handleDiscard}
-            onDone={handleClose}
           />
 
           {/* RIGHT - Ingredients Sidebar */}

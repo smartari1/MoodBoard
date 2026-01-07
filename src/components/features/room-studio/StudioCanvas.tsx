@@ -2,6 +2,12 @@
  * StudioCanvas Component
  * Center area for new image generation display
  * Shows: Empty state | Generating state | Generated image preview
+ *
+ * Workflow:
+ * 1. User sends prompt → Image generated → Shown in canvas AND chat history
+ * 2. User can either:
+ *    - Approve → Save to DB + Close modal
+ *    - Continue prompting → Generate more (all images stay in chat history)
  */
 
 'use client'
@@ -22,9 +28,7 @@ import {
 import {
   IconSparkles,
   IconAlertCircle,
-  IconRefresh,
   IconCheck,
-  IconX,
 } from '@tabler/icons-react'
 import { useTranslations } from 'next-intl'
 import type { ProjectRoom, GeneratedImage } from './types'
@@ -34,14 +38,12 @@ interface StudioCanvasProps {
   isGenerating?: boolean
   progress?: number
   error?: string | null
-  // Preview image (not yet saved to DB - pending approval)
+  // Latest generated image (shown in preview)
   previewImage?: GeneratedImage | null
-  // Whether the preview is being approved (saving to DB)
+  // Whether the image is being approved (saving to DB)
   isApproving?: boolean
-  // Handlers for preview workflow
+  // Handler: Save to DB and close modal
   onApprove?: () => void
-  onDiscard?: () => void
-  onDone?: () => void
 }
 
 export function StudioCanvas({
@@ -52,8 +54,6 @@ export function StudioCanvas({
   previewImage,
   isApproving = false,
   onApprove,
-  onDiscard,
-  onDone,
 }: StudioCanvasProps) {
   const t = useTranslations('projectStyle.studio')
 
@@ -109,13 +109,8 @@ export function StudioCanvas({
         )}
 
         {showPreview && (
-          // Preview Image - Pending Approval
+          // Preview Image - User can approve or continue prompting
           <Stack align="center" gap="lg" w="100%" maw={800}>
-            {/* Preview Badge */}
-            <Badge variant="light" color="yellow" size="lg">
-              {t('preview')}
-            </Badge>
-
             <Paper
               radius="lg"
               withBorder
@@ -126,33 +121,26 @@ export function StudioCanvas({
                 src={previewImage.url}
                 alt={previewImage.prompt || 'Generated image'}
                 fit="contain"
-                style={{ maxHeight: 'calc(100vh - 350px)' }}
+                style={{ maxHeight: 'calc(100vh - 300px)' }}
               />
             </Paper>
 
-            {/* Preview Action Buttons: Discard | Approve & Save */}
-            <Group justify="center" gap="md">
-              <Button
-                variant="light"
-                color="red"
-                leftSection={<IconX size={18} />}
-                size="md"
-                onClick={onDiscard}
-                disabled={isApproving}
-              >
-                {t('discard')}
-              </Button>
-              <Button
-                variant="filled"
-                color="green"
-                leftSection={<IconCheck size={18} />}
-                size="md"
-                onClick={onApprove}
-                loading={isApproving}
-              >
-                {t('approveAndSave')}
-              </Button>
-            </Group>
+            {/* Approve button - saves to DB and closes modal */}
+            <Button
+              variant="filled"
+              color="green"
+              leftSection={<IconCheck size={18} />}
+              size="lg"
+              onClick={onApprove}
+              loading={isApproving}
+            >
+              {t('saveAndClose')}
+            </Button>
+
+            {/* Hint for continuing */}
+            <Text size="sm" c="dimmed" ta="center">
+              {t('continuePromptingHint')}
+            </Text>
 
             {/* Image count badge */}
             {existingCount > 0 && (
